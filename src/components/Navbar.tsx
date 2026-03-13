@@ -1,5 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
+import { useAuth } from '../context/AuthContext';
 import type { ThemeMode } from '../types';
 
 const NAV_ITEMS = [
@@ -16,6 +17,16 @@ interface NavbarProps {
 export function Navbar({ theme, onToggleTheme }: NavbarProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const navigate = useNavigate();
+  const { user, signOut } = useAuth();
+
+  const handleSignOut = async () => {
+    await signOut();
+    setMobileOpen(false);
+    navigate('/login');
+  };
+
+  // Derive a display name: first part of email before @
+  const displayName = user?.email?.split('@')[0] ?? '';
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 h-16" style={{
@@ -76,19 +87,55 @@ export function Navbar({ theme, onToggleTheme }: NavbarProps) {
           </button>
 
           {/* Profile / auth */}
-          <button
-            onClick={() => navigate('/login')}
-            className="hidden md:flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200"
-            style={{
-              background: 'rgba(0, 229, 196, 0.1)',
-              border: '1px solid rgba(0, 229, 196, 0.2)',
-              color: '#00e5c4',
-              fontFamily: 'DM Sans, sans-serif',
-            }}
-          >
-            <UserIcon />
-            Sign In
-          </button>
+          {user ? (
+            <div className="hidden md:flex items-center gap-2">
+              {/* User chip */}
+              <div
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg"
+                style={{
+                  background: 'rgba(0,229,196,0.06)',
+                  border: '1px solid rgba(0,229,196,0.12)',
+                }}
+              >
+                <div
+                  className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                  style={{ background: 'rgba(0,229,196,0.2)', color: '#00e5c4', fontFamily: 'Syne, sans-serif' }}
+                >
+                  {displayName.charAt(0).toUpperCase()}
+                </div>
+                <span
+                  className="text-xs max-w-[100px] truncate"
+                  style={{ color: '#9ab4d4', fontFamily: 'DM Sans, sans-serif' }}
+                >
+                  {displayName}
+                </span>
+              </div>
+              {/* Sign out */}
+              <button
+                onClick={handleSignOut}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 hover:bg-[rgba(255,77,109,0.1)]"
+                style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', border: '1px solid transparent' }}
+                title="Sign out"
+              >
+                <SignOutIcon />
+                Sign out
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => navigate('/login')}
+              className="hidden md:flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200"
+              style={{
+                background: 'rgba(0, 229, 196, 0.1)',
+                border: '1px solid rgba(0, 229, 196, 0.2)',
+                color: '#00e5c4',
+                fontFamily: 'DM Sans, sans-serif',
+              }}
+            >
+              <UserIcon />
+              Sign In
+            </button>
+          )}
 
           {/* Mobile menu */}
           <button
@@ -125,6 +172,34 @@ export function Navbar({ theme, onToggleTheme }: NavbarProps) {
               {label}
             </NavLink>
           ))}
+
+          {/* Mobile auth row */}
+          <div className="mt-1 pt-3 pb-1" style={{ borderTop: '1px solid rgba(0,229,196,0.08)' }}>
+            {user ? (
+              <div className="flex items-center justify-between px-4 py-2">
+                <span className="text-xs truncate max-w-[160px]" style={{ color: '#4a6a8a', fontFamily: 'JetBrains Mono, monospace' }}>
+                  {user.email}
+                </span>
+                <button
+                  onClick={handleSignOut}
+                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg"
+                  style={{ color: '#ff4d6d', background: 'rgba(255,77,109,0.08)', fontFamily: 'DM Sans, sans-serif' }}
+                >
+                  <SignOutIcon />
+                  Sign out
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => { navigate('/login'); setMobileOpen(false); }}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium my-1"
+                style={{ background: 'rgba(0,229,196,0.08)', color: '#00e5c4', fontFamily: 'DM Sans, sans-serif' }}
+              >
+                <UserIcon />
+                Sign In
+              </button>
+            )}
+          </div>
         </div>
       )}
     </nav>
@@ -230,6 +305,16 @@ function CloseIcon() {
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
       <line x1="3" y1="3" x2="13" y2="13" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
       <line x1="13" y1="3" x2="3" y2="13" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function SignOutIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+      <path d="M5 11.5H2.5a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1H5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+      <path d="M8.5 9.5L11 6.5l-2.5-3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+      <line x1="11" y1="6.5" x2="5" y2="6.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
     </svg>
   );
 }

@@ -1,9 +1,12 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
 export function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const from = (location.state as any)?.from?.pathname || '/dashboard';
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -14,24 +17,24 @@ export function Login() {
     setLoading(true);
     setError('');
 
-    // For demo: just navigate to dashboard
-    if (email && password) {
-      setTimeout(() => {
-        navigate('/dashboard');
-        setLoading(false);
-      }, 800);
+    const { error: err } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (err) {
+      setError(err.message);
+      setLoading(false);
       return;
     }
 
-    try {
-      const { error: err } = await supabase.auth.signInWithPassword({ email, password });
-      if (err) throw err;
-      navigate('/dashboard');
-    } catch (err: any) {
-      setError(err.message || 'Login failed');
-    } finally {
-      setLoading(false);
-    }
+    navigate(from, { replace: true });
+  };
+
+  const inputBase = {
+    background: 'rgba(5,13,26,0.8)',
+    border: '1px solid rgba(0,229,196,0.15)',
+    color: '#e8f0fe',
+    fontFamily: 'DM Sans, sans-serif',
+    outline: 'none',
+    caretColor: '#00e5c4',
   };
 
   return (
@@ -72,7 +75,6 @@ export function Login() {
             boxShadow: '0 24px 60px rgba(0,0,0,0.4)',
           }}>
           <form onSubmit={handleLogin} className="space-y-4">
-            {/* Email */}
             <div>
               <label className="block text-xs mb-1.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
                 Email
@@ -83,28 +85,24 @@ export function Login() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 required
+                autoComplete="email"
                 className="w-full px-4 py-3 rounded-xl text-sm transition-all duration-200"
-                style={{
-                  background: 'rgba(5,13,26,0.8)',
-                  border: '1px solid rgba(0,229,196,0.15)',
-                  color: '#e8f0fe',
-                  fontFamily: 'DM Sans, sans-serif',
-                  outline: 'none',
-                  caretColor: '#00e5c4',
-                }}
-                onFocus={(e) => e.target.style.borderColor = 'rgba(0,229,196,0.35)'}
-                onBlur={(e) => e.target.style.borderColor = 'rgba(0,229,196,0.15)'}
+                style={inputBase}
+                onFocus={(e) => (e.target.style.borderColor = 'rgba(0,229,196,0.35)')}
+                onBlur={(e) => (e.target.style.borderColor = 'rgba(0,229,196,0.15)')}
               />
             </div>
 
-            {/* Password */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="block text-xs" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
                   Password
                 </label>
-                <Link to="#" className="text-xs transition-colors hover:text-[#00e5c4]"
-                  style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
+                <Link
+                  to="/forgot-password"
+                  className="text-xs transition-colors hover:text-[#00e5c4]"
+                  style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}
+                >
                   Forgot password?
                 </Link>
               </div>
@@ -114,23 +112,24 @@ export function Login() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 required
+                autoComplete="current-password"
                 className="w-full px-4 py-3 rounded-xl text-sm transition-all duration-200"
-                style={{
-                  background: 'rgba(5,13,26,0.8)',
-                  border: '1px solid rgba(0,229,196,0.15)',
-                  color: '#e8f0fe',
-                  fontFamily: 'DM Sans, sans-serif',
-                  outline: 'none',
-                  caretColor: '#00e5c4',
-                }}
-                onFocus={(e) => e.target.style.borderColor = 'rgba(0,229,196,0.35)'}
-                onBlur={(e) => e.target.style.borderColor = 'rgba(0,229,196,0.15)'}
+                style={inputBase}
+                onFocus={(e) => (e.target.style.borderColor = 'rgba(0,229,196,0.35)')}
+                onBlur={(e) => (e.target.style.borderColor = 'rgba(0,229,196,0.15)')}
               />
             </div>
 
             {error && (
-              <div className="px-3 py-2.5 rounded-lg text-xs"
-                style={{ background: 'rgba(255,77,109,0.1)', border: '1px solid rgba(255,77,109,0.2)', color: '#ff4d6d', fontFamily: 'DM Sans, sans-serif' }}>
+              <div
+                className="px-3 py-2.5 rounded-lg text-xs"
+                style={{
+                  background: 'rgba(255,77,109,0.1)',
+                  border: '1px solid rgba(255,77,109,0.2)',
+                  color: '#ff4d6d',
+                  fontFamily: 'DM Sans, sans-serif',
+                }}
+              >
                 {error}
               </div>
             )}
@@ -138,9 +137,9 @@ export function Login() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 rounded-xl text-sm font-semibold transition-all duration-200 mt-2 disabled:opacity-60"
+              className="w-full py-3 rounded-xl text-sm font-semibold transition-all duration-200 mt-2 disabled:opacity-60 disabled:cursor-not-allowed"
               style={{
-                background: loading ? 'rgba(0,229,196,0.4)' : 'linear-gradient(135deg, #00e5c4, #00b4d8)',
+                background: 'linear-gradient(135deg, #00e5c4, #00b4d8)',
                 color: '#050d1a',
                 fontFamily: 'DM Sans, sans-serif',
                 boxShadow: loading ? 'none' : '0 4px 16px rgba(0,229,196,0.25)',
@@ -148,33 +147,25 @@ export function Login() {
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
-                  <span className="w-4 h-4 rounded-full border-2 border-t-transparent animate-spin"
-                    style={{ borderColor: 'rgba(5,13,26,0.4)', borderTopColor: '#050d1a' }} />
+                  <span
+                    className="w-4 h-4 rounded-full border-2 animate-spin"
+                    style={{ borderColor: 'rgba(5,13,26,0.3)', borderTopColor: '#050d1a' }}
+                  />
                   Signing in...
                 </span>
-              ) : 'Sign In'}
+              ) : (
+                'Sign In'
+              )}
             </button>
           </form>
         </div>
 
-        {/* Sign up link */}
         <p className="text-center text-sm mt-4" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
           Don't have an account?{' '}
           <Link to="/signup" className="transition-colors hover:text-[#00e5c4]" style={{ color: '#9ab4d4' }}>
             Create account
           </Link>
         </p>
-
-        {/* Demo notice */}
-        <div className="mt-4 px-4 py-3 rounded-xl text-xs text-center"
-          style={{
-            background: 'rgba(0,229,196,0.04)',
-            border: '1px solid rgba(0,229,196,0.1)',
-            color: '#4a6a8a',
-            fontFamily: 'DM Sans, sans-serif',
-          }}>
-          <span style={{ color: '#00e5c4' }}>Demo mode:</span> Enter any email + password to access
-        </div>
       </div>
     </div>
   );

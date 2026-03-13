@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { AuthProvider } from './context/AuthContext';
 import { Navbar } from './components/Navbar';
+import { ProtectedRoute } from './components/ProtectedRoute';
 import { Dashboard } from './pages/Dashboard';
 import { Watchlist } from './pages/Watchlist';
 import { StockDetail } from './pages/StockDetail';
@@ -19,18 +21,18 @@ const queryClient = new QueryClient({
   },
 });
 
-
-function App() {
+export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <AppInner />
+        <AuthProvider>
+          <AppInner />
+        </AuthProvider>
       </BrowserRouter>
     </QueryClientProvider>
   );
 }
 
-// Inner component so we can use router hooks
 function AppInner() {
   const [theme, setTheme] = useState<ThemeMode>('dark');
 
@@ -38,16 +40,17 @@ function AppInner() {
     <div className={theme === 'light' ? 'light' : ''} style={{ minHeight: '100vh' }}>
       <Navbar theme={theme} onToggleTheme={() => setTheme(t => t === 'dark' ? 'light' : 'dark')} />
       <Routes>
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/watchlist" element={<Watchlist />} />
-        <Route path="/stock/:ticker" element={<StockDetail />} />
-        <Route path="/wheel" element={<WheelTracker />} />
+        {/* Public routes */}
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
+
+        {/* Protected routes */}
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+        <Route path="/watchlist" element={<ProtectedRoute><Watchlist /></ProtectedRoute>} />
+        <Route path="/stock/:ticker" element={<ProtectedRoute><StockDetail /></ProtectedRoute>} />
+        <Route path="/wheel" element={<ProtectedRoute><WheelTracker /></ProtectedRoute>} />
       </Routes>
     </div>
   );
 }
-
-export default App;
