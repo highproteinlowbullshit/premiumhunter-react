@@ -36,8 +36,8 @@ export function PositionTable({ positions, onRemove, onClose, onEdit }: Position
       {/* ── Mobile card layout (< sm) ── */}
       <div className="sm:hidden space-y-3">
         {positions.map((pos) => {
-          const pnl = pos.premiumCollected - pos.currentPrice * pos.contracts;
-          const isPnlPositive = pnl >= 0;
+          const capitalAtRisk = pos.strike * pos.contracts * 100;
+          const returnPct = capitalAtRisk > 0 ? (pos.premiumCollected / capitalAtRisk) * 100 : 0;
           const dteColor = pos.daysToExpiry <= 7 ? '#ff4d6d' : pos.daysToExpiry <= 21 ? '#f5c842' : '#9ab4d4';
 
           return (
@@ -107,10 +107,9 @@ export function PositionTable({ positions, onRemove, onClose, onEdit }: Position
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs mb-0.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>P&amp;L</p>
-                  <p className="text-sm font-semibold"
-                    style={{ color: isPnlPositive ? '#00d68f' : '#ff4d6d', fontFamily: 'JetBrains Mono, monospace' }}>
-                    {isPnlPositive ? '+' : ''}{pnl.toFixed(0)}
+                  <p className="text-xs mb-0.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>Return</p>
+                  <p className="text-sm font-semibold" style={{ color: '#00d68f', fontFamily: 'JetBrains Mono, monospace' }}>
+                    {returnPct.toFixed(1)}%
                   </p>
                 </div>
                 <div>
@@ -143,7 +142,7 @@ export function PositionTable({ positions, onRemove, onClose, onEdit }: Position
         <table className="w-full text-sm" style={{ fontFamily: 'DM Sans, sans-serif', borderCollapse: 'separate', borderSpacing: 0 }}>
           <thead>
             <tr>
-              {['Ticker', 'Strategy', 'Strike', 'Expiry', 'Premium', 'P&L', 'DTE', ...(hasActions ? [''] : [])].map((h) => (
+              {['Ticker', 'Strategy', 'Strike', 'Expiry', 'Premium', 'Return', 'DTE', ...(hasActions ? [''] : [])].map((h) => (
                 <th
                   key={h}
                   className="text-left py-3 px-4 text-xs font-medium tracking-widest uppercase first:pl-0 last:pr-0"
@@ -156,8 +155,8 @@ export function PositionTable({ positions, onRemove, onClose, onEdit }: Position
           </thead>
           <tbody>
             {positions.map((pos, i) => {
-              const pnl = pos.premiumCollected - pos.currentPrice * pos.contracts;
-              const isPnlPositive = pnl >= 0;
+              const capitalAtRisk = pos.strike * pos.contracts * 100;
+              const returnPct = capitalAtRisk > 0 ? (pos.premiumCollected / capitalAtRisk) * 100 : 0;
               const dteColor = pos.daysToExpiry <= 7 ? '#ff4d6d' : pos.daysToExpiry <= 21 ? '#f5c842' : '#9ab4d4';
 
               return (
@@ -211,12 +210,11 @@ export function PositionTable({ positions, onRemove, onClose, onEdit }: Position
 
                   <td className="py-3.5 px-4">
                     <div className="flex flex-col gap-0.5">
-                      <span className="font-semibold"
-                        style={{ color: isPnlPositive ? '#00d68f' : '#ff4d6d', fontFamily: 'JetBrains Mono, monospace' }}>
-                        {isPnlPositive ? '+' : ''}{pnl.toFixed(0)}
+                      <span className="font-semibold" style={{ color: '#00d68f', fontFamily: 'JetBrains Mono, monospace' }}>
+                        {returnPct.toFixed(1)}%
                       </span>
                       <span className="text-xs" style={{ color: '#4a6a8a' }}>
-                        {((pnl / pos.premiumCollected) * 100).toFixed(1)}%
+                        on ${(capitalAtRisk / 1000).toFixed(0)}k
                       </span>
                     </div>
                   </td>

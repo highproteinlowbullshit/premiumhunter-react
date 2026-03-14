@@ -69,7 +69,7 @@ export function WheelTracker() {
           {[
             { label: 'Open Positions', value: openPositions.length.toString(), color: '#00e5c4' },
             { label: 'Total Premium', value: `$${totalPremium.toLocaleString()}`, color: '#00c6f5' },
-            { label: 'Monthly P&L', value: `${monthlyPnL >= 0 ? '+' : ''}$${monthlyPnL.toFixed(0)}`, color: monthlyPnL >= 0 ? '#00d68f' : '#ff4d6d' },
+            { label: 'Avg Monthly P&L', value: closedPositions.length > 0 ? `${monthlyPnL >= 0 ? '+' : ''}$${monthlyPnL.toFixed(0)}` : '—', color: monthlyPnL >= 0 ? '#00d68f' : '#ff4d6d' },
             { label: 'Win Rate', value: winRate !== null ? `${winRate}%` : '—', color: '#f5c842' },
           ].map(({ label, value, color }) => (
             <div key={label} className="rounded-xl p-4"

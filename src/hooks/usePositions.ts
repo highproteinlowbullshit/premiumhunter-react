@@ -194,9 +194,24 @@ export function usePositions() {
   // ── Derived values ──────────────────────────────────────────────────────────
   const openPositions = positions.filter((p) => p.status === 'open');
 
-  const monthlyPnL = openPositions.reduce((acc, p) => {
-    return acc + (p.premiumCollected - p.currentPrice * p.contracts);
-  }, 0);
+  // Monthly avg P&L: total realized from closed trades ÷ months elapsed since first trade
+  const closedPositions = positions.filter((p) => p.status === 'closed');
+  const totalRealized = closedPositions.reduce(
+    (acc, p) => acc + (p.premiumCollected - p.currentPrice * p.contracts),
+    0
+  );
+  const monthlyPnL = (() => {
+    if (closedPositions.length === 0) return 0;
+    const earliest = closedPositions.reduce(
+      (min, p) => (p.openedAt < min ? p.openedAt : min),
+      closedPositions[0].openedAt
+    );
+    const monthsElapsed = Math.max(
+      1,
+      (Date.now() - new Date(earliest).getTime()) / (1000 * 60 * 60 * 24 * 30.44)
+    );
+    return totalRealized / monthsElapsed;
+  })();
 
   // ── Edit position ───────────────────────────────────────────────────────────
   const editPosition = useCallback(
