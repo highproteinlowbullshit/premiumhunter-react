@@ -6,6 +6,7 @@ import { ToastProvider } from './context/ToastContext';
 import { WatchlistProvider } from './context/WatchlistContext';
 import { Navbar } from './components/Navbar';
 import { ToastContainer } from './components/Toast';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { Dashboard } from './pages/Dashboard';
 import { Watchlist } from './pages/Watchlist';
@@ -45,19 +46,21 @@ function AppInner() {
     <div className={theme === 'light' ? 'light' : ''} style={{ minHeight: '100vh' }}>
       <Navbar theme={theme} onToggleTheme={() => setTheme(theme === 'dark' ? 'light' : 'dark')} />
       <ToastContainer />
-      <Routes>
-        {/* Public */}
-        <Route path="/login"  element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
+      <ErrorBoundary>
+        <Routes>
+          {/* Public */}
+          <Route path="/login"  element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
 
-        {/* Protected */}
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-        <Route path="/watchlist"  element={<ProtectedRoute><Watchlist /></ProtectedRoute>} />
-        <Route path="/stock/:ticker" element={<ProtectedRoute><StockDetail /></ProtectedRoute>} />
-        <Route path="/wheel"    element={<ProtectedRoute><WheelTracker /></ProtectedRoute>} />
-        <Route path="/screener" element={<ProtectedRoute><Screener /></ProtectedRoute>} />
-      </Routes>
+          {/* Protected */}
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+          <Route path="/watchlist"  element={<ProtectedRoute><Watchlist /></ProtectedRoute>} />
+          <Route path="/stock/:ticker" element={<ProtectedRoute><StockDetail /></ProtectedRoute>} />
+          <Route path="/wheel"    element={<ProtectedRoute><WheelTracker /></ProtectedRoute>} />
+          <Route path="/screener" element={<ProtectedRoute><Screener /></ProtectedRoute>} />
+        </Routes>
+      </ErrorBoundary>
       <DemoBanner />
     </div>
   );
