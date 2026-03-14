@@ -10,8 +10,22 @@ import { STOCK_LIST } from '../lib/stockList';
 import { getQuote } from '../lib/finnhub';
 import type { ScreenerStock } from '../lib/screenerData';
 
-const SCREENER_BATCH = 10;
-const SCREENER_BATCH_DELAY_MS = 150;
+const SCREENER_BATCH = 20;         // tickers per batch (up from 10)
+const SCREENER_BATCH_DELAY_MS = 50; // ms between batches (down from 150)
+const SCREENER_CACHE_TTL = 5 * 60 * 1000; // 5 minutes in-session cache
+
+// ── Module-level session cache ─────────────────────────────────────────────
+// Persists across navigation so returning to the screener is instant.
+interface ScreenerSessionCache {
+  stocks: ScreenerStock[];
+  loadedAt: number;
+  isComplete: boolean;
+}
+let _cache: ScreenerSessionCache | null = null;
+
+function cacheIsFresh(): boolean {
+  return !!_cache && _cache.isComplete && Date.now() - _cache.loadedAt < SCREENER_CACHE_TTL;
+}
 
 // ── Screener streaming hook ───────────────────────────────────────────────────
 
@@ -23,30 +37,37 @@ export interface ScreenerStreamState {
 }
 
 /**
- * Streams screener data:
+ * Streams screener data with session caching:
+ * - If cache is fresh (<5 min), returns instantly without any network calls.
  * 1. Checks Supabase for today's cached IV rows (single query, instant)
- * 2. For cached tickers: fetches Finnhub price only (fast)
- * 3. For uncached tickers: fetches Finnhub + Polygon in batches of 10 with 150ms delay
+ * 2. For cached tickers: fetches Finnhub price only (fast parallel calls)
+ * 3. For uncached tickers: fetches Finnhub + Polygon in batches of 20
+ *    — skips redundant per-ticker Supabase lookups (caller already knows they're absent)
  */
 export function useScreenerStream(): ScreenerStreamState {
-  const [stocks, setStocks] = useState<ScreenerStock[]>([]);
-  const [loadedCount, setLoadedCount] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
+  const [stocks, setStocks] = useState<ScreenerStock[]>(_cache?.stocks ?? []);
+  const [loadedCount, setLoadedCount] = useState(_cache?.stocks.length ?? 0);
+  const [isLoading, setIsLoading] = useState(!cacheIsFresh());
   const cancelledRef = useRef(false);
 
   useEffect(() => {
+    // Return cached results immediately — no network needed
+    if (cacheIsFresh()) return;
+
     cancelledRef.current = false;
-    setStocks([]);
-    setLoadedCount(0);
+    if (!_cache) {
+      setStocks([]);
+      setLoadedCount(0);
+    }
     setIsLoading(true);
 
     async function run() {
-      // ── Step 1: Check Supabase cache ──────────────────────────────────────
+      // ── Step 1: Check Supabase cache (single bulk query) ──────────────────
       const cachedMap = await getSupabaseCachedToday();
       const cachedTickers = STOCK_LIST.filter((s) => cachedMap.has(s.ticker));
       const uncachedTickers = STOCK_LIST.filter((s) => !cachedMap.has(s.ticker));
 
-      // ── Step 2: Price-only fetch for cached tickers (fast Finnhub calls) ──
+      // ── Step 2: Price-only fetch for cached tickers (fast parallel calls) ──
       if (cachedTickers.length > 0 && !cancelledRef.current) {
         const priceResults = await Promise.allSettled(
           cachedTickers.map((s) => getQuote(s.ticker))
@@ -78,19 +99,21 @@ export function useScreenerStream(): ScreenerStreamState {
           });
           setStocks(cachedStocks);
           setLoadedCount(cachedStocks.length);
+          _cache = { stocks: cachedStocks, loadedAt: Date.now(), isComplete: uncachedTickers.length === 0 };
         }
       }
 
       // ── Step 3: Full API fetch for uncached tickers in batches ────────────
+      // skipSupabase=true because getSupabaseCachedToday() already confirmed
+      // these tickers are absent — avoids 1 redundant Supabase RTT per ticker.
       for (let i = 0; i < uncachedTickers.length && !cancelledRef.current; i += SCREENER_BATCH) {
         const batch = uncachedTickers.slice(i, i + SCREENER_BATCH);
         const results = await Promise.allSettled(
-          batch.map((s) => fetchScreenerStock(s.ticker))
+          batch.map((s) => fetchScreenerStock(s.ticker, { skipSupabase: true }))
         );
         if (!cancelledRef.current) {
           const batchStocks = results.map((r, j) => {
             if (r.status === 'fulfilled') return r.value;
-            // Failed: return shell with nulls
             const s = batch[j];
             console.error(`Screener fetch failed for ${s.ticker}:`, (r as PromiseRejectedResult).reason);
             return {
@@ -111,16 +134,22 @@ export function useScreenerStream(): ScreenerStreamState {
               dataSource: 'live' as const,
             } satisfies ScreenerStock;
           });
-          setStocks((prev) => [...prev, ...batchStocks]);
+          setStocks((prev) => {
+            const next = [...prev, ...batchStocks];
+            _cache = { stocks: next, loadedAt: _cache?.loadedAt ?? Date.now(), isComplete: false };
+            return next;
+          });
           setLoadedCount((prev) => prev + batchStocks.length);
         }
-        // Throttle between batches to respect Polygon rate limits
         if (i + SCREENER_BATCH < uncachedTickers.length && !cancelledRef.current) {
           await new Promise<void>((r) => setTimeout(r, SCREENER_BATCH_DELAY_MS));
         }
       }
 
-      if (!cancelledRef.current) setIsLoading(false);
+      if (!cancelledRef.current) {
+        setIsLoading(false);
+        if (_cache) _cache = { ..._cache, isComplete: true, loadedAt: Date.now() };
+      }
     }
 
     run().catch((err) => {

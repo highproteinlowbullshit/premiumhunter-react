@@ -84,11 +84,16 @@ function buildScreenerFromLive(
   };
 }
 
-/** Fetch a single stock from APIs (used for uncached tickers in the screener) */
-export async function fetchScreenerStock(ticker: string): Promise<ScreenerStock> {
+/** Fetch a single stock from APIs (used for uncached tickers in the screener).
+ *  skipSupabase=true avoids a redundant per-ticker Supabase round-trip when the
+ *  caller has already confirmed this ticker is not in today's snapshot table. */
+export async function fetchScreenerStock(
+  ticker: string,
+  opts?: { skipSupabase?: boolean }
+): Promise<ScreenerStock> {
   const [quoteRes, hvRes] = await Promise.allSettled([
     getQuote(ticker),
-    getIVData(ticker),
+    getIVData(ticker, opts),
   ]);
   const quote = quoteRes.status === 'fulfilled' ? quoteRes.value : null;
   const hv = hvRes.status === 'fulfilled' ? hvRes.value : null;

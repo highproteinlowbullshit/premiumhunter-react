@@ -104,18 +104,23 @@ function saveSupabaseSnapshot(ticker: string, result: PolygonIVData): void {
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
-export async function getIVData(ticker: string): Promise<PolygonIVData> {
+export async function getIVData(
+  ticker: string,
+  opts?: { skipSupabase?: boolean }
+): Promise<PolygonIVData> {
   const cacheKey = `wh_hv_v3_${ticker}`;
 
   // 1. Check localStorage (fastest, per-device, 6h TTL)
   const cached = getCached<PolygonIVData>(cacheKey);
   if (cached) return cached;
 
-  // 2. Check Supabase daily snapshot (cross-device shared cache)
-  const snapshot = await getSupabaseSnapshot(ticker);
-  if (snapshot) {
-    setCached(cacheKey, snapshot); // warm localStorage from Supabase hit
-    return snapshot;
+  // 2. Check Supabase daily snapshot (skip if caller already knows it's not there)
+  if (!opts?.skipSupabase) {
+    const snapshot = await getSupabaseSnapshot(ticker);
+    if (snapshot) {
+      setCached(cacheKey, snapshot); // warm localStorage from Supabase hit
+      return snapshot;
+    }
   }
 
   return polygonQueue.enqueue(async () => {
