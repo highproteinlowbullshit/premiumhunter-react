@@ -51,6 +51,7 @@ export interface PolygonIVData {
   hv52wkLow: number;      // min 30-day HV over past year
   ivHvRatio: number;      // hv30 / hv60 — elevated short-term vol indicator
   weeklyHistory: IVDataPoint[];  // 52 weekly data points for chart
+  volume: number | null;  // most recent day's volume
 }
 
 // ── Supabase snapshot cache helpers ───────────────────────────────────────────
@@ -73,6 +74,7 @@ async function getSupabaseSnapshot(ticker: string): Promise<PolygonIVData | null
       hv52wkHigh: data.hv_52wk_high,
       hv52wkLow: data.hv_52wk_low,
       ivHvRatio: data.iv_hv_ratio,
+      volume: null, // not stored in Supabase snapshot
       weeklyHistory: data.weekly_history as IVDataPoint[],
     };
   } catch { return null; }
@@ -134,11 +136,12 @@ export async function getIVData(ticker: string): Promise<PolygonIVData> {
     if (!res.ok) throw new Error(`Polygon ${ticker}: ${res.status}`);
 
     const json = await res.json();
-    const results: Array<{ c: number; t: number }> = json.results || [];
+    const results: Array<{ c: number; t: number; v?: number }> = json.results || [];
     if (results.length < 65) throw new Error(`Not enough data for ${ticker} (got ${results.length})`);
 
     const closes = results.map((r) => r.c);
     const timestamps = results.map((r) => r.t);
+    const volume = results[results.length - 1]?.v ?? null;
 
     // Rolling 30-day HV series (one value per trading day once bootstrapped)
     const hvSeries: number[] = [];
@@ -192,6 +195,7 @@ export async function getIVData(ticker: string): Promise<PolygonIVData> {
       hv52wkLow,
       ivHvRatio,
       weeklyHistory,
+      volume,
     };
 
     setCached(cacheKey, result);

@@ -1,7 +1,6 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  SCREENER_STOCKS,
   SECTORS,
   SECTOR_COLORS,
   SORT_OPTIONS,
@@ -10,12 +9,13 @@ import {
   type Sector,
 } from '../lib/screenerData';
 import { useWatchlistContext } from '../context/WatchlistContext';
-import { useScreenerData } from '../hooks/useMarketData';
+import { useScreenerStream } from '../hooks/useMarketData';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
-function formatVolume(v: number): string {
+function formatVolume(v: number | null): string {
+  if (v == null) return '--';
   if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
   if (v >= 1_000)     return `${(v / 1_000).toFixed(0)}K`;
   return v.toString();
@@ -25,7 +25,8 @@ function daysUntil(dateStr: string): number {
   return Math.ceil((new Date(dateStr).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
 }
 
-function ivRankColors(iv: number) {
+function ivRankColors(iv: number | null) {
+  if (iv == null) return { text: '#4a6a8a', bg: 'rgba(74,106,138,0.08)', border: 'rgba(74,106,138,0.15)' };
   if (iv < 30) return { text: '#00d68f', bg: 'rgba(0,214,143,0.12)',  border: 'rgba(0,214,143,0.25)'  };
   if (iv < 60) return { text: '#f5c842', bg: 'rgba(245,200,66,0.12)', border: 'rgba(245,200,66,0.25)' };
   if (iv < 80) return { text: '#f97316', bg: 'rgba(249,115,22,0.12)', border: 'rgba(249,115,22,0.25)' };
@@ -67,9 +68,8 @@ export function Screener() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [mounted, setMounted] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const { data: screenerData, isLoading, isFetching } = useScreenerData();
-  const loading = isLoading;
-  const stocks = screenerData ?? SCREENER_STOCKS;
+  const { stocks, loadedCount, total, isLoading } = useScreenerStream();
+  const loading = isLoading && stocks.length === 0;
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -96,15 +96,17 @@ export function Screener() {
     const priceMax = filters.priceMax !== '' ? Number(filters.priceMax) : Infinity;
 
     return stocks.filter((s) => {
-      if (s.ivRank < filters.ivRankMin || s.ivRank > filters.ivRankMax) return false;
-      if (s.price < priceMin || s.price > priceMax) return false;
+      // Null values are excluded from range filters (can't confirm they match)
+      if (s.ivRank == null || s.ivRank < filters.ivRankMin || s.ivRank > filters.ivRankMax) return false;
+      if (s.price == null || s.price < priceMin || s.price > priceMax) return false;
       if (filters.sector !== 'All' && s.sector !== filters.sector) return false;
       if (q && !s.ticker.includes(q) && !s.name.toUpperCase().includes(q)) return false;
       return true;
     }).sort((a, b) => {
-      const av: string | number = a[filters.sortBy];
-      const bv: string | number = b[filters.sortBy];
-      const cmp = av > bv ? 1 : av < bv ? -1 : 0;
+      // Nulls sink to the bottom regardless of sort direction
+      const av = a[filters.sortBy] ?? (filters.sortDir === 'desc' ? -Infinity : Infinity);
+      const bv = b[filters.sortBy] ?? (filters.sortDir === 'desc' ? -Infinity : Infinity);
+      const cmp = (av as number | string) > (bv as number | string) ? 1 : (av as number | string) < (bv as number | string) ? -1 : 0;
       return filters.sortDir === 'desc' ? -cmp : cmp;
     });
   }, [stocks, filters.ivRankMin, filters.ivRankMax, filters.priceMin, filters.priceMax,
@@ -112,8 +114,9 @@ export function Screener() {
 
   // ── Summary stats ─────────────────────────────────────────────────────────
   const stats = useMemo(() => {
-    const highIV   = filtered.filter((s) => s.ivRank >= 70).length;
-    const avgIV    = filtered.length ? Math.round(filtered.reduce((a, s) => a + s.ivRank, 0) / filtered.length) : 0;
+    const highIV  = filtered.filter((s) => s.ivRank != null && s.ivRank >= 70).length;
+    const withIV  = filtered.filter((s) => s.ivRank != null);
+    const avgIV   = withIV.length ? Math.round(withIV.reduce((a, s) => a + s.ivRank!, 0) / withIV.length) : 0;
     return { total: filtered.length, avgIV, highIV };
   }, [filtered]);
 
@@ -141,25 +144,27 @@ export function Screener() {
               Find premium-selling opportunities by implied volatility rank
             </p>
           </div>
-          {/* Result count + live indicator */}
+          {/* Result count + live/loading indicator */}
           <div className="flex items-center gap-3">
-            {isFetching && !isLoading ? (
-              <div className="flex items-center gap-1.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', fontSize: '12px' }}>
+            {isLoading ? (
+              <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full border border-t-transparent animate-spin" style={{ borderColor: 'rgba(0,229,196,0.3)', borderTopColor: '#00e5c4' }} />
-                Updating…
+                <span style={{ color: '#4a6a8a', fontFamily: 'JetBrains Mono, monospace', fontSize: '12px' }}>
+                  {loadedCount} / {total}
+                </span>
               </div>
-            ) : !isLoading ? (
+            ) : (
               <div className="flex items-center gap-1.5">
                 <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#00d68f', boxShadow: '0 0 4px #00d68f' }} />
                 <span style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', fontSize: '12px' }}>Live</span>
               </div>
-            ) : null}
+            )}
             <div className="text-sm" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
               Showing{' '}
               <span style={{ color: '#00e5c4', fontFamily: 'JetBrains Mono, monospace' }}>{stats.total}</span>
               {' '}of{' '}
               <span style={{ color: '#9ab4d4', fontFamily: 'JetBrains Mono, monospace' }}>{stocks.length}</span>
-              {' '}stocks
+              {' '}loaded
             </div>
           </div>
         </div>
@@ -614,10 +619,13 @@ function DesktopRow({
       {/* Price */}
       <td className="py-3.5 px-3">
         <p className="text-sm font-medium tabular-nums" style={{ color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace' }}>
-          ${stock.price.toFixed(2)}
+          {stock.price != null ? `$${stock.price.toFixed(2)}` : '--'}
         </p>
-        <p className="text-xs" style={{ color: stock.priceChange >= 0 ? '#00d68f' : '#ff4d6d', fontFamily: 'JetBrains Mono, monospace' }}>
-          {stock.priceChange >= 0 ? '+' : ''}{stock.priceChange.toFixed(2)}%
+        <p className="text-xs" style={{
+          color: stock.priceChange != null ? (stock.priceChange >= 0 ? '#00d68f' : '#ff4d6d') : '#4a6a8a',
+          fontFamily: 'JetBrains Mono, monospace',
+        }}>
+          {stock.priceChange != null ? `${stock.priceChange >= 0 ? '+' : ''}${stock.priceChange.toFixed(2)}%` : '--'}
         </p>
       </td>
 
@@ -626,11 +634,11 @@ function DesktopRow({
         <div className="flex flex-col gap-1">
           <span className="inline-flex items-center justify-center w-12 py-1 rounded-lg text-sm font-bold tabular-nums"
             style={{ color: ivColors.text, background: ivColors.bg, border: `1px solid ${ivColors.border}`, fontFamily: 'JetBrains Mono, monospace' }}>
-            {stock.ivRank}
+            {stock.ivRank ?? '--'}
           </span>
           {/* Mini bar */}
           <div className="h-1 w-12 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
-            <div className="h-full rounded-full" style={{ width: `${stock.ivRank}%`, background: ivColors.text, boxShadow: `0 0 4px ${ivColors.text}80` }} />
+            <div className="h-full rounded-full" style={{ width: stock.ivRank != null ? `${stock.ivRank}%` : '0%', background: ivColors.text, boxShadow: `0 0 4px ${ivColors.text}80` }} />
           </div>
         </div>
       </td>
@@ -638,7 +646,7 @@ function DesktopRow({
       {/* IV Percentile */}
       <td className="py-3.5 px-3">
         <span className="text-sm tabular-nums" style={{ color: '#9ab4d4', fontFamily: 'JetBrains Mono, monospace' }}>
-          {stock.ivPercentile}
+          {stock.ivPercentile ?? '--'}
         </span>
       </td>
 
@@ -646,23 +654,29 @@ function DesktopRow({
       <td className="py-3.5 px-3">
         <span className="text-sm font-medium tabular-nums"
           style={{
-            color: stock.ivHvRatio >= 1.3 ? '#f97316' : stock.ivHvRatio >= 1.1 ? '#f5c842' : '#9ab4d4',
+            color: stock.ivHvRatio != null
+              ? (stock.ivHvRatio >= 1.3 ? '#f97316' : stock.ivHvRatio >= 1.1 ? '#f5c842' : '#9ab4d4')
+              : '#4a6a8a',
             fontFamily: 'JetBrains Mono, monospace',
           }}>
-          {stock.ivHvRatio.toFixed(2)}x
+          {stock.ivHvRatio != null ? `${stock.ivHvRatio.toFixed(2)}x` : '--'}
         </span>
       </td>
 
       {/* 52w IV range */}
       <td className="py-3.5 px-3">
         <p className="text-xs tabular-nums" style={{ color: '#4a6a8a', fontFamily: 'JetBrains Mono, monospace' }}>
-          {stock.iv52wkLow}% – {stock.iv52wkHigh}%
+          {stock.iv52wkLow != null && stock.iv52wkHigh != null
+            ? `${stock.iv52wkLow}% – ${stock.iv52wkHigh}%`
+            : '—'}
         </p>
         {/* Range bar showing current position */}
         <div className="mt-1 h-1 w-16 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
           <div className="h-full rounded-full"
             style={{
-              width: `${((stock.currentIV - stock.iv52wkLow) / (stock.iv52wkHigh - stock.iv52wkLow)) * 100}%`,
+              width: stock.currentIV != null && stock.iv52wkLow != null && stock.iv52wkHigh != null && stock.iv52wkHigh !== stock.iv52wkLow
+                ? `${((stock.currentIV - stock.iv52wkLow) / (stock.iv52wkHigh - stock.iv52wkLow)) * 100}%`
+                : '0%',
               background: '#9ab4d4',
             }} />
         </div>
@@ -764,7 +778,7 @@ function MobileCard({
           {/* IV Rank badge */}
           <span className="inline-flex items-center justify-center w-10 py-1 rounded-lg text-sm font-bold"
             style={{ color: ivColors.text, background: ivColors.bg, border: `1px solid ${ivColors.border}`, fontFamily: 'JetBrains Mono, monospace' }}>
-            {stock.ivRank}
+            {stock.ivRank ?? '--'}
           </span>
           {/* Watch button */}
           <button
@@ -784,9 +798,14 @@ function MobileCard({
       {/* Row 2: metrics */}
       <div className="grid grid-cols-4 gap-2">
         {[
-          { label: 'Price', value: `$${stock.price.toFixed(2)}`, sub: `${stock.priceChange >= 0 ? '+' : ''}${stock.priceChange.toFixed(2)}%`, subColor: stock.priceChange >= 0 ? '#00d68f' : '#ff4d6d' },
-          { label: 'IV%ile', value: String(stock.ivPercentile), sub: null, subColor: '' },
-          { label: 'IV/HV', value: `${stock.ivHvRatio.toFixed(2)}x`, sub: null, subColor: '' },
+          {
+            label: 'Price',
+            value: stock.price != null ? `$${stock.price.toFixed(2)}` : '--',
+            sub: stock.priceChange != null ? `${stock.priceChange >= 0 ? '+' : ''}${stock.priceChange.toFixed(2)}%` : null,
+            subColor: stock.priceChange != null ? (stock.priceChange >= 0 ? '#00d68f' : '#ff4d6d') : '',
+          },
+          { label: 'IV%ile', value: stock.ivPercentile != null ? String(stock.ivPercentile) : '--', sub: null, subColor: '' },
+          { label: 'IV/HV', value: stock.ivHvRatio != null ? `${stock.ivHvRatio.toFixed(2)}x` : '--', sub: null, subColor: '' },
           { label: 'Volume', value: formatVolume(stock.volume), sub: null, subColor: '' },
         ].map(({ label, value, sub, subColor }) => (
           <div key={label}>

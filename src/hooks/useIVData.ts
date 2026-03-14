@@ -1,16 +1,17 @@
 import { useQuery } from '@tanstack/react-query';
-import { MOCK_IV_HISTORY, MOCK_STOCKS } from '../lib/mockData';
+import { getIVData } from '../lib/polygon';
+import { getStockDetailData } from '../lib/marketData';
 import type { IVDataPoint, StockTicker } from '../types';
 
 export function useIVData(ticker: string) {
   return useQuery<IVDataPoint[]>({
     queryKey: ['iv-history', ticker],
     queryFn: async () => {
-      // Simulate network delay
-      await new Promise((r) => setTimeout(r, 300));
-      return MOCK_IV_HISTORY[ticker] || [];
+      const data = await getIVData(ticker);
+      return data.weeklyHistory;
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: 6 * 60 * 60 * 1000, // matches Polygon cache TTL
+    enabled: !!ticker,
   });
 }
 
@@ -18,9 +19,10 @@ export function useStockDetail(ticker: string) {
   return useQuery<StockTicker | null>({
     queryKey: ['stock-detail', ticker],
     queryFn: async () => {
-      await new Promise((r) => setTimeout(r, 200));
-      return MOCK_STOCKS.find((s) => s.ticker === ticker) || null;
+      const result = await getStockDetailData(ticker);
+      return result.stock;
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: 2 * 60 * 1000,
+    enabled: !!ticker,
   });
 }

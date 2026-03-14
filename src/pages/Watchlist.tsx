@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { IVBadge } from '../components/IVBadge';
 import { IVSparkline } from '../components/IVChart';
 import { useWatchlist } from '../hooks/useWatchlist';
-import { MOCK_IV_HISTORY, MOCK_STOCKS } from '../lib/mockData';
 import { useWatchlistData } from '../hooks/useMarketData';
+import { STOCK_LIST } from '../lib/stockList';
 import type { SortOption, IVDataPoint } from '../types';
 
 type SortField = SortOption['field'];
@@ -15,17 +15,6 @@ const SORT_OPTIONS: { field: SortField; label: string }[] = [
   { field: 'price', label: 'Price' },
   { field: 'ivPercentile', label: 'IV%ile' },
 ];
-
-// Some extra stocks to add
-const AVAILABLE_STOCKS = [
-  { ticker: 'TSLA', name: 'Tesla Inc', price: 248.5, ivRank: 68, ivPercentile: 72, currentIV: 92, historicalVol: 75, trend: 'up' as const },
-  { ticker: 'AMC', name: 'AMC Entertainment', price: 4.2, ivRank: 85, ivPercentile: 91, currentIV: 180, historicalVol: 148, trend: 'down' as const },
-  { ticker: 'BBBY', name: 'Bed Bath & Beyond', price: 0.15, ivRank: 92, ivPercentile: 95, currentIV: 220, historicalVol: 190, trend: 'down' as const },
-  { ticker: 'PLTR', name: 'Palantir Technologies', price: 22.8, ivRank: 45, ivPercentile: 52, currentIV: 68, historicalVol: 58, trend: 'up' as const },
-  { ticker: 'RIVN', name: 'Rivian Automotive', price: 11.4, ivRank: 72, ivPercentile: 79, currentIV: 105, historicalVol: 88, trend: 'down' as const },
-];
-
-const ALL_STOCKS = [...MOCK_STOCKS, ...AVAILABLE_STOCKS];
 
 export function Watchlist() {
   const navigate = useNavigate();
@@ -57,29 +46,28 @@ export function Watchlist() {
   };
 
   const suggestions = addInput.length >= 1
-    ? ALL_STOCKS.filter(
+    ? STOCK_LIST.filter(
         (s) =>
-          s.ticker.includes(addInput.toUpperCase()) &&
+          (s.ticker.includes(addInput.toUpperCase()) || s.name.toUpperCase().includes(addInput.toUpperCase())) &&
           !tickers.includes(s.ticker)
       ).slice(0, 5)
     : [];
 
-  // Build display stocks: prefer live data, fall back to known mock data
+  // Build display stocks: prefer live data, fall back to name-only placeholder
   const displayStocks = tickers.map((t, i) => {
     const live = liveData?.[i]?.stock;
     if (live) return live;
-    const found = ALL_STOCKS.find((s) => s.ticker === t);
-    if (found) return found;
+    const meta = STOCK_LIST.find((s) => s.ticker === t);
     return {
-      ticker: t, name: 'Unknown', price: 0, ivRank: 0,
+      ticker: t, name: meta?.name ?? t, price: 0, ivRank: 0,
       ivPercentile: 0, currentIV: 0, historicalVol: 0, trend: 'flat' as const,
     };
   });
 
-  // Build IV history map keyed by ticker (live first, mock fallback)
+  // Build IV history map keyed by ticker
   const ivHistories: Record<string, IVDataPoint[]> = {};
   tickers.forEach((t, i) => {
-    ivHistories[t] = liveData?.[i]?.ivHistory ?? MOCK_IV_HISTORY[t] ?? [];
+    ivHistories[t] = liveData?.[i]?.ivHistory ?? [];
   });
 
   // Apply sort
@@ -183,7 +171,7 @@ export function Watchlist() {
                         <span className="text-xs flex-1" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
                           {s.name}
                         </span>
-                        <IVBadge value={s.ivRank} size="sm" />
+                        <span className="text-xs px-1.5 py-0.5 rounded" style={{ color: '#4a6a8a', background: 'rgba(74,106,138,0.1)', fontFamily: 'DM Sans, sans-serif' }}>{s.sector}</span>
                       </button>
                     ))}
                   </div>
@@ -307,15 +295,15 @@ export function Watchlist() {
           )}
         </div>
 
-        {/* Quick add suggestions */}
+        {/* Quick add suggestions from STOCK_LIST */}
         {tickers.length < 6 && (
           <div className="mt-6"
             style={{ opacity: mounted ? 1 : 0, transition: 'opacity 0.5s ease 0.4s' }}>
             <p className="text-xs mb-3" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
-              Suggested symbols with high IV:
+              Suggested symbols to add:
             </p>
             <div className="flex flex-wrap gap-2">
-              {AVAILABLE_STOCKS.filter((s) => !tickers.includes(s.ticker)).slice(0, 4).map((s) => (
+              {STOCK_LIST.filter((s) => !tickers.includes(s.ticker)).slice(0, 6).map((s) => (
                 <button
                   key={s.ticker}
                   onClick={() => addTicker(s.ticker)}
@@ -330,7 +318,9 @@ export function Watchlist() {
                   <span className="font-bold" style={{ fontFamily: 'Syne, sans-serif', color: '#e8f0fe' }}>
                     {s.ticker}
                   </span>
-                  <IVBadge value={s.ivRank} size="sm" />
+                  <span className="text-xs" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
+                    {s.sector}
+                  </span>
                 </button>
               ))}
             </div>
