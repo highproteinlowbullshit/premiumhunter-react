@@ -2,20 +2,21 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { IVChart } from '../components/IVChart';
 import { IVBadge } from '../components/IVBadge';
-import { useIVData, useStockDetail } from '../hooks/useIVData';
+import { useStockDetailData } from '../hooks/useMarketData';
 
 export function StockDetail() {
   const { ticker = '' } = useParams<{ ticker: string }>();
   const navigate = useNavigate();
   const [mounted, setMounted] = useState(false);
-  const { data: stock, isLoading: stockLoading } = useStockDetail(ticker);
-  const { data: ivHistory, isLoading: histLoading } = useIVData(ticker);
+  const { data, isLoading } = useStockDetailData(ticker);
+  const stock = data?.stock ?? null;
+  const ivHistory = data?.ivHistory ?? [];
 
   useEffect(() => {
-    if (!stockLoading) setMounted(true);
-  }, [stockLoading]);
+    if (!isLoading) setMounted(true);
+  }, [isLoading]);
 
-  if (stockLoading || histLoading) return <LoadingState />;
+  if (isLoading) return <LoadingState />;
   if (!stock) return <NotFoundState ticker={ticker} onBack={() => navigate(-1)} />;
 
   const isUp = stock.trend === 'up';

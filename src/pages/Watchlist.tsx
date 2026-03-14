@@ -4,7 +4,8 @@ import { IVBadge } from '../components/IVBadge';
 import { IVSparkline } from '../components/IVChart';
 import { useWatchlist } from '../hooks/useWatchlist';
 import { MOCK_IV_HISTORY, MOCK_STOCKS } from '../lib/mockData';
-import type { SortOption } from '../types';
+import { useWatchlistData } from '../hooks/useMarketData';
+import type { SortOption, IVDataPoint } from '../types';
 
 type SortField = SortOption['field'];
 
@@ -34,6 +35,7 @@ export function Watchlist() {
   const [mounted, setMounted] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { data: liveData } = useWatchlistData(tickers);
 
   useEffect(() => {
     setMounted(true);
@@ -62,15 +64,22 @@ export function Watchlist() {
       ).slice(0, 5)
     : [];
 
-  // Build display stocks: combine known + unknown tickers
-  const displayStocks = tickers.map((t) => {
+  // Build display stocks: prefer live data, fall back to known mock data
+  const displayStocks = tickers.map((t, i) => {
+    const live = liveData?.[i]?.stock;
+    if (live) return live;
     const found = ALL_STOCKS.find((s) => s.ticker === t);
     if (found) return found;
-    // Placeholder for unknown tickers
     return {
       ticker: t, name: 'Unknown', price: 0, ivRank: 0,
       ivPercentile: 0, currentIV: 0, historicalVol: 0, trend: 'flat' as const,
     };
+  });
+
+  // Build IV history map keyed by ticker (live first, mock fallback)
+  const ivHistories: Record<string, IVDataPoint[]> = {};
+  tickers.forEach((t, i) => {
+    ivHistories[t] = liveData?.[i]?.ivHistory ?? MOCK_IV_HISTORY[t] ?? [];
   });
 
   // Apply sort
@@ -287,7 +296,7 @@ export function Watchlist() {
                 <WatchlistRow
                   key={stock.ticker}
                   stock={stock}
-                  ivHistory={MOCK_IV_HISTORY[stock.ticker] || []}
+                  ivHistory={ivHistories[stock.ticker] ?? []}
                   isLast={i === sortedStocks.length - 1}
                   onView={() => navigate(`/stock/${stock.ticker}`)}
                   onRemove={() => removeTicker(stock.ticker)}
@@ -347,14 +356,27 @@ interface WatchlistRowProps {
 function WatchlistRow({ stock, ivHistory, isLast, onView, onRemove, delay }: WatchlistRowProps) {
   const [visible, setVisible] = useState(false);
   const [hovered, setHovered] = useState(false);
+  const [priceFlash, setPriceFlash] = useState<'up' | 'down' | null>(null);
+  const prevPrice = useRef<number | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setVisible(true), delay + 300);
     return () => clearTimeout(t);
   }, [delay]);
 
+  // Flash price cell green/red when live price updates
+  useEffect(() => {
+    if (prevPrice.current !== null && prevPrice.current !== stock.price && stock.price > 0) {
+      setPriceFlash(stock.price > prevPrice.current ? 'up' : 'down');
+      const t = setTimeout(() => setPriceFlash(null), 800);
+      return () => clearTimeout(t);
+    }
+    if (stock.price > 0) prevPrice.current = stock.price;
+  }, [stock.price]);
+
   const isUp = stock.trend === 'up';
   const isDown = stock.trend === 'down';
+  const flashColor = priceFlash === 'up' ? '#00d68f' : priceFlash === 'down' ? '#ff4d6d' : '#e8f0fe';
 
   return (
     <div
@@ -394,8 +416,8 @@ function WatchlistRow({ stock, ivHistory, isLast, onView, onRemove, delay }: Wat
             </span>
           </div>
           {/* Price shown inline on mobile, hidden on desktop (has its own column) */}
-          <p className="text-xs sm:hidden tabular-nums"
-            style={{ color: '#9ab4d4', fontFamily: 'JetBrains Mono, monospace' }}>
+          <p className="text-xs sm:hidden tabular-nums transition-colors duration-700"
+            style={{ color: flashColor !== '#e8f0fe' ? flashColor : '#9ab4d4', fontFamily: 'JetBrains Mono, monospace' }}>
             {stock.price > 0 ? `$${stock.price.toFixed(2)}` : stock.name}
           </p>
           <p className="text-xs hidden sm:block truncate" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
@@ -406,13 +428,17 @@ function WatchlistRow({ stock, ivHistory, isLast, onView, onRemove, delay }: Wat
 
       {/* Price — desktop only */}
       <div className="hidden sm:block">
-        <p className="text-sm font-medium tabular-nums"
-          style={{ color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace' }}>
+        <p className="text-sm font-medium tabular-nums transition-colors duration-700"
+          style={{ color: flashColor, fontFamily: 'JetBrains Mono, monospace' }}>
           {stock.price > 0 ? `$${stock.price.toFixed(2)}` : '—'}
         </p>
         <p className="text-xs"
           style={{ color: isUp ? '#00d68f' : isDown ? '#ff4d6d' : '#4a6a8a', fontFamily: 'JetBrains Mono, monospace' }}>
-          {stock.price > 0 ? `${isUp ? '+' : isDown ? '-' : ''}${(Math.random() * 3 + 0.3).toFixed(2)}%` : ''}
+          {stock.price > 0
+            ? stock.priceChangePct !== undefined
+              ? `${stock.priceChangePct >= 0 ? '+' : ''}${stock.priceChangePct.toFixed(2)}%`
+              : isUp ? '▲' : isDown ? '▼' : ''
+            : ''}
         </p>
       </div>
 

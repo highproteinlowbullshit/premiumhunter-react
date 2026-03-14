@@ -4,9 +4,10 @@ import { useAuth } from '../context/AuthContext';
 import type { ThemeMode } from '../types';
 
 const NAV_ITEMS = [
-  { to: '/dashboard', label: 'Dashboard', icon: GridIcon },
-  { to: '/watchlist', label: 'Watchlist', icon: ListIcon },
-  { to: '/wheel', label: 'Wheel Tracker', icon: WheelIcon },
+  { to: '/dashboard', label: 'Dashboard',    icon: GridIcon     },
+  { to: '/watchlist', label: 'Watchlist',    icon: ListIcon     },
+  { to: '/screener',  label: 'IV Screener',  icon: ScreenerIcon },
+  { to: '/wheel',     label: 'Wheel Tracker', icon: WheelIcon   },
 ];
 
 interface NavbarProps {
@@ -50,7 +51,7 @@ export function Navbar({ theme, onToggleTheme }: NavbarProps) {
           </div>
           <span className="text-lg font-bold tracking-tight"
             style={{ fontFamily: 'Syne, sans-serif', color: '#e8f0fe' }}>
-            Wheel<span style={{ color: '#00e5c4' }}>House</span>
+            Premium<span style={{ color: '#00e5c4' }}>Hunter</span>
           </span>
         </button>
 
@@ -227,6 +228,17 @@ function ListIcon() {
       <circle cx="1.5" cy="4" r="0.8" fill="currentColor" />
       <circle cx="1.5" cy="7.5" r="0.8" fill="currentColor" />
       <circle cx="1.5" cy="11" r="0.8" fill="currentColor" />
+    </svg>
+  );
+}
+
+function ScreenerIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+      <rect x="1" y="1" width="13" height="2.5" rx="1" stroke="currentColor" strokeWidth="1.1" />
+      <rect x="1" y="5.5" width="9" height="2.5" rx="1" stroke="currentColor" strokeWidth="1.1" />
+      <rect x="1" y="10" width="6" height="2.5" rx="1" stroke="currentColor" strokeWidth="1.1" />
+      <circle cx="12.5" cy="11.5" r="2" stroke="currentColor" strokeWidth="1.1" />
     </svg>
   );
 }

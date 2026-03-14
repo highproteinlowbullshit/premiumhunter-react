@@ -55,7 +55,7 @@ export function Login() {
               </svg>
             </div>
             <span className="text-xl font-bold" style={{ fontFamily: 'Syne, sans-serif', color: '#e8f0fe' }}>
-              Wheel<span style={{ color: '#00e5c4' }}>House</span>
+              Premium<span style={{ color: '#00e5c4' }}>Hunter</span>
             </span>
           </div>
           <h1 className="text-2xl font-bold mb-1" style={{ fontFamily: 'Syne, sans-serif', color: '#e8f0fe' }}>

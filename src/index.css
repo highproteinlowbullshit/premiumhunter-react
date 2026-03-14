@@ -160,6 +160,63 @@ body {
   border-color: rgba(0, 229, 196, 0.2);
 }
 
+/* ── Dual-thumb range slider ─────────────────────────────────────────── */
+.range-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  position: absolute;
+  width: 100%;
+  height: 4px;
+  background: transparent;
+  pointer-events: none;
+  outline: none;
+  border: none;
+}
+.range-slider-thumb::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #00e5c4;
+  border: 2px solid #050d1a;
+  box-shadow: 0 0 8px rgba(0,229,196,0.5);
+  cursor: pointer;
+  pointer-events: all;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+.range-slider-thumb::-webkit-slider-thumb:hover {
+  box-shadow: 0 0 16px rgba(0,229,196,0.7);
+  transform: scale(1.1);
+}
+.range-slider-thumb::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #00e5c4;
+  border: 2px solid #050d1a;
+  box-shadow: 0 0 8px rgba(0,229,196,0.5);
+  cursor: pointer;
+  pointer-events: all;
+}
+
+/* Skeleton shimmer */
+@keyframes skeleton-shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(255,255,255,0.04) 25%,
+    rgba(255,255,255,0.08) 50%,
+    rgba(255,255,255,0.04) 75%
+  );
+  background-size: 400px 100%;
+  animation: skeleton-shimmer 1.4s ease infinite;
+  border-radius: 4px;
+}
+
 /* Light mode */
 .light body,
 body.light {

@@ -8,6 +8,7 @@ export interface StockTicker {
   historicalVol: number;
   trend: 'up' | 'down' | 'flat';
   earningsDate?: string;
+  priceChangePct?: number;  // live % change from Finnhub dp field
 }
 
 export interface IVDataPoint {
