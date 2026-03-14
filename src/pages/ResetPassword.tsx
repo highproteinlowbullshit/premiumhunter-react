@@ -14,6 +14,8 @@ export function ResetPassword() {
   const [error, setError] = useState('');
 
   useEffect(() => {
+    let fallbackTimer: ReturnType<typeof setTimeout>;
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') {
         clearTimeout(fallbackTimer);
@@ -21,7 +23,7 @@ export function ResetPassword() {
       }
     });
 
-    const fallbackTimer = setTimeout(() => {
+    fallbackTimer = setTimeout(() => {
       navigate('/login', { replace: true });
     }, 3000);
 
