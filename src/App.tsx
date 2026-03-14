@@ -15,6 +15,9 @@ import { WheelTracker } from './pages/WheelTracker';
 import { Screener } from './pages/Screener';
 import { Login } from './pages/Login';
 import { Signup } from './pages/Signup';
+import { ForgotPassword } from './pages/ForgotPassword';
+import { ResetPassword } from './pages/ResetPassword';
+import { NotFound } from './pages/NotFound';
 import { DemoBanner } from './components/DemoBanner';
 
 const queryClient = new QueryClient({
@@ -49,16 +52,21 @@ function AppInner() {
       <ErrorBoundary>
         <Routes>
           {/* Public */}
-          <Route path="/login"  element={<Login />} />
+          <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
 
           {/* Protected */}
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-          <Route path="/watchlist"  element={<ProtectedRoute><Watchlist /></ProtectedRoute>} />
+          <Route path="/watchlist" element={<ProtectedRoute><Watchlist /></ProtectedRoute>} />
           <Route path="/stock/:ticker" element={<ProtectedRoute><StockDetail /></ProtectedRoute>} />
-          <Route path="/wheel"    element={<ProtectedRoute><WheelTracker /></ProtectedRoute>} />
+          <Route path="/wheel" element={<ProtectedRoute><WheelTracker /></ProtectedRoute>} />
           <Route path="/screener" element={<ProtectedRoute><Screener /></ProtectedRoute>} />
+
+          {/* Catch-all */}
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </ErrorBoundary>
       <DemoBanner />
