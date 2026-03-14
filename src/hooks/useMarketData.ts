@@ -12,16 +12,42 @@ import type { ScreenerStock } from '../lib/screenerData';
 
 const SCREENER_BATCH = 20;         // tickers per batch
 const SCREENER_BATCH_DELAY_MS = 50; // ms between batches
-const SCREENER_CACHE_TTL = 5 * 60 * 1000; // 5 minutes in-session cache
+// 6 hours — matches the per-ticker Polygon localStorage TTL so both expire together
+const SCREENER_CACHE_TTL = 6 * 60 * 60 * 1000;
+const SCREENER_LS_KEY = 'ph_screener_v1';
 
 // ── Module-level session cache ─────────────────────────────────────────────
-// Persists across navigation so returning to the screener is instant.
+// In-memory: survives navigation within a session.
+// localStorage: survives page refreshes and tab closes (same 6h TTL).
 interface ScreenerSessionCache {
   stocks: ScreenerStock[];
   loadedAt: number;
   isComplete: boolean;
 }
 let _cache: ScreenerSessionCache | null = null;
+
+function loadFromStorage(): void {
+  try {
+    const raw = localStorage.getItem(SCREENER_LS_KEY);
+    if (!raw) return;
+    const stored = JSON.parse(raw) as ScreenerSessionCache;
+    if (stored.isComplete && Date.now() - stored.loadedAt < SCREENER_CACHE_TTL) {
+      _cache = stored;
+    } else {
+      localStorage.removeItem(SCREENER_LS_KEY);
+    }
+  } catch { /* ignore parse errors or storage unavailable */ }
+}
+
+function saveToStorage(): void {
+  if (!_cache?.isComplete) return;
+  try {
+    localStorage.setItem(SCREENER_LS_KEY, JSON.stringify(_cache));
+  } catch { /* quota exceeded — non-fatal */ }
+}
+
+// Populate in-memory cache from localStorage at module load time
+loadFromStorage();
 
 function cacheIsFresh(): boolean {
   return !!_cache && _cache.isComplete && Date.now() - _cache.loadedAt < SCREENER_CACHE_TTL;
@@ -153,7 +179,10 @@ export function useScreenerStream(): ScreenerStreamState {
 
       if (!cancelledRef.current) {
         setIsLoading(false);
-        if (_cache) _cache = { ..._cache, isComplete: true, loadedAt: Date.now() };
+        if (_cache) {
+          _cache = { ..._cache, isComplete: true, loadedAt: Date.now() };
+          saveToStorage();
+        }
       }
     }
 
