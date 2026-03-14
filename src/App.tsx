@@ -6,7 +6,8 @@ import { ToastProvider } from './context/ToastContext';
 import { WatchlistProvider } from './context/WatchlistContext';
 import { Navbar } from './components/Navbar';
 import { ToastContainer } from './components/Toast';
-import { ErrorBoundary } from './components/ErrorBoundary';
+import * as Sentry from '@sentry/react';
+import { ErrorFallback } from './components/ErrorBoundary';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { Dashboard } from './pages/Dashboard';
 import { Watchlist } from './pages/Watchlist';
@@ -49,7 +50,7 @@ function AppInner() {
     <div className={theme === 'light' ? 'light' : ''} style={{ minHeight: '100vh' }}>
       <Navbar theme={theme} onToggleTheme={() => setTheme(theme === 'dark' ? 'light' : 'dark')} />
       <ToastContainer />
-      <ErrorBoundary>
+      <Sentry.ErrorBoundary fallback={(props) => <ErrorFallback onReset={props.resetError} />}>
         <Routes>
           {/* Public */}
           <Route path="/login" element={<Login />} />
@@ -68,7 +69,7 @@ function AppInner() {
           {/* Catch-all */}
           <Route path="*" element={<NotFound />} />
         </Routes>
-      </ErrorBoundary>
+      </Sentry.ErrorBoundary>
       <DemoBanner />
     </div>
   );
