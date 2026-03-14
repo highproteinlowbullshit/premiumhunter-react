@@ -3,6 +3,7 @@ import type { WheelPosition, WheelStrategy, PositionStatus } from '../types';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import * as Sentry from '@sentry/react';
 
 // ── DB row shape (snake_case from Supabase) ───────────────────────────────────
 interface DbPosition {
@@ -122,6 +123,7 @@ export function usePositions() {
 
       if (error) {
         setPositions((prev) => prev.filter((p) => p.id !== tempId));
+        Sentry.captureException(error);
         showToast('Failed to save position', 'error');
       } else {
         // Swap temp ID for the real Supabase UUID
@@ -148,6 +150,7 @@ export function usePositions() {
         .eq('user_id', user.id);
 
       if (error) {
+        Sentry.captureException(error);
         showToast('Failed to remove position — refresh to sync', 'error');
       }
     },
@@ -178,6 +181,7 @@ export function usePositions() {
         .eq('user_id', user.id);
 
       if (error) {
+        Sentry.captureException(error);
         showToast('Failed to close position', 'error');
       } else {
         showToast('Position closed', 'success');

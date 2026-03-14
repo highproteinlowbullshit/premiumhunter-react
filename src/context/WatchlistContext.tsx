@@ -3,6 +3,7 @@ import type { SortOption } from '../types';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import { useToast } from './ToastContext';
+import * as Sentry from '@sentry/react';
 
 const DEFAULT_TICKERS = ['GME', 'SOFI', 'MARA'];
 
@@ -58,6 +59,7 @@ export function WatchlistProvider({ children }: { children: ReactNode }) {
         if (error) {
           // Revert on failure
           setTickers((prev) => prev.filter((t) => t !== upper));
+          Sentry.captureException(error);
           showToast(`Failed to add ${upper}`, 'error');
         } else {
           showToast(`${upper} added to watchlist`, 'success');
@@ -84,6 +86,7 @@ export function WatchlistProvider({ children }: { children: ReactNode }) {
           setTickers((prev) =>
             prev.includes(ticker) ? prev : [...prev, ticker]
           );
+          Sentry.captureException(error);
           showToast(`Failed to remove ${ticker}`, 'error');
         } else {
           showToast(`${ticker} removed from watchlist`, 'info');
