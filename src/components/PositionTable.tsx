@@ -3,9 +3,11 @@ import type { WheelPosition } from '../types';
 interface PositionTableProps {
   positions: WheelPosition[];
   onRemove?: (id: string) => void;
+  onClose?: (position: WheelPosition) => void;
+  onEdit?: (position: WheelPosition) => void;
 }
 
-export function PositionTable({ positions, onRemove }: PositionTableProps) {
+export function PositionTable({ positions, onRemove, onClose, onEdit }: PositionTableProps) {
   if (!positions.length) {
     return (
       <div className="flex flex-col items-center justify-center py-16 gap-3">
@@ -27,6 +29,8 @@ export function PositionTable({ positions, onRemove }: PositionTableProps) {
     );
   }
 
+  const hasActions = onRemove || onClose || onEdit;
+
   return (
     <>
       {/* ── Mobile card layout (< sm) ── */}
@@ -39,7 +43,7 @@ export function PositionTable({ positions, onRemove }: PositionTableProps) {
           return (
             <div key={pos.id} className="rounded-xl p-4"
               style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(0,229,196,0.08)' }}>
-              {/* Row 1: ticker + strategy + actions */}
+              {/* Row 1: ticker + strategy + badge */}
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <span className="text-base font-bold"
@@ -59,15 +63,33 @@ export function PositionTable({ positions, onRemove }: PositionTableProps) {
                     {pos.contracts}x
                   </span>
                 </div>
-                {onRemove && (
-                  <button onClick={() => onRemove(pos.id)}
-                    className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-[rgba(255,77,109,0.12)]"
-                    style={{ color: '#4a6a8a' }}>
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                      <path d="M1.5 1.5l9 9M10.5 1.5l-9 9" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-                    </svg>
-                  </button>
-                )}
+                {/* Mobile actions */}
+                <div className="flex items-center gap-1">
+                  {onEdit && (
+                    <button onClick={() => onEdit(pos)}
+                      className="w-7 h-7 rounded-lg flex items-center justify-center"
+                      style={{ color: '#4a6a8a', background: 'rgba(255,255,255,0.04)' }}
+                      title="Edit position">
+                      <EditIcon />
+                    </button>
+                  )}
+                  {onClose && (
+                    <button onClick={() => onClose(pos)}
+                      className="w-7 h-7 rounded-lg flex items-center justify-center"
+                      style={{ color: '#00e5c4', background: 'rgba(0,229,196,0.08)' }}
+                      title="Close position">
+                      <ClosePositionIcon />
+                    </button>
+                  )}
+                  {onRemove && (
+                    <button onClick={() => onRemove(pos.id)}
+                      className="w-7 h-7 rounded-lg flex items-center justify-center"
+                      style={{ color: '#4a6a8a' }}
+                      title="Delete">
+                      <TrashIcon />
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Row 2: metrics grid */}
@@ -121,7 +143,7 @@ export function PositionTable({ positions, onRemove }: PositionTableProps) {
         <table className="w-full text-sm" style={{ fontFamily: 'DM Sans, sans-serif', borderCollapse: 'separate', borderSpacing: 0 }}>
           <thead>
             <tr>
-              {['Ticker', 'Strategy', 'Strike', 'Expiry', 'Premium', 'P&L', 'DTE', ...(onRemove ? [''] : [])].map((h) => (
+              {['Ticker', 'Strategy', 'Strike', 'Expiry', 'Premium', 'P&L', 'DTE', ...(hasActions ? [''] : [])].map((h) => (
                 <th
                   key={h}
                   className="text-left py-3 px-4 text-xs font-medium tracking-widest uppercase first:pl-0 last:pr-0"
@@ -214,17 +236,40 @@ export function PositionTable({ positions, onRemove }: PositionTableProps) {
                     </div>
                   </td>
 
-                  {onRemove && (
+                  {hasActions && (
                     <td className="py-3.5 px-4 last:pr-0">
-                      <button
-                        onClick={() => onRemove(pos.id)}
-                        className="opacity-0 group-hover:opacity-100 w-7 h-7 rounded-md flex items-center justify-center transition-all duration-200 hover:bg-[rgba(255,77,109,0.12)]"
-                        style={{ color: '#4a6a8a' }}
-                      >
-                        <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-                          <path d="M2 2l9 9M11 2l-9 9" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-                        </svg>
-                      </button>
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                        {onEdit && (
+                          <button
+                            onClick={() => onEdit(pos)}
+                            className="w-7 h-7 rounded-md flex items-center justify-center transition-all duration-150 hover:bg-[rgba(255,255,255,0.08)]"
+                            style={{ color: '#4a6a8a' }}
+                            title="Edit position"
+                          >
+                            <EditIcon />
+                          </button>
+                        )}
+                        {onClose && (
+                          <button
+                            onClick={() => onClose(pos)}
+                            className="w-7 h-7 rounded-md flex items-center justify-center transition-all duration-150 hover:bg-[rgba(0,229,196,0.12)]"
+                            style={{ color: '#00e5c4' }}
+                            title="Close position early"
+                          >
+                            <ClosePositionIcon />
+                          </button>
+                        )}
+                        {onRemove && (
+                          <button
+                            onClick={() => onRemove(pos.id)}
+                            className="w-7 h-7 rounded-md flex items-center justify-center transition-all duration-150 hover:bg-[rgba(255,77,109,0.12)]"
+                            style={{ color: '#4a6a8a' }}
+                            title="Delete position"
+                          >
+                            <TrashIcon />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   )}
                 </tr>
@@ -234,5 +279,29 @@ export function PositionTable({ positions, onRemove }: PositionTableProps) {
         </table>
       </div>
     </>
+  );
+}
+
+function EditIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+      <path d="M9 2l2 2-6.5 6.5-2.5.5.5-2.5L9 2z" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function ClosePositionIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+      <path d="M2 7l3.5 3.5L11 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+      <path d="M2 3.5h9M5 3.5V2.5h3v1M4.5 3.5l.5 7h3l.5-7" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }

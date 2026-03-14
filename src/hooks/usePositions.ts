@@ -198,5 +198,47 @@ export function usePositions() {
     return acc + (p.premiumCollected - p.currentPrice * p.contracts);
   }, 0);
 
-  return { positions, openPositions, monthlyPnL, addPosition, removePosition, closePosition };
+  // ── Edit position ───────────────────────────────────────────────────────────
+  const editPosition = useCallback(
+    async (id: string, data: { strike: number; expiry: string; premiumCollected: number; contracts: number }) => {
+      const newDte = Math.max(0, Math.ceil((new Date(data.expiry).getTime() - Date.now()) / 86_400_000));
+      setPositions((prev) =>
+        prev.map((p) =>
+          p.id === id
+            ? {
+                ...p,
+                strike: data.strike,
+                expiry: data.expiry,
+                premiumCollected: data.premiumCollected * data.contracts,
+                contracts: data.contracts,
+                daysToExpiry: newDte,
+              }
+            : p
+        )
+      );
+
+      if (!user || id.startsWith('tmp-')) return;
+
+      const { error } = await supabase
+        .from('wheel_positions')
+        .update({
+          strike: data.strike,
+          expiry: data.expiry,
+          premium_collected: data.premiumCollected,
+          contracts: data.contracts,
+        })
+        .eq('id', id)
+        .eq('user_id', user.id);
+
+      if (error) {
+        Sentry.captureException(error);
+        showToast('Failed to update position', 'error');
+      } else {
+        showToast('Position updated', 'success');
+      }
+    },
+    [user, showToast]
+  );
+
+  return { positions, openPositions, monthlyPnL, addPosition, removePosition, closePosition, editPosition };
 }
