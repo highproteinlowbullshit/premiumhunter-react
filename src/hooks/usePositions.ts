@@ -124,7 +124,8 @@ export function usePositions() {
       if (error) {
         setPositions((prev) => prev.filter((p) => p.id !== tempId));
         Sentry.captureException(error);
-        showToast('Failed to save position', 'error');
+        console.error('usePositions.addPosition error:', error);
+        showToast(`Failed to save position: ${error.message}`, 'error');
       } else {
         // Swap temp ID for the real Supabase UUID
         setPositions((prev) =>

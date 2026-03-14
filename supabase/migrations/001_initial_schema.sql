@@ -1,5 +1,5 @@
 -- ============================================================
--- WheelHouse — Initial Schema
+-- PremiumHunter — Initial Schema
 -- Run this in the Supabase SQL editor (Dashboard > SQL Editor)
 -- ============================================================
 

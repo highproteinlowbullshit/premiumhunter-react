@@ -3,18 +3,38 @@ import { useNavigate } from 'react-router-dom';
 import { StatCard } from '../components/StatCard';
 import { IVBadge, IVLabel } from '../components/IVBadge';
 import { IVSparkline } from '../components/IVChart';
-import { MOCK_STOCKS, MOCK_IV_HISTORY, DASHBOARD_STATS } from '../lib/mockData';
-import type { StockTicker } from '../types';
-
-const TICKERS = ['GME', 'SOFI', 'MARA'];
+import { usePositions } from '../hooks/usePositions';
+import { useWatchlistContext } from '../context/WatchlistContext';
+import { useWatchlistData } from '../hooks/useMarketData';
+import type { StockTicker, IVDataPoint, WheelPosition } from '../types';
 
 export function Dashboard() {
   const navigate = useNavigate();
   const [mounted, setMounted] = useState(false);
+  const { positions, openPositions, monthlyPnL } = usePositions();
+  const { tickers } = useWatchlistContext();
+  const { data: liveData, isLoading } = useWatchlistData(tickers);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const totalPremium = openPositions.reduce((acc, p) => acc + p.premiumCollected, 0);
+
+  const closedPositions = positions.filter((p) => p.status === 'closed');
+  const wins = closedPositions.filter((p) => p.premiumCollected > p.currentPrice * p.contracts);
+  const winRate = closedPositions.length > 0
+    ? Math.round((wins.length / closedPositions.length) * 100)
+    : null;
+
+  const displayStocks: StockTicker[] = tickers.map((t, i) => {
+    const live = liveData?.[i]?.stock;
+    if (live) return live;
+    return { ticker: t, name: t, price: 0, ivRank: 0, ivPercentile: 0, currentIV: 0, historicalVol: 0, trend: 'flat' as const };
+  });
+
+  const ivHistories: Record<string, IVDataPoint[]> = {};
+  tickers.forEach((t, i) => { ivHistories[t] = liveData?.[i]?.ivHistory ?? []; });
 
   return (
     <div className="min-h-screen mesh-bg pt-24 pb-12 px-4 sm:px-6">
@@ -50,36 +70,30 @@ export function Dashboard() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <StatCard
             label="Open Positions"
-            value={DASHBOARD_STATS.totalOpenPositions}
+            value={openPositions.length.toString()}
             icon={<PositionsIcon />}
             accentColor="#00e5c4"
             delay={100}
-            change={2}
-            changeLabel="this month"
           />
           <StatCard
             label="Monthly P&L"
-            value={DASHBOARD_STATS.monthlyPnL.toLocaleString()}
-            prefix="$"
+            value={Math.abs(monthlyPnL).toLocaleString('en-US', { maximumFractionDigits: 0 })}
+            prefix={monthlyPnL < 0 ? '-$' : '$'}
             icon={<PnLIcon />}
-            accentColor="#00d68f"
+            accentColor={monthlyPnL >= 0 ? '#00d68f' : '#ff4d6d'}
             delay={180}
-            change={248}
-            changeLabel="vs last month"
           />
           <StatCard
             label="Win Rate"
-            value={DASHBOARD_STATS.winRate}
-            suffix="%"
+            value={winRate !== null ? winRate.toString() : '—'}
+            suffix={winRate !== null ? '%' : ''}
             icon={<WinRateIcon />}
             accentColor="#f5c842"
             delay={260}
-            change={3}
-            changeLabel="vs last month"
           />
           <StatCard
             label="Premium Collected"
-            value={DASHBOARD_STATS.totalPremiumCollected.toLocaleString()}
+            value={totalPremium.toLocaleString('en-US', { maximumFractionDigits: 0 })}
             prefix="$"
             icon={<PremiumIcon />}
             accentColor="#00c6f5"
@@ -100,7 +114,7 @@ export function Dashboard() {
               Watchlist
             </h2>
             <p className="text-xs mt-0.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
-              {TICKERS.length} tracked symbols
+              {tickers.length} tracked symbols{isLoading ? ' · Loading...' : ''}
             </p>
           </div>
           <button
@@ -121,11 +135,11 @@ export function Dashboard() {
 
         {/* Stock Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-8">
-          {MOCK_STOCKS.map((stock, i) => (
+          {displayStocks.map((stock, i) => (
             <StockCard
               key={stock.ticker}
               stock={stock}
-              ivHistory={MOCK_IV_HISTORY[stock.ticker]}
+              ivHistory={ivHistories[stock.ticker] ?? []}
               delay={420 + i * 80}
               onClick={() => navigate(`/stock/${stock.ticker}`)}
             />
@@ -135,10 +149,15 @@ export function Dashboard() {
         {/* Recent Activity / IV Heatmap Row */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* IV Rank Summary */}
-          <IVRankPanel />
+          <IVRankPanel stocks={displayStocks} />
 
           {/* Quick Wheel Summary */}
-          <WheelSummaryPanel onNavigate={() => navigate('/wheel')} />
+          <WheelSummaryPanel
+            openPositions={openPositions}
+            monthlyPnL={monthlyPnL}
+            totalPremium={totalPremium}
+            onNavigate={() => navigate('/wheel')}
+          />
         </div>
       </div>
     </div>
@@ -163,8 +182,9 @@ function StockCard({ stock, ivHistory, delay, onClick }: StockCardProps) {
     return () => clearTimeout(t);
   }, [delay]);
 
-  const isUp = stock.trend === 'up';
-  const isDown = stock.trend === 'down';
+  const pct = stock.priceChangePct;
+  const pctColor = pct != null ? (pct > 0 ? '#00d68f' : pct < 0 ? '#ff4d6d' : '#4a6a8a') : '#4a6a8a';
+  const pctLabel = pct != null ? `${pct > 0 ? '+' : ''}${pct.toFixed(2)}%` : '—';
 
   return (
     <div
@@ -217,13 +237,9 @@ function StockCard({ stock, ivHistory, delay, onClick }: StockCardProps) {
           </p>
           <p
             className="text-xs font-medium"
-            style={{
-              color: isUp ? '#00d68f' : isDown ? '#ff4d6d' : '#4a6a8a',
-              fontFamily: 'JetBrains Mono, monospace',
-            }}
+            style={{ color: pctColor, fontFamily: 'JetBrains Mono, monospace' }}
           >
-            {isUp ? '+' : isDown ? '-' : ''}
-            {(Math.random() * 3 + 0.5).toFixed(2)}%
+            {pctLabel}
           </p>
         </div>
       </div>
@@ -297,7 +313,7 @@ function TrendArrow({ trend }: { trend: 'up' | 'down' | 'flat' }) {
 // ——————————————————————————————————
 // IV Rank Panel
 // ——————————————————————————————————
-function IVRankPanel() {
+function IVRankPanel({ stocks }: { stocks: StockTicker[] }) {
   return (
     <div className="rounded-xl p-5"
       style={{
@@ -317,7 +333,7 @@ function IVRankPanel() {
       </div>
 
       <div className="space-y-4">
-        {MOCK_STOCKS.map((stock) => (
+        {stocks.map((stock) => (
           <div key={stock.ticker} className="flex items-center gap-4">
             <span className="text-sm font-bold w-12"
               style={{ fontFamily: 'Syne, sans-serif', color: '#e8f0fe' }}>
@@ -371,9 +387,16 @@ function IVRankPanel() {
 // ——————————————————————————————————
 // Wheel Summary Panel
 // ——————————————————————————————————
-function WheelSummaryPanel({ onNavigate }: { onNavigate: () => void }) {
-  const totalPremium = 780;
-  const openPnL = 1248;
+interface WheelSummaryPanelProps {
+  openPositions: WheelPosition[];
+  monthlyPnL: number;
+  totalPremium: number;
+  onNavigate: () => void;
+}
+
+function WheelSummaryPanel({ openPositions, monthlyPnL, totalPremium, onNavigate }: WheelSummaryPanelProps) {
+  const month = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const preview = openPositions.slice(0, 3);
 
   return (
     <div className="rounded-xl p-5"
@@ -388,7 +411,7 @@ function WheelSummaryPanel({ onNavigate }: { onNavigate: () => void }) {
             Wheel Positions
           </h3>
           <p className="text-xs mt-0.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
-            5 open · March 2026
+            {openPositions.length} open · {month}
           </p>
         </div>
         <button onClick={onNavigate}
@@ -403,47 +426,55 @@ function WheelSummaryPanel({ onNavigate }: { onNavigate: () => void }) {
 
       {/* Mini position list */}
       <div className="space-y-2.5 mb-5">
-        {[
-          { ticker: 'GME', strategy: 'CSP', strike: 25, dte: 8, pnl: 93 },
-          { ticker: 'MARA', strategy: 'CSP', strike: 18, dte: 15, pnl: 112 },
-          { ticker: 'SOFI', strategy: 'CC', strike: 13, dte: 22, pnl: 43 },
-        ].map((pos) => (
-          <div key={`${pos.ticker}-${pos.strategy}`}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg"
-            style={{ background: 'rgba(0,0,0,0.2)' }}>
-            <span className="font-bold text-sm w-12"
-              style={{ fontFamily: 'Syne, sans-serif', color: '#e8f0fe' }}>{pos.ticker}</span>
-            <span className="text-xs px-1.5 py-0.5 rounded"
-              style={{
-                color: pos.strategy === 'CSP' ? '#00c6f5' : '#00e5c4',
-                background: pos.strategy === 'CSP' ? 'rgba(0,198,245,0.1)' : 'rgba(0,229,196,0.1)',
-                fontFamily: 'JetBrains Mono, monospace',
-              }}>
-              {pos.strategy}
-            </span>
-            <span className="text-xs ml-auto" style={{ color: '#9ab4d4', fontFamily: 'JetBrains Mono, monospace' }}>
-              ${pos.strike} · {pos.dte}d
-            </span>
-            <span className="text-xs font-semibold"
-              style={{ color: '#00d68f', fontFamily: 'JetBrains Mono, monospace' }}>
-              +${pos.pnl}
-            </span>
-          </div>
-        ))}
+        {preview.length === 0 ? (
+          <p className="text-xs text-center py-4" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
+            No open positions · Add one in the Wheel Tracker
+          </p>
+        ) : (
+          preview.map((pos) => {
+            const positionPnL = pos.premiumCollected - pos.currentPrice * pos.contracts;
+            return (
+              <div key={pos.id}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-lg"
+                style={{ background: 'rgba(0,0,0,0.2)' }}>
+                <span className="font-bold text-sm w-12"
+                  style={{ fontFamily: 'Syne, sans-serif', color: '#e8f0fe' }}>{pos.ticker}</span>
+                <span className="text-xs px-1.5 py-0.5 rounded"
+                  style={{
+                    color: pos.strategy === 'CSP' ? '#00c6f5' : '#00e5c4',
+                    background: pos.strategy === 'CSP' ? 'rgba(0,198,245,0.1)' : 'rgba(0,229,196,0.1)',
+                    fontFamily: 'JetBrains Mono, monospace',
+                  }}>
+                  {pos.strategy}
+                </span>
+                <span className="text-xs ml-auto" style={{ color: '#9ab4d4', fontFamily: 'JetBrains Mono, monospace' }}>
+                  ${pos.strike} · {pos.daysToExpiry}d
+                </span>
+                <span className="text-xs font-semibold"
+                  style={{ color: positionPnL >= 0 ? '#00d68f' : '#ff4d6d', fontFamily: 'JetBrains Mono, monospace' }}>
+                  {positionPnL >= 0 ? '+' : '-'}${Math.abs(positionPnL).toFixed(0)}
+                </span>
+              </div>
+            );
+          })
+        )}
       </div>
 
       {/* P&L Summary */}
       <div className="grid grid-cols-2 gap-3 pt-4" style={{ borderTop: '1px solid rgba(0,229,196,0.06)' }}>
-        <div className="rounded-lg p-3" style={{ background: 'rgba(0,214,143,0.06)', border: '1px solid rgba(0,214,143,0.12)' }}>
-          <p className="text-xs mb-1" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>Total P&L</p>
-          <p className="text-lg font-bold" style={{ color: '#00d68f', fontFamily: 'JetBrains Mono, monospace' }}>
-            +${openPnL}
+        <div className="rounded-lg p-3" style={{
+          background: monthlyPnL >= 0 ? 'rgba(0,214,143,0.06)' : 'rgba(255,77,109,0.06)',
+          border: monthlyPnL >= 0 ? '1px solid rgba(0,214,143,0.12)' : '1px solid rgba(255,77,109,0.12)',
+        }}>
+          <p className="text-xs mb-1" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>Open P&L</p>
+          <p className="text-lg font-bold" style={{ color: monthlyPnL >= 0 ? '#00d68f' : '#ff4d6d', fontFamily: 'JetBrains Mono, monospace' }}>
+            {monthlyPnL >= 0 ? '+' : '-'}${Math.abs(monthlyPnL).toFixed(0)}
           </p>
         </div>
         <div className="rounded-lg p-3" style={{ background: 'rgba(0,229,196,0.06)', border: '1px solid rgba(0,229,196,0.12)' }}>
-          <p className="text-xs mb-1" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>Premium/mo</p>
+          <p className="text-xs mb-1" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>Premium Collected</p>
           <p className="text-lg font-bold" style={{ color: '#00e5c4', fontFamily: 'JetBrains Mono, monospace' }}>
-            ${totalPremium}
+            ${totalPremium.toFixed(0)}
           </p>
         </div>
       </div>
