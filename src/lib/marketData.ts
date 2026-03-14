@@ -61,7 +61,7 @@ export async function getSupabaseCachedToday(): Promise<Map<string, SupabaseIVRo
 /** Build a ScreenerStock from live API data */
 function buildScreenerFromLive(
   ticker: string,
-  quote: { c: number; dp: number } | null,
+  quote: { c: number; dp: number; pc?: number } | null,
   hv: { ivRank: number; ivPercentile: number; currentHV: number; hv30: number; hv52wkHigh: number; hv52wkLow: number; ivHvRatio: number; volume: number | null } | null
 ): ScreenerStock {
   const meta = STOCK_META[ticker];
@@ -69,7 +69,7 @@ function buildScreenerFromLive(
     ticker,
     name: meta?.name ?? ticker,
     sector: meta?.sector ?? 'Technology',
-    price: quote?.c && quote.c > 0 ? quote.c : null,
+    price: quote?.c && quote.c > 0 ? quote.c : (quote?.pc && quote.pc > 0 ? quote.pc : null),
     priceChange: quote?.dp ?? null,
     ivRank: hv?.ivRank ?? null,
     ivPercentile: hv?.ivPercentile ?? null,
@@ -86,13 +86,14 @@ function buildScreenerFromLive(
 
 /** Fetch a single stock from APIs (used for uncached tickers in the screener).
  *  skipSupabase=true avoids a redundant per-ticker Supabase round-trip when the
- *  caller has already confirmed this ticker is not in today's snapshot table. */
+ *  caller has already confirmed this ticker is not in today's snapshot table.
+ *  preloadedQuote skips the Finnhub call when the caller already has price data. */
 export async function fetchScreenerStock(
   ticker: string,
-  opts?: { skipSupabase?: boolean }
+  opts?: { skipSupabase?: boolean; preloadedQuote?: { c: number; dp: number } }
 ): Promise<ScreenerStock> {
   const [quoteRes, hvRes] = await Promise.allSettled([
-    getQuote(ticker),
+    opts?.preloadedQuote ? Promise.resolve(opts.preloadedQuote) : getQuote(ticker),
     getIVData(ticker, opts),
   ]);
   const quote = quoteRes.status === 'fulfilled' ? quoteRes.value : null;
@@ -141,7 +142,7 @@ async function fetchWatchlistStock(ticker: string): Promise<WatchlistStockData> 
     stock: {
       ticker,
       name: meta?.name ?? ticker,
-      price: quote?.c && quote.c > 0 ? quote.c : 0,
+      price: quote?.c && quote.c > 0 ? quote.c : (quote?.pc && quote.pc > 0 ? quote.pc : 0),
       ivRank: hv?.ivRank ?? 0,
       ivPercentile: hv?.ivPercentile ?? 0,
       currentIV: hv?.currentHV ?? 0,
@@ -184,7 +185,7 @@ export async function getStockDetailData(ticker: string): Promise<StockDetailDat
     stock: {
       ticker,
       name: profile?.name || meta?.name || ticker,
-      price: quote?.c && quote.c > 0 ? quote.c : 0,
+      price: quote?.c && quote.c > 0 ? quote.c : (quote?.pc && quote.pc > 0 ? quote.pc : 0),
       ivRank: hv?.ivRank ?? 0,
       ivPercentile: hv?.ivPercentile ?? 0,
       currentIV: hv?.currentHV ?? 0,

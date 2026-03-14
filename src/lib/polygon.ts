@@ -102,6 +102,46 @@ function saveSupabaseSnapshot(ticker: string, result: PolygonIVData): void {
   })();
 }
 
+// ── Batch snapshot (price + volume for many tickers in one call) ──────────────
+
+export interface SnapshotQuote {
+  price: number | null;
+  priceChangePct: number | null;
+  volume: number | null;
+}
+
+export async function getSnapshotBatch(tickers: string[]): Promise<Map<string, SnapshotQuote>> {
+  if (tickers.length === 0) return new Map();
+  const url =
+    `${BASE}/v2/snapshot/locale/us/markets/stocks/tickers` +
+    `?tickers=${tickers.join(',')}&apiKey=${KEY}`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return new Map();
+    const json = await res.json() as {
+      tickers?: Array<{
+        ticker: string;
+        day?: { c?: number; v?: number };
+        prevDay?: { c?: number };
+        todaysChangePerc?: number;
+      }>;
+    };
+    const map = new Map<string, SnapshotQuote>();
+    for (const t of json.tickers ?? []) {
+      const dayClose = t.day?.c && t.day.c > 0 ? t.day.c : null;
+      const prevClose = t.prevDay?.c && t.prevDay.c > 0 ? t.prevDay.c : null;
+      map.set(t.ticker, {
+        price: dayClose ?? prevClose,
+        priceChangePct: t.todaysChangePerc ?? null,
+        volume: t.day?.v ?? null,
+      });
+    }
+    return map;
+  } catch {
+    return new Map();
+  }
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export async function getIVData(
