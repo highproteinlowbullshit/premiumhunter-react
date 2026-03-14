@@ -35,6 +35,61 @@
   --font-mono: 'JetBrains Mono', monospace;
 }
 
+/* ── Theme variables ──────────────────────────────────────────────────── */
+:root {
+  /* Backgrounds */
+  --ph-bg:          #050d1a;
+  --ph-bg-elevated: #0a1628;
+  --ph-surface:     rgba(13, 27, 53, 0.5);
+  --ph-surface-60:  rgba(13, 27, 53, 0.6);
+  --ph-surface-80:  rgba(13, 27, 53, 0.8);
+  --ph-overlay:     rgba(0, 0, 0, 0.2);
+  --ph-overlay-hover: rgba(0, 229, 196, 0.035);
+  /* Text */
+  --ph-text-1: #e8f0fe;
+  --ph-text-2: #9ab4d4;
+  --ph-text-3: #4a6a8a;
+  --ph-text-4: #2e4a6a;
+  --ph-text-nav-inactive: #6a8fb0;
+  /* Borders */
+  --ph-border:        rgba(0, 229, 196, 0.08);
+  --ph-border-md:     rgba(0, 229, 196, 0.1);
+  --ph-border-bright: rgba(0, 229, 196, 0.2);
+  --ph-border-row:    rgba(0, 229, 196, 0.05);
+  /* Navbar */
+  --ph-navbar-bg:        rgba(5, 13, 26, 0.92);
+  --ph-navbar-mobile-bg: rgba(5, 13, 26, 0.98);
+  /* Inputs */
+  --ph-input-bg: rgba(5, 13, 26, 0.8);
+}
+
+.light {
+  /* Backgrounds */
+  --ph-bg:          #f0f4fb;
+  --ph-bg-elevated: #e8eef8;
+  --ph-surface:     rgba(255, 255, 255, 0.7);
+  --ph-surface-60:  rgba(255, 255, 255, 0.85);
+  --ph-surface-80:  rgba(255, 255, 255, 0.95);
+  --ph-overlay:     rgba(0, 0, 0, 0.04);
+  --ph-overlay-hover: rgba(0, 180, 160, 0.05);
+  /* Text */
+  --ph-text-1: #0a1628;
+  --ph-text-2: #3d5a80;
+  --ph-text-3: #6b8aad;
+  --ph-text-4: #9ab4d4;
+  --ph-text-nav-inactive: #5a7a9a;
+  /* Borders */
+  --ph-border:        rgba(0, 150, 130, 0.12);
+  --ph-border-md:     rgba(0, 150, 130, 0.15);
+  --ph-border-bright: rgba(0, 150, 130, 0.25);
+  --ph-border-row:    rgba(0, 150, 130, 0.08);
+  /* Navbar */
+  --ph-navbar-bg:        rgba(240, 244, 251, 0.92);
+  --ph-navbar-mobile-bg: rgba(240, 244, 251, 0.98);
+  /* Inputs */
+  --ph-input-bg: rgba(255, 255, 255, 0.9);
+}
+
 * {
   box-sizing: border-box;
 }
@@ -47,8 +102,8 @@ html {
 
 body {
   margin: 0;
-  background-color: #050d1a;
-  color: #e8f0fe;
+  background-color: var(--ph-bg);
+  color: var(--ph-text-1);
   font-family: 'DM Sans', sans-serif;
   min-height: 100vh;
 }
@@ -63,7 +118,7 @@ body {
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #050d1a;
+  background: var(--ph-bg);
 }
 ::-webkit-scrollbar-thumb {
   background: rgba(0, 229, 196, 0.2);
@@ -75,15 +130,15 @@ body {
 
 /* Glassmorphism panel */
 .glass-panel {
-  background: rgba(13, 27, 53, 0.6);
-  border: 1px solid rgba(0, 229, 196, 0.12);
+  background: var(--ph-surface-60);
+  border: 1px solid var(--ph-border-md);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }
 
 .glass-panel-bright {
-  background: rgba(13, 27, 53, 0.8);
-  border: 1px solid rgba(0, 229, 196, 0.2);
+  background: var(--ph-surface-80);
+  border: 1px solid var(--ph-border-bright);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
 }
@@ -103,7 +158,15 @@ body {
     radial-gradient(ellipse at 20% 20%, rgba(0, 229, 196, 0.06) 0%, transparent 50%),
     radial-gradient(ellipse at 80% 80%, rgba(0, 198, 245, 0.04) 0%, transparent 50%),
     radial-gradient(ellipse at 50% 50%, rgba(0, 100, 180, 0.03) 0%, transparent 70%),
-    #050d1a;
+    var(--ph-bg);
+}
+
+.light .mesh-bg {
+  background:
+    radial-gradient(ellipse at 20% 20%, rgba(0, 200, 180, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 80%, rgba(0, 150, 220, 0.05) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 50%, rgba(0, 80, 160, 0.03) 0%, transparent 70%),
+    var(--ph-bg);
 }
 
 /* Noise texture overlay */
@@ -179,7 +242,7 @@ body {
   height: 16px;
   border-radius: 50%;
   background: #00e5c4;
-  border: 2px solid #050d1a;
+  border: 2px solid var(--ph-bg-elevated);
   box-shadow: 0 0 8px rgba(0,229,196,0.5);
   cursor: pointer;
   pointer-events: all;
@@ -194,7 +257,7 @@ body {
   height: 16px;
   border-radius: 50%;
   background: #00e5c4;
-  border: 2px solid #050d1a;
+  border: 2px solid var(--ph-bg-elevated);
   box-shadow: 0 0 8px rgba(0,229,196,0.5);
   cursor: pointer;
   pointer-events: all;
@@ -208,18 +271,11 @@ body {
 .skeleton {
   background: linear-gradient(
     90deg,
-    rgba(255,255,255,0.04) 25%,
-    rgba(255,255,255,0.08) 50%,
-    rgba(255,255,255,0.04) 75%
+    var(--ph-overlay) 25%,
+    rgba(128,128,128,0.08) 50%,
+    var(--ph-overlay) 75%
   );
   background-size: 400px 100%;
   animation: skeleton-shimmer 1.4s ease infinite;
   border-radius: 4px;
-}
-
-/* Light mode */
-.light body,
-body.light {
-  background-color: #f0f4fb;
-  color: #0a1628;
 }

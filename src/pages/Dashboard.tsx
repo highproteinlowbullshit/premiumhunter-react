@@ -52,16 +52,16 @@ export function Dashboard() {
           <div className="flex items-center gap-3 mb-2">
             <div className="h-px flex-1" style={{ background: 'linear-gradient(90deg, rgba(0,229,196,0.3), transparent)' }} />
             <span className="text-xs font-medium tracking-widest uppercase"
-              style={{ color: '#4a6a8a', fontFamily: 'JetBrains Mono, monospace' }}>
+              style={{ color: 'var(--ph-text-3)', fontFamily: 'JetBrains Mono, monospace' }}>
               Live Dashboard
             </span>
             <div className="w-2 h-2 rounded-full animate-pulse-glow" style={{ background: '#00e5c4' }} />
           </div>
           <h1 className="text-3xl sm:text-4xl font-bold"
-            style={{ fontFamily: 'Syne, sans-serif', color: '#e8f0fe', letterSpacing: '-0.02em' }}>
+            style={{ fontFamily: 'Syne, sans-serif', color: 'var(--ph-text-1)', letterSpacing: '-0.02em' }}>
             Market Overview
           </h1>
-          <p className="text-sm mt-1" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
+          <p className="text-sm mt-1" style={{ color: 'var(--ph-text-3)', fontFamily: 'DM Sans, sans-serif' }}>
             {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
           </p>
         </div>
@@ -110,10 +110,10 @@ export function Dashboard() {
             }}
           >
             <h2 className="text-lg font-semibold"
-              style={{ fontFamily: 'Syne, sans-serif', color: '#e8f0fe' }}>
+              style={{ fontFamily: 'Syne, sans-serif', color: 'var(--ph-text-1)' }}>
               Watchlist
             </h2>
-            <p className="text-xs mt-0.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--ph-text-3)', fontFamily: 'DM Sans, sans-serif' }}>
               {tickers.length} tracked symbols{isLoading ? ' · Loading...' : ''}
             </p>
           </div>
@@ -191,8 +191,8 @@ function StockCard({ stock, ivHistory, delay, onClick }: StockCardProps) {
       onClick={onClick}
       className="rounded-xl p-5 cursor-pointer group relative overflow-hidden"
       style={{
-        background: 'rgba(13, 27, 53, 0.6)',
-        border: '1px solid rgba(0, 229, 196, 0.1)',
+        background: 'var(--ph-surface-60)',
+        border: '1px solid var(--ph-border-md)',
         backdropFilter: 'blur(12px)',
         opacity: visible ? 1 : 0,
         transform: visible ? 'translateY(0)' : 'translateY(20px)',
@@ -206,7 +206,7 @@ function StockCard({ stock, ivHistory, delay, onClick }: StockCardProps) {
       }}
       onMouseLeave={(e) => {
         const el = e.currentTarget as HTMLDivElement;
-        el.style.borderColor = 'rgba(0, 229, 196, 0.1)';
+        el.style.borderColor = 'var(--ph-border-md)';
         el.style.boxShadow = 'none';
         el.style.transform = 'translateY(0)';
       }}
@@ -220,19 +220,19 @@ function StockCard({ stock, ivHistory, delay, onClick }: StockCardProps) {
         <div>
           <div className="flex items-center gap-2 mb-0.5">
             <h3 className="text-xl font-bold tracking-tight"
-              style={{ fontFamily: 'Syne, sans-serif', color: '#e8f0fe' }}>
+              style={{ fontFamily: 'Syne, sans-serif', color: 'var(--ph-text-1)' }}>
               {stock.ticker}
             </h3>
             <TrendArrow trend={stock.trend} />
           </div>
-          <p className="text-xs" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
+          <p className="text-xs" style={{ color: 'var(--ph-text-3)', fontFamily: 'DM Sans, sans-serif' }}>
             {stock.name}
           </p>
         </div>
 
         <div className="text-right">
           <p className="text-xl font-semibold tabular-nums"
-            style={{ color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace' }}>
+            style={{ color: 'var(--ph-text-1)', fontFamily: 'JetBrains Mono, monospace' }}>
             ${stock.price.toFixed(2)}
           </p>
           <p
@@ -247,29 +247,29 @@ function StockCard({ stock, ivHistory, delay, onClick }: StockCardProps) {
       {/* Metrics row */}
       <div className="flex items-center gap-3 sm:gap-4 mb-4 flex-wrap">
         <div className="flex flex-col gap-1">
-          <span className="text-xs" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
+          <span className="text-xs" style={{ color: 'var(--ph-text-3)', fontFamily: 'DM Sans, sans-serif' }}>
             IV Rank
           </span>
           <IVBadge value={stock.ivRank} size="md" showBar />
         </div>
         <div className="flex flex-col gap-1">
-          <span className="text-xs" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
+          <span className="text-xs" style={{ color: 'var(--ph-text-3)', fontFamily: 'DM Sans, sans-serif' }}>
             IV%ile
           </span>
           <span
             className="text-sm font-medium tabular-nums"
-            style={{ color: '#9ab4d4', fontFamily: 'JetBrains Mono, monospace' }}
+            style={{ color: 'var(--ph-text-2)', fontFamily: 'JetBrains Mono, monospace' }}
           >
             {stock.ivPercentile}
           </span>
         </div>
         <div className="flex flex-col gap-1">
-          <span className="text-xs" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
+          <span className="text-xs" style={{ color: 'var(--ph-text-3)', fontFamily: 'DM Sans, sans-serif' }}>
             IV
           </span>
           <span
             className="text-sm font-medium tabular-nums"
-            style={{ color: '#9ab4d4', fontFamily: 'JetBrains Mono, monospace' }}
+            style={{ color: 'var(--ph-text-2)', fontFamily: 'JetBrains Mono, monospace' }}
           >
             {stock.currentIV}%
           </span>
@@ -280,13 +280,13 @@ function StockCard({ stock, ivHistory, delay, onClick }: StockCardProps) {
       </div>
 
       {/* Sparkline */}
-      <div className="rounded-lg overflow-hidden" style={{ background: 'rgba(0,0,0,0.2)' }}>
+      <div className="rounded-lg overflow-hidden" style={{ background: 'var(--ph-overlay)' }}>
         <IVSparkline data={ivHistory || []} height={48} />
       </div>
 
       {/* Footer */}
       <div className="flex items-center justify-between mt-3">
-        <span className="text-xs" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
+        <span className="text-xs" style={{ color: 'var(--ph-text-3)', fontFamily: 'DM Sans, sans-serif' }}>
           52-wk IV rank range
         </span>
         <span className="text-xs" style={{ color: '#00e5c4', fontFamily: 'DM Sans, sans-serif' }}>
@@ -317,16 +317,16 @@ function IVRankPanel({ stocks }: { stocks: StockTicker[] }) {
   return (
     <div className="rounded-xl p-5"
       style={{
-        background: 'rgba(13, 27, 53, 0.6)',
-        border: '1px solid rgba(0, 229, 196, 0.1)',
+        background: 'var(--ph-surface-60)',
+        border: '1px solid var(--ph-border-md)',
         backdropFilter: 'blur(12px)',
       }}>
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h3 className="text-sm font-semibold" style={{ fontFamily: 'Syne, sans-serif', color: '#e8f0fe' }}>
+          <h3 className="text-sm font-semibold" style={{ fontFamily: 'Syne, sans-serif', color: 'var(--ph-text-1)' }}>
             IV Rank Overview
           </h3>
-          <p className="text-xs mt-0.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--ph-text-3)', fontFamily: 'DM Sans, sans-serif' }}>
             Current implied volatility environment
           </p>
         </div>
@@ -336,7 +336,7 @@ function IVRankPanel({ stocks }: { stocks: StockTicker[] }) {
         {stocks.map((stock) => (
           <div key={stock.ticker} className="flex items-center gap-4">
             <span className="text-sm font-bold w-12"
-              style={{ fontFamily: 'Syne, sans-serif', color: '#e8f0fe' }}>
+              style={{ fontFamily: 'Syne, sans-serif', color: 'var(--ph-text-1)' }}>
               {stock.ticker}
             </span>
             <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
@@ -359,7 +359,7 @@ function IVRankPanel({ stocks }: { stocks: StockTicker[] }) {
             </div>
             <div className="flex items-center gap-2 w-24 justify-end">
               <IVBadge value={stock.ivRank} size="sm" />
-              <span className="text-xs" style={{ color: '#4a6a8a', fontFamily: 'JetBrains Mono, monospace' }}>
+              <span className="text-xs" style={{ color: 'var(--ph-text-3)', fontFamily: 'JetBrains Mono, monospace' }}>
                 /100
               </span>
             </div>
@@ -368,7 +368,7 @@ function IVRankPanel({ stocks }: { stocks: StockTicker[] }) {
       </div>
 
       {/* Legend */}
-      <div className="flex items-center gap-4 mt-5 pt-4" style={{ borderTop: '1px solid rgba(0,229,196,0.06)' }}>
+      <div className="flex items-center gap-4 mt-5 pt-4" style={{ borderTop: '1px solid var(--ph-border-row)' }}>
         {[
           { label: 'Low < 30', color: '#00d68f' },
           { label: 'Med 30-60', color: '#f5c842' },
@@ -376,7 +376,7 @@ function IVRankPanel({ stocks }: { stocks: StockTicker[] }) {
         ].map(({ label, color }) => (
           <div key={label} className="flex items-center gap-1.5">
             <div className="w-2 h-2 rounded-full" style={{ background: color }} />
-            <span className="text-xs" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>{label}</span>
+            <span className="text-xs" style={{ color: 'var(--ph-text-3)', fontFamily: 'DM Sans, sans-serif' }}>{label}</span>
           </div>
         ))}
       </div>
@@ -401,16 +401,16 @@ function WheelSummaryPanel({ openPositions, monthlyPnL, totalPremium, onNavigate
   return (
     <div className="rounded-xl p-5"
       style={{
-        background: 'rgba(13, 27, 53, 0.6)',
-        border: '1px solid rgba(0, 229, 196, 0.1)',
+        background: 'var(--ph-surface-60)',
+        border: '1px solid var(--ph-border-md)',
         backdropFilter: 'blur(12px)',
       }}>
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h3 className="text-sm font-semibold" style={{ fontFamily: 'Syne, sans-serif', color: '#e8f0fe' }}>
+          <h3 className="text-sm font-semibold" style={{ fontFamily: 'Syne, sans-serif', color: 'var(--ph-text-1)' }}>
             Wheel Positions
           </h3>
-          <p className="text-xs mt-0.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--ph-text-3)', fontFamily: 'DM Sans, sans-serif' }}>
             {openPositions.length} open · {month}
           </p>
         </div>
@@ -427,7 +427,7 @@ function WheelSummaryPanel({ openPositions, monthlyPnL, totalPremium, onNavigate
       {/* Mini position list */}
       <div className="space-y-2.5 mb-5">
         {preview.length === 0 ? (
-          <p className="text-xs text-center py-4" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
+          <p className="text-xs text-center py-4" style={{ color: 'var(--ph-text-3)', fontFamily: 'DM Sans, sans-serif' }}>
             No open positions · Add one in the Wheel Tracker
           </p>
         ) : (
@@ -436,9 +436,9 @@ function WheelSummaryPanel({ openPositions, monthlyPnL, totalPremium, onNavigate
             return (
               <div key={pos.id}
                 className="flex items-center gap-3 px-3 py-2.5 rounded-lg"
-                style={{ background: 'rgba(0,0,0,0.2)' }}>
+                style={{ background: 'var(--ph-overlay)' }}>
                 <span className="font-bold text-sm w-12"
-                  style={{ fontFamily: 'Syne, sans-serif', color: '#e8f0fe' }}>{pos.ticker}</span>
+                  style={{ fontFamily: 'Syne, sans-serif', color: 'var(--ph-text-1)' }}>{pos.ticker}</span>
                 <span className="text-xs px-1.5 py-0.5 rounded"
                   style={{
                     color: pos.strategy === 'CSP' ? '#00c6f5' : '#00e5c4',
@@ -447,7 +447,7 @@ function WheelSummaryPanel({ openPositions, monthlyPnL, totalPremium, onNavigate
                   }}>
                   {pos.strategy}
                 </span>
-                <span className="text-xs ml-auto" style={{ color: '#9ab4d4', fontFamily: 'JetBrains Mono, monospace' }}>
+                <span className="text-xs ml-auto" style={{ color: 'var(--ph-text-2)', fontFamily: 'JetBrains Mono, monospace' }}>
                   ${pos.strike} · {pos.daysToExpiry}d
                 </span>
                 <span className="text-xs font-semibold"
@@ -461,18 +461,18 @@ function WheelSummaryPanel({ openPositions, monthlyPnL, totalPremium, onNavigate
       </div>
 
       {/* P&L Summary */}
-      <div className="grid grid-cols-2 gap-3 pt-4" style={{ borderTop: '1px solid rgba(0,229,196,0.06)' }}>
+      <div className="grid grid-cols-2 gap-3 pt-4" style={{ borderTop: '1px solid var(--ph-border-row)' }}>
         <div className="rounded-lg p-3" style={{
           background: monthlyPnL >= 0 ? 'rgba(0,214,143,0.06)' : 'rgba(255,77,109,0.06)',
           border: monthlyPnL >= 0 ? '1px solid rgba(0,214,143,0.12)' : '1px solid rgba(255,77,109,0.12)',
         }}>
-          <p className="text-xs mb-1" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>Open P&L</p>
+          <p className="text-xs mb-1" style={{ color: 'var(--ph-text-3)', fontFamily: 'DM Sans, sans-serif' }}>Open P&L</p>
           <p className="text-lg font-bold" style={{ color: monthlyPnL >= 0 ? '#00d68f' : '#ff4d6d', fontFamily: 'JetBrains Mono, monospace' }}>
             {monthlyPnL >= 0 ? '+' : '-'}${Math.abs(monthlyPnL).toFixed(0)}
           </p>
         </div>
         <div className="rounded-lg p-3" style={{ background: 'rgba(0,229,196,0.06)', border: '1px solid rgba(0,229,196,0.12)' }}>
-          <p className="text-xs mb-1" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>Premium Collected</p>
+          <p className="text-xs mb-1" style={{ color: 'var(--ph-text-3)', fontFamily: 'DM Sans, sans-serif' }}>Premium Collected</p>
           <p className="text-lg font-bold" style={{ color: '#00e5c4', fontFamily: 'JetBrains Mono, monospace' }}>
             ${totalPremium.toFixed(0)}
           </p>

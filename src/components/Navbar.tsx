@@ -31,8 +31,8 @@ export function Navbar({ theme, onToggleTheme }: NavbarProps) {
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 h-16" style={{
-      background: 'rgba(5, 13, 26, 0.92)',
-      borderBottom: '1px solid rgba(0, 229, 196, 0.1)',
+      background: 'var(--ph-navbar-bg)',
+      borderBottom: '1px solid var(--ph-border-md)',
       backdropFilter: 'blur(20px)',
       WebkitBackdropFilter: 'blur(20px)',
     }}>
@@ -50,7 +50,7 @@ export function Navbar({ theme, onToggleTheme }: NavbarProps) {
             </div>
           </div>
           <span className="text-lg font-bold tracking-tight"
-            style={{ fontFamily: 'Syne, sans-serif', color: '#e8f0fe' }}>
+            style={{ fontFamily: 'Syne, sans-serif', color: 'var(--ph-text-1)' }}>
             Premium<span style={{ color: '#00e5c4' }}>Hunter</span>
           </span>
         </button>
@@ -61,14 +61,12 @@ export function Navbar({ theme, onToggleTheme }: NavbarProps) {
             <NavLink
               key={to}
               to={to}
-              className={({ isActive }) =>
-                `flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                  isActive
-                    ? 'text-[#00e5c4] bg-[rgba(0,229,196,0.08)]'
-                    : 'text-[#6a8fb0] hover:text-[#e8f0fe] hover:bg-[rgba(255,255,255,0.04)]'
-                }`
-              }
-              style={{ fontFamily: 'DM Sans, sans-serif' }}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200"
+              style={({ isActive }) => ({
+                color: isActive ? '#00e5c4' : 'var(--ph-text-nav-inactive)',
+                background: isActive ? 'rgba(0,229,196,0.08)' : 'transparent',
+                fontFamily: 'DM Sans, sans-serif',
+              })}
             >
               <Icon />
               {label}
@@ -106,7 +104,7 @@ export function Navbar({ theme, onToggleTheme }: NavbarProps) {
                 </div>
                 <span
                   className="text-xs max-w-[100px] truncate"
-                  style={{ color: '#9ab4d4', fontFamily: 'DM Sans, sans-serif' }}
+                  style={{ color: 'var(--ph-text-2)', fontFamily: 'DM Sans, sans-serif' }}
                 >
                   {displayName}
                 </span>
@@ -115,7 +113,7 @@ export function Navbar({ theme, onToggleTheme }: NavbarProps) {
               <button
                 onClick={handleSignOut}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 hover:bg-[rgba(255,77,109,0.1)]"
-                style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', border: '1px solid transparent' }}
+                style={{ color: 'var(--ph-text-3)', fontFamily: 'DM Sans, sans-serif', border: '1px solid transparent' }}
                 title="Sign out"
               >
                 <SignOutIcon />
@@ -140,7 +138,8 @@ export function Navbar({ theme, onToggleTheme }: NavbarProps) {
 
           {/* Mobile menu */}
           <button
-            className="md:hidden w-9 h-9 rounded-lg flex items-center justify-center text-[#6a8fb0] hover:text-[#e8f0fe] transition-colors"
+            className="md:hidden w-9 h-9 rounded-lg flex items-center justify-center transition-colors"
+          style={{ color: 'var(--ph-text-nav-inactive)' }}
             onClick={() => setMobileOpen(!mobileOpen)}
           >
             {mobileOpen ? <CloseIcon /> : <MenuIcon />}
@@ -152,8 +151,8 @@ export function Navbar({ theme, onToggleTheme }: NavbarProps) {
       {mobileOpen && (
         <div className="md:hidden absolute top-16 left-0 right-0 py-2 px-4"
           style={{
-            background: 'rgba(5, 13, 26, 0.98)',
-            borderBottom: '1px solid rgba(0, 229, 196, 0.1)',
+            background: 'var(--ph-navbar-mobile-bg)',
+            borderBottom: '1px solid var(--ph-border-md)',
             backdropFilter: 'blur(20px)',
           }}>
           {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
@@ -161,13 +160,11 @@ export function Navbar({ theme, onToggleTheme }: NavbarProps) {
               key={to}
               to={to}
               onClick={() => setMobileOpen(false)}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium my-1 transition-all duration-200 ${
-                  isActive
-                    ? 'text-[#00e5c4] bg-[rgba(0,229,196,0.08)]'
-                    : 'text-[#6a8fb0] hover:text-[#e8f0fe]'
-                }`
-              }
+              className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium my-1 transition-all duration-200"
+              style={({ isActive }) => ({
+                color: isActive ? '#00e5c4' : 'var(--ph-text-nav-inactive)',
+                background: isActive ? 'rgba(0,229,196,0.08)' : 'transparent',
+              })}
             >
               <Icon />
               {label}
@@ -175,10 +172,10 @@ export function Navbar({ theme, onToggleTheme }: NavbarProps) {
           ))}
 
           {/* Mobile auth row */}
-          <div className="mt-1 pt-3 pb-1" style={{ borderTop: '1px solid rgba(0,229,196,0.08)' }}>
+          <div className="mt-1 pt-3 pb-1" style={{ borderTop: '1px solid var(--ph-border)' }}>
             {user ? (
               <div className="flex items-center justify-between px-4 py-2">
-                <span className="text-xs truncate max-w-[160px]" style={{ color: '#4a6a8a', fontFamily: 'JetBrains Mono, monospace' }}>
+                <span className="text-xs truncate max-w-[160px]" style={{ color: 'var(--ph-text-3)', fontFamily: 'JetBrains Mono, monospace' }}>
                   {user.email}
                 </span>
                 <button
