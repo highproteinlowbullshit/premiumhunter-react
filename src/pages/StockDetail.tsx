@@ -21,6 +21,8 @@ export function StockDetail() {
 
   const isUp = stock.trend === 'up';
   const isDown = stock.trend === 'down';
+  const pct = stock.priceChangePct;
+  const pctLabel = pct != null ? `${pct > 0 ? '+' : ''}${pct.toFixed(2)}%` : null;
   const earningsDaysAway = stock.earningsDate
     ? Math.ceil((new Date(stock.earningsDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
     : null;
@@ -72,15 +74,17 @@ export function StockDetail() {
           <div className="text-right">
             <p className="text-3xl font-bold tabular-nums"
               style={{ fontFamily: 'JetBrains Mono, monospace', color: '#e8f0fe' }}>
-              ${stock.price.toFixed(2)}
+              {stock.price > 0 ? `$${stock.price.toFixed(2)}` : '—'}
             </p>
-            <p className="text-sm font-medium mt-0.5"
-              style={{
-                color: isUp ? '#00d68f' : isDown ? '#ff4d6d' : '#4a6a8a',
-                fontFamily: 'JetBrains Mono, monospace',
-              }}>
-              {isUp ? '+' : isDown ? '-' : ''}2.34%
-            </p>
+            {pctLabel && (
+              <p className="text-sm font-medium mt-0.5"
+                style={{
+                  color: isUp ? '#00d68f' : isDown ? '#ff4d6d' : '#4a6a8a',
+                  fontFamily: 'JetBrains Mono, monospace',
+                }}>
+                {pctLabel}
+              </p>
+            )}
           </div>
         </div>
 
