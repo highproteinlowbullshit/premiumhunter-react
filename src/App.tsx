@@ -12,7 +12,7 @@ import { WelcomeModal, SwitchOffListener } from './components/PaperModals';
 import { PaperBanner } from './components/PaperBanner';
 import * as Sentry from '@sentry/react';
 import { ErrorFallback } from './components/ErrorBoundary';
-import { ProtectedRoute } from './components/ProtectedRoute';
+import { ProtectedRoute, GuestRoute } from './components/ProtectedRoute';
 import { Dashboard } from './pages/Dashboard';
 import { Watchlist } from './pages/Watchlist';
 import { StockDetail } from './pages/StockDetail';
@@ -67,8 +67,8 @@ function AppInner() {
       <Sentry.ErrorBoundary fallback={(props) => <ErrorFallback onReset={props.resetError} />}>
         <Routes>
           {/* Public */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
+          <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />
+          <Route path="/signup" element={<GuestRoute><Signup /></GuestRoute>} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/help" element={<HelpPage />} />
