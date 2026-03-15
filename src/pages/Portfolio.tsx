@@ -800,11 +800,12 @@ interface CspCoveragePanelProps {
   totalCash: number;
   cspObligation: number;
   cspUsedPct: number;
+  totalCSPContracts: number;
   openCSPs: { ticker: string; strike: number; contracts: number }[];
   isLoading: boolean;
 }
 
-function CspCoveragePanel({ totalCash, cspObligation, cspUsedPct, openCSPs, isLoading }: CspCoveragePanelProps) {
+function CspCoveragePanel({ totalCash, cspObligation, cspUsedPct, totalCSPContracts, openCSPs, isLoading }: CspCoveragePanelProps) {
   const isUncovered = !isFinite(cspUsedPct) || cspUsedPct > 100;
   const isTight = cspUsedPct > 80 && cspUsedPct <= 100;
   const isHealthy = cspUsedPct <= 80;
@@ -855,9 +856,9 @@ function CspCoveragePanel({ totalCash, cspObligation, cspUsedPct, openCSPs, isLo
             </span>
           )}
         </div>
-        {!isLoading && openCSPs.length > 0 && (
+        {!isLoading && totalCSPContracts > 0 && (
           <span style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', fontSize: 12 }}>
-            {openCSPs.length} open CSP{openCSPs.length !== 1 ? 's' : ''}
+            {totalCSPContracts} open CSP{totalCSPContracts !== 1 ? 's' : ''}
           </span>
         )}
       </div>
@@ -1007,6 +1008,7 @@ export function Portfolio() {
     .reduce((acc, h) => acc + h.quantity, 0);
 
   const openCSPs = openPositions.filter((p) => p.strategy === 'CSP');
+  const totalCSPContracts = openCSPs.reduce((acc, p) => acc + p.contracts, 0);
   const cspObligation = openCSPs.reduce((acc, p) => acc + p.strike * p.contracts * 100, 0);
   const showCspPanel = totalCashBalance > 0 || openCSPs.length > 0;
   const cspUsedPct = totalCashBalance > 0 ? Math.min((cspObligation / totalCashBalance) * 100, 999) : (cspObligation > 0 ? Infinity : 0);
@@ -1253,6 +1255,7 @@ export function Portfolio() {
             totalCash={totalCashBalance}
             cspObligation={cspObligation}
             cspUsedPct={cspUsedPct}
+            totalCSPContracts={totalCSPContracts}
             openCSPs={openCSPs}
             isLoading={isLoading}
           />
