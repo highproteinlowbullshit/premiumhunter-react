@@ -2,7 +2,7 @@ import { polygonQueue } from './requestQueue';
 import { supabase } from './supabase';
 import type { IVDataPoint } from '../types';
 
-const BASE = 'https://api.massive.com'; // formerly api.polygon.io (rebranded Oct 2025)
+const BASE = 'https://api.polygon.io';
 const KEY = import.meta.env.VITE_POLYGON_API_KEY as string;
 const CACHE_TTL = 6 * 60 * 60 * 1000; // 6 hours
 
