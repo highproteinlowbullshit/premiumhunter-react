@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { getSnapshotBatch } from '../lib/polygon';
+import { getQuote } from '../lib/finnhub';
 import type { PortfolioHolding, PortfolioSnapshot, HoldingType } from '../types';
 
 // DB row types (snake_case from Supabase)
@@ -171,10 +171,21 @@ export function usePortfolio() {
     }
     setOptionsPremium(computedPremium);
 
-    // Fetch live prices
+    // Fetch live prices via Finnhub (portfolio has few tickers; queue overhead is fine)
     if (holdings.length > 0) {
       const uniqueTickers = [...new Set(holdings.map((h) => h.ticker))];
-      const priceMap = await getSnapshotBatch(uniqueTickers);
+      const quoteResults = await Promise.allSettled(uniqueTickers.map((t) => getQuote(t)));
+      const priceMap = new Map<string, { price: number | null; priceChangePct: number | null }>();
+      uniqueTickers.forEach((ticker, i) => {
+        const r = quoteResults[i];
+        if (r.status === 'fulfilled') {
+          const q = r.value;
+          const price = q.c > 0 ? q.c : (q.pc > 0 ? q.pc : null);
+          priceMap.set(ticker, { price, priceChangePct: q.dp });
+        } else {
+          priceMap.set(ticker, { price: null, priceChangePct: null });
+        }
+      });
 
       const enriched: HoldingWithPrice[] = holdings.map((h) => {
         const quote = priceMap.get(h.ticker);
