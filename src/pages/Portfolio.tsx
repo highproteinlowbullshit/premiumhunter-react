@@ -858,7 +858,7 @@ function CspCoveragePanel({ totalCash, cspObligation, cspUsedPct, totalCSPContra
         </div>
         {!isLoading && totalCSPContracts > 0 && (
           <span style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', fontSize: 12 }}>
-            {totalCSPContracts} open CSP{totalCSPContracts !== 1 ? 's' : ''}
+            {totalCSPContracts} open contract{totalCSPContracts !== 1 ? 's' : ''}
           </span>
         )}
       </div>
