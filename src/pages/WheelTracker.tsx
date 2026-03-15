@@ -1,8 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { PositionTable } from '../components/PositionTable';
 import { usePositions } from '../hooks/usePositions';
 import { usePaperMode } from '../context/PaperModeContext';
 import { PaperWheelTracker } from './PaperWheelTracker';
+import { getQuote } from '../lib/finnhub';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../context/AuthContext';
 import type { WheelPosition, WheelStrategy } from '../types';
 
 export function WheelTracker() {
@@ -17,13 +20,35 @@ function RealWheelTracker() {
   const [closingPosition, setClosingPosition] = useState<WheelPosition | null>(null);
   const [editingPosition, setEditingPosition] = useState<WheelPosition | null>(null);
   const [assigningPosition, setAssigningPosition] = useState<WheelPosition | null>(null);
+  const [cashBalance, setCashBalance] = useState<number | null>(null);
+  const { user } = useAuth();
   const { positions, openPositions, monthlyPnL, addPosition, removePosition, closePosition, editPosition, assignPosition } = usePositions();
+
+  // Fetch cash balance from portfolio_holdings (holding_type = 'cash')
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from('portfolio_holdings')
+      .select('quantity')
+      .eq('user_id', user.id)
+      .eq('holding_type', 'cash')
+      .eq('status', 'open')
+      .then(({ data }) => {
+        if (data) {
+          const total = data.reduce((acc: number, row: { quantity: string }) => acc + Number(row.quantity), 0);
+          setCashBalance(total);
+        }
+      });
+  }, [user]);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
   const totalPremium = openPositions.reduce((acc, p) => acc + p.premiumCollected, 0);
+  const lockedCollateral = openPositions
+    .filter((p) => p.strategy === 'CSP')
+    .reduce((acc, p) => acc + p.strike * p.contracts * 100, 0);
 
   const closedPositions = positions.filter((p) => p.status === 'closed');
   const wins = closedPositions.filter((p) => p.premiumCollected > p.currentPrice * p.contracts);
@@ -120,6 +145,8 @@ function RealWheelTracker() {
       {/* Add Position Modal */}
       {showAddModal && (
         <AddPositionModal
+          cashBalance={cashBalance}
+          lockedCollateral={lockedCollateral}
           onClose={() => setShowAddModal(false)}
           onAdd={(data) => {
             addPosition(data);
@@ -570,6 +597,8 @@ function AssignPositionModal({ position, onClose, onConfirm }: {
 // Add Position Modal (unchanged from before)
 // ─────────────────────────────────────────────────────────────────────────────
 interface AddPositionModalProps {
+  cashBalance: number | null;
+  lockedCollateral: number;
   onClose: () => void;
   onAdd: (data: {
     ticker: string;
@@ -581,7 +610,7 @@ interface AddPositionModalProps {
   }) => void;
 }
 
-function AddPositionModal({ onClose, onAdd }: AddPositionModalProps) {
+function AddPositionModal({ cashBalance, lockedCollateral, onClose, onAdd }: AddPositionModalProps) {
   const [form, setForm] = useState({
     ticker: '',
     strategy: 'CSP' as WheelStrategy,
@@ -591,6 +620,29 @@ function AddPositionModal({ onClose, onAdd }: AddPositionModalProps) {
     contracts: '1',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [spotPrice, setSpotPrice] = useState<number | null>(null);
+  const [fetchingPrice, setFetchingPrice] = useState(false);
+
+  const contracts = Number(form.contracts) || 1;
+  const strike = Number(form.strike) || 0;
+  const collateral = form.strategy === 'CSP' && strike > 0 ? strike * contracts * 100 : 0;
+  const freeCash = cashBalance !== null ? Math.max(0, cashBalance - lockedCollateral) : null;
+  const insufficient = form.strategy === 'CSP' && collateral > 0 && freeCash !== null && collateral > freeCash;
+
+  const fetchSpot = useCallback(async (ticker: string) => {
+    if (!ticker) return;
+    setFetchingPrice(true);
+    try {
+      const q = await getQuote(ticker.toUpperCase());
+      const price = q.c > 0 ? q.c : q.pc;
+      if (price > 0) {
+        setSpotPrice(price);
+        // Pre-fill strike at ~95% of spot only if the field is still empty
+        if (!form.strike) setForm((f) => ({ ...f, strike: String(Math.floor(price * 0.95)) }));
+      }
+    } catch { /* ignore */ }
+    setFetchingPrice(false);
+  }, [form.strike]);
 
   const validate = () => {
     const e: Record<string, string> = {};
@@ -634,11 +686,18 @@ function AddPositionModal({ onClose, onAdd }: AddPositionModalProps) {
             <label className="block text-xs mb-1.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>Ticker</label>
             <input
               value={form.ticker}
-              onChange={(e) => setForm((f) => ({ ...f, ticker: e.target.value.toUpperCase() }))}
+              onChange={(e) => { setForm((f) => ({ ...f, ticker: e.target.value.toUpperCase() })); setSpotPrice(null); }}
+              onBlur={(e) => void fetchSpot(e.target.value)}
               placeholder=""
               className="w-full px-3 py-2.5 rounded-xl text-sm"
               style={inputStyle('ticker')}
             />
+            {fetchingPrice && <p className="text-xs mt-1" style={{ color: '#00e5c4', fontFamily: 'DM Sans, sans-serif' }}>Fetching price…</p>}
+            {spotPrice != null && !fetchingPrice && (
+              <p className="text-xs mt-1" style={{ color: '#00e5c4', fontFamily: 'JetBrains Mono, monospace' }}>
+                Live: ${spotPrice.toFixed(2)}
+              </p>
+            )}
             {errors.ticker && <p className="text-xs mt-1" style={{ color: '#ff4d6d', fontFamily: 'DM Sans, sans-serif' }}>{errors.ticker}</p>}
           </div>
           <div>
@@ -690,6 +749,58 @@ function AddPositionModal({ onClose, onAdd }: AddPositionModalProps) {
             />
           </div>
         </div>
+
+        {/* CSP Collateral required */}
+        {form.strategy === 'CSP' && collateral > 0 && (
+          <div className="rounded-lg px-4 py-3 text-xs"
+            style={{
+              background: insufficient ? 'rgba(255,77,109,0.06)' : 'rgba(0,229,196,0.05)',
+              border: `1px solid ${insufficient ? 'rgba(255,77,109,0.2)' : 'rgba(0,229,196,0.15)'}`,
+            }}>
+            <div className="flex justify-between items-center mb-1.5">
+              <span style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
+                Collateral required
+                <span style={{ color: '#2a4060', marginLeft: 4 }}>({contracts} × ${strike} × 100)</span>
+              </span>
+              <span style={{ color: insufficient ? '#ff4d6d' : '#00e5c4', fontFamily: 'JetBrains Mono, monospace', fontWeight: 700 }}>
+                ${collateral.toLocaleString()}
+              </span>
+            </div>
+            {cashBalance !== null && (
+              <>
+                <div className="flex justify-between items-center mb-1">
+                  <span style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>Cash balance</span>
+                  <span style={{ color: '#9ab4d4', fontFamily: 'JetBrains Mono, monospace', fontWeight: 600 }}>
+                    ${cashBalance.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                  </span>
+                </div>
+                {lockedCollateral > 0 && (
+                  <div className="flex justify-between items-center mb-1">
+                    <span style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>CSP obligation</span>
+                    <span style={{ color: '#ff8ca8', fontFamily: 'JetBrains Mono, monospace', fontWeight: 600 }}>
+                      −${lockedCollateral.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center pt-1.5"
+                  style={{ borderTop: '1px solid rgba(255,255,255,0.06)', marginTop: 2 }}>
+                  <span style={{ color: insufficient ? '#ff4d6d' : '#6a8fb0', fontFamily: 'DM Sans, sans-serif', fontWeight: 600 }}>
+                    Free cash
+                  </span>
+                  <span style={{ color: insufficient ? '#ff4d6d' : '#00d68f', fontFamily: 'JetBrains Mono, monospace', fontWeight: 700 }}>
+                    ${(freeCash ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                    {insufficient && <span style={{ marginLeft: 6, fontWeight: 400, fontSize: 10 }}>(insufficient)</span>}
+                  </span>
+                </div>
+              </>
+            )}
+            {cashBalance === null && (
+              <p style={{ color: '#2a4060', fontFamily: 'DM Sans, sans-serif', marginTop: 2 }}>
+                Add a Cash holding in Portfolio to see balance here
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Expiry */}
         <div>
