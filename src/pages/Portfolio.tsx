@@ -19,7 +19,7 @@ import { getQuote } from '../lib/finnhub';
 import type { PortfolioSnapshot, HoldingType } from '../types';
 
 type Currency = 'USD' | 'SGD';
-const SGD_FALLBACK_RATE = 1.34; // fallback if Finnhub fetch fails
+const SGD_FALLBACK_RATE = 1.275; // fallback if Finnhub fetch fails
 
 type RangeKey = '1W' | '1M' | '3M' | '6M' | '1Y' | 'All';
 
