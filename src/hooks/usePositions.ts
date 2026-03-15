@@ -32,7 +32,7 @@ function dbToPosition(row: DbPosition): WheelPosition {
     strike: Number(row.strike),
     expiry: row.expiry,
     // premiumCollected stored per-contract in DB → convert to total
-    premiumCollected: Number(row.premium_collected) * row.contracts,
+    premiumCollected: Number(row.premium_collected) * (Number(row.contracts) || 1),
     // currentPrice: use closing price if closed, else estimate 60% of per-contract premium
     currentPrice:
       row.closing_price != null
@@ -41,7 +41,7 @@ function dbToPosition(row: DbPosition): WheelPosition {
     daysToExpiry: dte,
     status: row.status as PositionStatus,
     openedAt: row.opened_at.split('T')[0],
-    contracts: row.contracts,
+    contracts: Number(row.contracts) || 1,
   };
 }
 
