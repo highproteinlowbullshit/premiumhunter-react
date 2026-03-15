@@ -96,9 +96,16 @@ export function Screener() {
     const priceMax = filters.priceMax !== '' ? Number(filters.priceMax) : Infinity;
 
     return stocks.filter((s) => {
-      // Null values are excluded from range filters (can't confirm they match)
-      if (s.ivRank == null || s.ivRank < filters.ivRankMin || s.ivRank > filters.ivRankMax) return false;
-      if (s.price == null || s.price < priceMin || s.price > priceMax) return false;
+      // Null = still loading: pass range filters (show row with '--'), but
+      // exclude when the user has narrowed the range from its full extent.
+      const ivRangeIsNarrowed = filters.ivRankMin > 0 || filters.ivRankMax < 100;
+      if (s.ivRank != null && (s.ivRank < filters.ivRankMin || s.ivRank > filters.ivRankMax)) return false;
+      if (s.ivRank == null && ivRangeIsNarrowed) return false;
+
+      const priceRangeIsNarrowed = priceMin > 0 || priceMax < Infinity;
+      if (s.price != null && (s.price < priceMin || s.price > priceMax)) return false;
+      if (s.price == null && priceRangeIsNarrowed) return false;
+
       if (filters.sector !== 'All' && s.sector !== filters.sector) return false;
       if (q && !s.ticker.includes(q) && !s.name.toUpperCase().includes(q)) return false;
       return true;
