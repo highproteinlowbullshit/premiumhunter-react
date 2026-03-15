@@ -1,9 +1,17 @@
 import { useEffect, useState } from 'react';
 import { PositionTable } from '../components/PositionTable';
 import { usePositions } from '../hooks/usePositions';
+import { usePaperMode } from '../context/PaperModeContext';
+import { PaperWheelTracker } from './PaperWheelTracker';
 import type { WheelPosition, WheelStrategy } from '../types';
 
 export function WheelTracker() {
+  const { isPaperMode } = usePaperMode();
+  if (isPaperMode) return <PaperWheelTracker />;
+  return <RealWheelTracker />;
+}
+
+function RealWheelTracker() {
   const [mounted, setMounted] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [closingPosition, setClosingPosition] = useState<WheelPosition | null>(null);

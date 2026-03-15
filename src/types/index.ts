@@ -67,3 +67,44 @@ export interface PortfolioSnapshot {
   realizedPnl: number;
   optionsPremium: number;
 }
+
+export interface PaperAccount {
+  id: string;
+  userId: string;
+  startingBalance: number;
+  currentCash: number;
+  totalPremiumCollected: number;
+  totalRealizedPnl: number;
+  tradesWon: number;
+  tradesTotal: number;
+  createdAt: string;
+  resetAt: string;
+}
+
+export interface PaperPosition {
+  id: string;
+  ticker: string;
+  strategy: 'CSP' | 'CC';
+  strike: number;
+  expiry: string;
+  premiumCollected: number;   // per-contract
+  contracts: number;
+  underlyingPriceAtEntry: number;
+  status: 'open' | 'closed' | 'assigned' | 'expired';
+  notes?: string;
+  openedAt: string;
+  closedAt?: string;
+  closingPremium?: number;
+  realizedPnl?: number;
+  createdAt: string;
+}
+
+export type OpenPaperPositionData = {
+  ticker: string;
+  strategy: 'CSP' | 'CC';
+  strike: number;
+  expiry: string;
+  premiumCollected: number;   // per-contract
+  contracts: number;
+  underlyingPriceAtEntry: number;
+};

@@ -4,9 +4,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import { WatchlistProvider } from './context/WatchlistContext';
+import { PaperModeProvider } from './context/PaperModeContext';
 import { Navbar } from './components/Navbar';
 import { ToastContainer } from './components/Toast';
 import { LeapsCalculator } from './components/LeapsCalculator';
+import { WelcomeModal, SwitchOffListener } from './components/PaperModals';
+import { PaperBanner } from './components/PaperBanner';
 import * as Sentry from '@sentry/react';
 import { ErrorFallback } from './components/ErrorBoundary';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -35,9 +38,11 @@ export default function App() {
       <BrowserRouter>
         <AuthProvider>
           <ToastProvider>
-            <WatchlistProvider>
-              <AppInner />
-            </WatchlistProvider>
+            <PaperModeProvider>
+              <WatchlistProvider>
+                <AppInner />
+              </WatchlistProvider>
+            </PaperModeProvider>
           </ToastProvider>
         </AuthProvider>
       </BrowserRouter>
@@ -54,6 +59,9 @@ function AppInner() {
         onOpenLeapsCalc={() => setLeapsCalcOpen(true)}
       />
       <LeapsCalculator isOpen={leapsCalcOpen} onClose={() => setLeapsCalcOpen(false)} />
+      <WelcomeModal />
+      <SwitchOffListener />
+      <PaperBanner />
       <ToastContainer />
       <Sentry.ErrorBoundary fallback={(props) => <ErrorFallback onReset={props.resetError} />}>
         <Routes>

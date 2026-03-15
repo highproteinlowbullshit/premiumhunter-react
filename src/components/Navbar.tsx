@@ -1,6 +1,7 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { usePaperMode } from '../context/PaperModeContext';
 
 const NAV_ITEMS = [
   { to: '/dashboard', label: 'Dashboard',    icon: GridIcon      },
@@ -18,6 +19,11 @@ export function Navbar({ onOpenLeapsCalc }: NavbarProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
+  const { isPaperMode, togglePaperMode } = usePaperMode();
+
+  useEffect(() => {
+    document.title = isPaperMode ? 'Paper Mode — Premium Hunter' : 'Premium Hunter';
+  }, [isPaperMode]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -32,6 +38,7 @@ export function Navbar({ onOpenLeapsCalc }: NavbarProps) {
     <nav className="fixed top-0 left-0 right-0 z-50 h-16" style={{
       background: 'var(--ph-navbar-bg)',
       borderBottom: '1px solid var(--ph-border-md)',
+      borderTop: isPaperMode ? '3px solid #f5c842' : 'none',
       backdropFilter: 'blur(20px)',
       WebkitBackdropFilter: 'blur(20px)',
     }}>
@@ -83,6 +90,36 @@ export function Navbar({ onOpenLeapsCalc }: NavbarProps) {
           >
             <CalcIcon />
           </button>
+
+          {/* Paper mode toggle */}
+          <button
+            onClick={togglePaperMode}
+            className="w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-200"
+            style={{
+              color: isPaperMode ? '#f5c842' : '#6a8fb0',
+              background: isPaperMode ? 'rgba(245,200,66,0.12)' : 'transparent',
+              border: isPaperMode ? '1px solid rgba(245,200,66,0.25)' : '1px solid transparent',
+            }}
+            title={isPaperMode ? 'Disable paper trading' : 'Enable paper trading'}
+          >
+            <PaperIcon />
+          </button>
+
+          {/* PAPER badge */}
+          {isPaperMode && (
+            <span
+              className="hidden md:flex items-center px-2 py-1 rounded text-xs font-bold"
+              style={{
+                background: 'rgba(245,200,66,0.15)',
+                border: '1px solid rgba(245,200,66,0.3)',
+                color: '#f5c842',
+                fontFamily: 'JetBrains Mono, monospace',
+                letterSpacing: '0.08em',
+              }}
+            >
+              PAPER
+            </span>
+          )}
 
           {/* Profile / auth */}
           {user ? (
@@ -325,6 +362,19 @@ function CalcIcon() {
       <rect x="4" y="10.5" width="2" height="1.5" rx="0.4" fill="currentColor" />
       <rect x="7" y="10.5" width="2" height="1.5" rx="0.4" fill="currentColor" />
       <rect x="10" y="10.5" width="2" height="1.5" rx="0.4" fill="currentColor" />
+    </svg>
+  );
+}
+
+function PaperIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <rect x="2" y="1" width="10" height="13" rx="1.5" stroke="currentColor" strokeWidth="1.2" />
+      <line x1="5" y1="5" x2="9" y2="5" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
+      <line x1="5" y1="8" x2="9" y2="8" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
+      <line x1="5" y1="11" x2="7" y2="11" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
+      <circle cx="13" cy="12" r="2.5" fill="currentColor" fillOpacity="0.15" stroke="currentColor" strokeWidth="1.1" />
+      <path d="M12.5 12h1M13 11.5v1" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
     </svg>
   );
 }

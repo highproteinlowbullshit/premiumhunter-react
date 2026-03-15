@@ -6,9 +6,17 @@ import { IVSparkline } from '../components/IVChart';
 import { usePositions } from '../hooks/usePositions';
 import { useWatchlistContext } from '../context/WatchlistContext';
 import { useWatchlistData } from '../hooks/useMarketData';
+import { usePaperMode } from '../context/PaperModeContext';
+import { PaperDashboard } from './PaperDashboard';
 import type { StockTicker, IVDataPoint, WheelPosition } from '../types';
 
 export function Dashboard() {
+  const { isPaperMode } = usePaperMode();
+  if (isPaperMode) return <PaperDashboard />;
+  return <RealDashboard />;
+}
+
+function RealDashboard() {
   const navigate = useNavigate();
   const [mounted, setMounted] = useState(false);
   const { positions, openPositions, monthlyPnL } = usePositions();

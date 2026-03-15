@@ -28,7 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase
       .from('user_preferences')
       .upsert(
-        { user_id: userId, theme: 'dark', default_sort: 'iv_rank' },
+        { user_id: userId, theme: 'dark', default_sort: 'iv_rank', paper_mode: false },
         { onConflict: 'user_id', ignoreDuplicates: true }
       );
   }, []);

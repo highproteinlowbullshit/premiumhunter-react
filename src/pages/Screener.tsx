@@ -10,6 +10,9 @@ import {
 } from '../lib/screenerData';
 import { useWatchlistContext } from '../context/WatchlistContext';
 import { useScreenerStream } from '../hooks/useMarketData';
+import { usePaperMode } from '../context/PaperModeContext';
+import { usePaperActions } from '../hooks/usePaperTrading';
+import { PaperTradeModal } from '../components/PaperModals';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -64,6 +67,9 @@ const DEFAULT_FILTERS: Filters = {
 export function Screener() {
   const navigate = useNavigate();
   const { isWatched, addTicker, removeTicker } = useWatchlistContext();
+  const { isPaperMode, paperAccount } = usePaperMode();
+  const { openPaperPosition } = usePaperActions();
+  const [paperTradeStock, setPaperTradeStock] = useState<ScreenerStock | null>(null);
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [mounted, setMounted] = useState(false);
@@ -130,6 +136,7 @@ export function Screener() {
   const isDirty = JSON.stringify(filters) !== JSON.stringify(DEFAULT_FILTERS);
 
   return (
+    <>
     <div className="min-h-screen mesh-bg pt-20 pb-12">
       {/* ── Page header ────────────────────────────────────────────────────── */}
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 pt-4 pb-0">
@@ -216,6 +223,8 @@ export function Screener() {
                         watched={isWatched(stock.ticker)}
                         onToggleWatch={() => isWatched(stock.ticker) ? removeTicker(stock.ticker) : addTicker(stock.ticker)}
                         onClick={() => navigate(`/stock/${stock.ticker}`)}
+                        isPaperMode={isPaperMode}
+                        onPaperTrade={() => setPaperTradeStock(stock)}
                       />
                     ))}
                   </tbody>
@@ -232,6 +241,8 @@ export function Screener() {
                   watched={isWatched(stock.ticker)}
                   onToggleWatch={() => isWatched(stock.ticker) ? removeTicker(stock.ticker) : addTicker(stock.ticker)}
                   onClick={() => navigate(`/stock/${stock.ticker}`)}
+                  isPaperMode={isPaperMode}
+                  onPaperTrade={() => setPaperTradeStock(stock)}
                 />
               ))}
             </div>
@@ -239,6 +250,22 @@ export function Screener() {
         )}
       </div>
     </div>
+
+    {paperTradeStock && (
+      <PaperTradeModal
+        ticker={paperTradeStock.ticker}
+        spotPrice={paperTradeStock.price ?? 0}
+        iv={(paperTradeStock.ivRank ?? 30) / 100}
+        currentCash={paperAccount?.currentCash ?? 0}
+        onClose={() => setPaperTradeStock(null)}
+        onSubmit={async (data) => {
+          const err = await openPaperPosition(data);
+          if (!err) setPaperTradeStock(null);
+          return err;
+        }}
+      />
+    )}
+    </>
   );
 }
 
@@ -577,13 +604,15 @@ function StickyHeader({ filters, set }: {
 // Desktop Row
 // ─────────────────────────────────────────────────────────────────────────────
 function DesktopRow({
-  stock, isLast, watched, onToggleWatch, onClick,
+  stock, isLast, watched, onToggleWatch, onClick, isPaperMode, onPaperTrade,
 }: {
   stock: ScreenerStock;
   isLast: boolean;
   watched: boolean;
   onToggleWatch: () => void;
   onClick: () => void;
+  isPaperMode: boolean;
+  onPaperTrade: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
   const ivColors = ivRankColors(stock.ivRank);
@@ -714,18 +743,31 @@ function DesktopRow({
       </td>
 
       {/* Action */}
-      <td className="py-3.5 pl-3 pr-5" onClick={(e) => { e.stopPropagation(); onToggleWatch(); }}>
-        <button
-          className="w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200"
-          style={{
-            background: watched ? 'rgba(0,229,196,0.15)' : 'rgba(255,255,255,0.04)',
-            border: watched ? '1px solid rgba(0,229,196,0.3)' : '1px solid rgba(255,255,255,0.06)',
-            color: watched ? '#00e5c4' : '#4a6a8a',
-          }}
-          title={watched ? 'Remove from watchlist' : 'Add to watchlist'}
-        >
-          {watched ? <CheckIcon /> : <PlusIcon />}
-        </button>
+      <td className="py-3.5 pl-3 pr-5">
+        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+          {isPaperMode && (
+            <button
+              onClick={onPaperTrade}
+              className="px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 hover:opacity-90"
+              style={{ background: 'rgba(245,200,66,0.15)', border: '1px solid rgba(245,200,66,0.3)', color: '#f5c842', fontFamily: 'DM Sans, sans-serif', whiteSpace: 'nowrap' }}
+              title="Paper trade this"
+            >
+              Paper Trade
+            </button>
+          )}
+          <button
+            onClick={onToggleWatch}
+            className="w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200"
+            style={{
+              background: watched ? 'rgba(0,229,196,0.15)' : 'rgba(255,255,255,0.04)',
+              border: watched ? '1px solid rgba(0,229,196,0.3)' : '1px solid rgba(255,255,255,0.06)',
+              color: watched ? '#00e5c4' : '#4a6a8a',
+            }}
+            title={watched ? 'Remove from watchlist' : 'Add to watchlist'}
+          >
+            {watched ? <CheckIcon /> : <PlusIcon />}
+          </button>
+        </div>
       </td>
     </tr>
   );
@@ -735,12 +777,14 @@ function DesktopRow({
 // Mobile Card
 // ─────────────────────────────────────────────────────────────────────────────
 function MobileCard({
-  stock, watched, onToggleWatch, onClick,
+  stock, watched, onToggleWatch, onClick, isPaperMode, onPaperTrade,
 }: {
   stock: ScreenerStock;
   watched: boolean;
   onToggleWatch: () => void;
   onClick: () => void;
+  isPaperMode: boolean;
+  onPaperTrade: () => void;
 }) {
   const ivColors = ivRankColors(stock.ivRank);
   const sectorColors = SECTOR_COLORS[stock.sector];
@@ -787,6 +831,16 @@ function MobileCard({
             style={{ color: ivColors.text, background: ivColors.bg, border: `1px solid ${ivColors.border}`, fontFamily: 'JetBrains Mono, monospace' }}>
             {stock.ivRank ?? '--'}
           </span>
+          {/* Paper trade button */}
+          {isPaperMode && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onPaperTrade(); }}
+              className="px-2 py-1 rounded-lg text-xs font-semibold"
+              style={{ background: 'rgba(245,200,66,0.15)', border: '1px solid rgba(245,200,66,0.3)', color: '#f5c842', fontFamily: 'DM Sans, sans-serif' }}
+            >
+              Paper
+            </button>
+          )}
           {/* Watch button */}
           <button
             onClick={(e) => { e.stopPropagation(); onToggleWatch(); }}

@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { usePaperMode } from '../context/PaperModeContext';
+import { PaperPortfolio } from './PaperPortfolio';
 import {
   AreaChart,
   Area,
@@ -950,6 +952,12 @@ function CspCoveragePanel({ totalCash, cspObligation, cspUsedPct, totalCSPContra
 // ── Main Portfolio Page ────────────────────────────────────────────────────────
 
 export function Portfolio() {
+  const { isPaperMode } = usePaperMode();
+  if (isPaperMode) return <PaperPortfolio />;
+  return <RealPortfolio />;
+}
+
+function RealPortfolio() {
   const navigate = useNavigate();
   const {
     holdingsWithPrice,
