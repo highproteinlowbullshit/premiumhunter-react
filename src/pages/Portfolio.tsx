@@ -399,6 +399,150 @@ function AddHoldingModal({ onClose, onSubmit, livePrices }: AddHoldingModalProps
   );
 }
 
+// ── Edit Holding Modal ─────────────────────────────────────────────────────────
+
+interface EditHoldingModalProps {
+  holding: HoldingWithPrice;
+  onClose: () => void;
+  onSubmit: (id: string, data: {
+    holdingType: HoldingType;
+    quantity: number;
+    avgCost: number;
+    openedAt: string;
+    expiry?: string;
+    strike?: number;
+    notes?: string;
+  }) => void;
+}
+
+function EditHoldingModal({ holding, onClose, onSubmit }: EditHoldingModalProps) {
+  const [holdingType, setHoldingType] = useState<HoldingType>(holding.holdingType);
+  const [quantity, setQuantity] = useState(String(holding.quantity));
+  const [avgCost, setAvgCost] = useState(String(holding.avgCost));
+  const [openedAt, setOpenedAt] = useState(holding.openedAt);
+  const [expiry, setExpiry] = useState(holding.expiry ?? '');
+  const [strike, setStrike] = useState(holding.strike != null ? String(holding.strike) : '');
+  const [notes, setNotes] = useState(holding.notes ?? '');
+
+  const isLeaps = holdingType === 'leaps_call' || holdingType === 'leaps_put';
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const qty = parseFloat(quantity);
+    const cost = parseFloat(avgCost);
+    if (!qty || !cost) return;
+    onSubmit(holding.id, {
+      holdingType,
+      quantity: qty,
+      avgCost: cost,
+      openedAt,
+      expiry: isLeaps && expiry ? expiry : undefined,
+      strike: isLeaps && strike ? parseFloat(strike) : undefined,
+      notes: notes.trim() || undefined,
+    });
+  };
+
+  const inputStyle: React.CSSProperties = {
+    background: 'rgba(0,0,0,0.3)',
+    border: '1px solid rgba(0,229,196,0.15)',
+    borderRadius: 6,
+    color: '#e8f0fe',
+    fontFamily: 'JetBrains Mono, monospace',
+    fontSize: 13,
+    padding: '8px 12px',
+    width: '100%',
+    outline: 'none',
+    boxSizing: 'border-box',
+  };
+
+  const labelStyle: React.CSSProperties = {
+    color: '#4a6a8a',
+    fontFamily: 'DM Sans, sans-serif',
+    fontSize: 11,
+    fontWeight: 600,
+    letterSpacing: '0.06em',
+    textTransform: 'uppercase',
+    display: 'block',
+    marginBottom: 6,
+  };
+
+  return (
+    <div
+      style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', padding: 16 }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div style={{ background: 'rgba(13,27,53,0.98)', border: '1px solid rgba(0,229,196,0.15)', borderRadius: 14, padding: '24px 28px', width: '100%', maxWidth: 480, maxHeight: '90vh', overflowY: 'auto' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+          <div>
+            <h2 style={{ color: '#e8f0fe', fontFamily: 'Syne, sans-serif', fontSize: 18, fontWeight: 700, margin: 0 }}>
+              Edit Holding
+            </h2>
+            <p style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', fontSize: 13, margin: '4px 0 0' }}>
+              {holding.ticker}
+            </p>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#4a6a8a', cursor: 'pointer', fontSize: 20, lineHeight: 1, padding: 4 }}>×</button>
+        </div>
+
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div>
+            <label style={labelStyle}>Holding Type</label>
+            <select value={holdingType} onChange={(e) => setHoldingType(e.target.value as HoldingType)} style={{ ...inputStyle, cursor: 'pointer' }}>
+              <option value="shares">Shares</option>
+              <option value="leaps_call">LEAPS Call</option>
+              <option value="leaps_put">LEAPS Put</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={labelStyle}>Quantity</label>
+              <input type="number" step="0.001" min="0.001" required value={quantity} onChange={(e) => setQuantity(e.target.value)} style={inputStyle} placeholder="e.g. 100" />
+            </div>
+            <div>
+              <label style={labelStyle}>Avg Cost ($)</label>
+              <input type="number" step="0.01" min="0.01" required value={avgCost} onChange={(e) => setAvgCost(e.target.value)} style={inputStyle} placeholder="e.g. 45.00" />
+            </div>
+          </div>
+
+          <div>
+            <label style={labelStyle}>Date Opened</label>
+            <input type="date" required value={openedAt} onChange={(e) => setOpenedAt(e.target.value)} style={inputStyle} />
+          </div>
+
+          {isLeaps && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div>
+                <label style={labelStyle}>Strike ($)</label>
+                <input type="number" step="0.5" min="0" value={strike} onChange={(e) => setStrike(e.target.value)} style={inputStyle} placeholder="e.g. 50" />
+              </div>
+              <div>
+                <label style={labelStyle}>Expiry</label>
+                <input type="date" value={expiry} onChange={(e) => setExpiry(e.target.value)} style={inputStyle} />
+              </div>
+            </div>
+          )}
+
+          <div>
+            <label style={labelStyle}>Notes (optional)</label>
+            <input type="text" value={notes} onChange={(e) => setNotes(e.target.value)} style={inputStyle} placeholder="e.g. core position" />
+          </div>
+
+          <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+            <button type="button" onClick={onClose} style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: '#9ab4d4', fontFamily: 'DM Sans, sans-serif', fontSize: 14, fontWeight: 600, padding: '10px 0', cursor: 'pointer' }}>
+              Cancel
+            </button>
+            <button type="submit" style={{ flex: 2, background: '#00e5c4', border: 'none', borderRadius: 8, color: '#0d1b35', fontFamily: 'DM Sans, sans-serif', fontSize: 14, fontWeight: 700, padding: '10px 0', cursor: 'pointer' }}>
+              Save Changes
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // ── Close Holding Modal ────────────────────────────────────────────────────────
 
 interface CloseHoldingModalProps {
@@ -569,6 +713,7 @@ export function Portfolio() {
     isLoading,
     addHolding,
     closeHolding,
+    editHolding,
     totalValue,
     totalCost,
     unrealizedPnl,
@@ -580,6 +725,7 @@ export function Portfolio() {
   const [range, setRange] = useState<RangeKey>('3M');
   const [showAddModal, setShowAddModal] = useState(false);
   const [closingHolding, setClosingHolding] = useState<HoldingWithPrice | null>(null);
+  const [editingHolding, setEditingHolding] = useState<HoldingWithPrice | null>(null);
 
   // Build a live price map for the add modal preview
   const livePriceMap = useRef(new Map<string, number | null>());
@@ -614,6 +760,11 @@ export function Portfolio() {
   const handleCloseHolding = async (id: string, price: number) => {
     await closeHolding(id, price);
     setClosingHolding(null);
+  };
+
+  const handleEditHolding = async (id: string, data: Parameters<typeof editHolding>[1]) => {
+    await editHolding(id, data);
+    setEditingHolding(null);
   };
 
   // ── Stat cards ──────────────────────────────────────────────────────────────
@@ -1038,34 +1189,19 @@ export function Portfolio() {
                             <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
                               <button
                                 onClick={() => navigate(`/stock/${h.ticker}`)}
-                                style={{
-                                  background: 'rgba(0,198,245,0.08)',
-                                  border: '1px solid rgba(0,198,245,0.15)',
-                                  borderRadius: 5,
-                                  color: '#00c6f5',
-                                  fontFamily: 'DM Sans, sans-serif',
-                                  fontSize: 11,
-                                  fontWeight: 600,
-                                  padding: '4px 8px',
-                                  cursor: 'pointer',
-                                  whiteSpace: 'nowrap',
-                                }}
+                                style={{ background: 'rgba(0,198,245,0.08)', border: '1px solid rgba(0,198,245,0.15)', borderRadius: 5, color: '#00c6f5', fontFamily: 'DM Sans, sans-serif', fontSize: 11, fontWeight: 600, padding: '4px 8px', cursor: 'pointer', whiteSpace: 'nowrap' }}
                               >
                                 View
                               </button>
                               <button
+                                onClick={() => setEditingHolding(h)}
+                                style={{ background: 'rgba(245,200,66,0.08)', border: '1px solid rgba(245,200,66,0.15)', borderRadius: 5, color: '#f5c842', fontFamily: 'DM Sans, sans-serif', fontSize: 11, fontWeight: 600, padding: '4px 8px', cursor: 'pointer' }}
+                              >
+                                Edit
+                              </button>
+                              <button
                                 onClick={() => setClosingHolding(h)}
-                                style={{
-                                  background: 'rgba(255,77,109,0.08)',
-                                  border: '1px solid rgba(255,77,109,0.15)',
-                                  borderRadius: 5,
-                                  color: '#ff4d6d',
-                                  fontFamily: 'DM Sans, sans-serif',
-                                  fontSize: 11,
-                                  fontWeight: 600,
-                                  padding: '4px 8px',
-                                  cursor: 'pointer',
-                                }}
+                                style={{ background: 'rgba(255,77,109,0.08)', border: '1px solid rgba(255,77,109,0.15)', borderRadius: 5, color: '#ff4d6d', fontFamily: 'DM Sans, sans-serif', fontSize: 11, fontWeight: 600, padding: '4px 8px', cursor: 'pointer' }}
                               >
                                 Close
                               </button>
@@ -1114,33 +1250,19 @@ export function Portfolio() {
                         <div style={{ display: 'flex', gap: 5 }}>
                           <button
                             onClick={() => navigate(`/stock/${h.ticker}`)}
-                            style={{
-                              background: 'rgba(0,198,245,0.08)',
-                              border: '1px solid rgba(0,198,245,0.15)',
-                              borderRadius: 5,
-                              color: '#00c6f5',
-                              fontFamily: 'DM Sans, sans-serif',
-                              fontSize: 11,
-                              fontWeight: 600,
-                              padding: '4px 8px',
-                              cursor: 'pointer',
-                            }}
+                            style={{ background: 'rgba(0,198,245,0.08)', border: '1px solid rgba(0,198,245,0.15)', borderRadius: 5, color: '#00c6f5', fontFamily: 'DM Sans, sans-serif', fontSize: 11, fontWeight: 600, padding: '4px 8px', cursor: 'pointer' }}
                           >
                             View
                           </button>
                           <button
+                            onClick={() => setEditingHolding(h)}
+                            style={{ background: 'rgba(245,200,66,0.08)', border: '1px solid rgba(245,200,66,0.15)', borderRadius: 5, color: '#f5c842', fontFamily: 'DM Sans, sans-serif', fontSize: 11, fontWeight: 600, padding: '4px 8px', cursor: 'pointer' }}
+                          >
+                            Edit
+                          </button>
+                          <button
                             onClick={() => setClosingHolding(h)}
-                            style={{
-                              background: 'rgba(255,77,109,0.08)',
-                              border: '1px solid rgba(255,77,109,0.15)',
-                              borderRadius: 5,
-                              color: '#ff4d6d',
-                              fontFamily: 'DM Sans, sans-serif',
-                              fontSize: 11,
-                              fontWeight: 600,
-                              padding: '4px 8px',
-                              cursor: 'pointer',
-                            }}
+                            style={{ background: 'rgba(255,77,109,0.08)', border: '1px solid rgba(255,77,109,0.15)', borderRadius: 5, color: '#ff4d6d', fontFamily: 'DM Sans, sans-serif', fontSize: 11, fontWeight: 600, padding: '4px 8px', cursor: 'pointer' }}
                           >
                             Close
                           </button>
@@ -1354,6 +1476,14 @@ export function Portfolio() {
           onClose={() => setShowAddModal(false)}
           onSubmit={handleAddHolding}
           livePrices={livePriceMap.current}
+        />
+      )}
+
+      {editingHolding && (
+        <EditHoldingModal
+          holding={editingHolding}
+          onClose={() => setEditingHolding(null)}
+          onSubmit={handleEditHolding}
         />
       )}
 

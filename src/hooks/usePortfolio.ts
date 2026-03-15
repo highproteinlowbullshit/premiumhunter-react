@@ -300,6 +300,35 @@ export function usePortfolio() {
     [user, showToast, loadData]
   );
 
+  const editHolding = useCallback(
+    async (id: string, data: Partial<Pick<AddHoldingData, 'quantity' | 'avgCost' | 'holdingType' | 'openedAt' | 'expiry' | 'strike' | 'notes'>>) => {
+      if (!user) return;
+
+      const updates: Record<string, unknown> = {};
+      if (data.quantity !== undefined) updates.quantity = data.quantity;
+      if (data.avgCost !== undefined) updates.avg_cost = data.avgCost;
+      if (data.holdingType !== undefined) updates.holding_type = data.holdingType;
+      if (data.openedAt !== undefined) updates.opened_at = data.openedAt;
+      if ('expiry' in data) updates.expiry = data.expiry ?? null;
+      if ('strike' in data) updates.strike = data.strike ?? null;
+      if ('notes' in data) updates.notes = data.notes ?? null;
+
+      const { error } = await supabase
+        .from('portfolio_holdings')
+        .update(updates)
+        .eq('id', id)
+        .eq('user_id', user.id);
+
+      if (error) {
+        showToast(`Failed to update holding: ${error.message}`, 'error');
+      } else {
+        showToast('Holding updated', 'success');
+        await loadData();
+      }
+    },
+    [user, showToast, loadData]
+  );
+
   return {
     holdingsWithPrice,
     openHoldings,
@@ -307,6 +336,7 @@ export function usePortfolio() {
     isLoading,
     addHolding,
     closeHolding,
+    editHolding,
     totalValue,
     totalCost,
     unrealizedPnl,
