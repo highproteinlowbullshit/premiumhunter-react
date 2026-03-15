@@ -1,0 +1,316 @@
+import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
+import { getSnapshotBatch } from '../lib/polygon';
+import type { PortfolioHolding, PortfolioSnapshot, HoldingType } from '../types';
+
+// DB row types (snake_case from Supabase)
+interface DbHolding {
+  id: string;
+  user_id: string;
+  ticker: string;
+  holding_type: string;
+  quantity: string;
+  avg_cost: string;
+  closing_price: string | null;
+  expiry: string | null;
+  strike: string | null;
+  notes: string | null;
+  opened_at: string;
+  closed_at: string | null;
+  status: string;
+}
+
+interface DbSnapshot {
+  id: string;
+  snapshot_date: string;
+  total_value: string;
+  total_cost: string;
+  unrealized_pnl: string;
+  realized_pnl: string;
+  options_premium: string;
+}
+
+interface DbWheelPosition {
+  premium_collected: string;
+  contracts: number;
+}
+
+function dbToHolding(row: DbHolding): PortfolioHolding {
+  return {
+    id: row.id,
+    ticker: row.ticker,
+    holdingType: row.holding_type as HoldingType,
+    quantity: Number(row.quantity),
+    avgCost: Number(row.avg_cost),
+    closingPrice: row.closing_price != null ? Number(row.closing_price) : undefined,
+    expiry: row.expiry ?? undefined,
+    strike: row.strike != null ? Number(row.strike) : undefined,
+    notes: row.notes ?? undefined,
+    openedAt: row.opened_at.split('T')[0],
+    closedAt: row.closed_at ? row.closed_at.split('T')[0] : undefined,
+    status: row.status as 'open' | 'closed',
+  };
+}
+
+function dbToSnapshot(row: DbSnapshot): PortfolioSnapshot {
+  return {
+    id: row.id,
+    snapshotDate: row.snapshot_date,
+    totalValue: Number(row.total_value),
+    totalCost: Number(row.total_cost),
+    unrealizedPnl: Number(row.unrealized_pnl),
+    realizedPnl: Number(row.realized_pnl),
+    optionsPremium: Number(row.options_premium),
+  };
+}
+
+export interface HoldingWithPrice extends PortfolioHolding {
+  currentPrice: number | null;
+  marketValue: number | null;
+  unrealizedPnl: number | null;
+  unrealizedPnlPct: number | null;
+}
+
+export type AddHoldingData = {
+  ticker: string;
+  holdingType: HoldingType;
+  quantity: number;
+  avgCost: number;
+  openedAt: string;
+  expiry?: string;
+  strike?: number;
+  notes?: string;
+};
+
+export function usePortfolio() {
+  const { user } = useAuth();
+  const { showToast } = useToast();
+
+  const [openHoldings, setOpenHoldings] = useState<PortfolioHolding[]>([]);
+  const [snapshots, setSnapshots] = useState<PortfolioSnapshot[]>([]);
+  const [holdingsWithPrice, setHoldingsWithPrice] = useState<HoldingWithPrice[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Derived totals
+  const [totalValue, setTotalValue] = useState(0);
+  const [totalCost, setTotalCost] = useState(0);
+  const [unrealizedPnl, setUnrealizedPnl] = useState(0);
+  const [realizedPnl, setRealizedPnl] = useState(0);
+  const [optionsPremium, setOptionsPremium] = useState(0);
+
+  const loadData = useCallback(async () => {
+    if (!user) {
+      setOpenHoldings([]);
+      setSnapshots([]);
+      setHoldingsWithPrice([]);
+      return;
+    }
+
+    setIsLoading(true);
+
+    const [holdingsRes, snapshotsRes, closedRes, wheelRes] = await Promise.allSettled([
+      supabase
+        .from('portfolio_holdings')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('status', 'open')
+        .order('ticker', { ascending: true }),
+      supabase
+        .from('portfolio_snapshots')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('snapshot_date', { ascending: true }),
+      supabase
+        .from('portfolio_holdings')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('status', 'closed'),
+      supabase
+        .from('wheel_positions')
+        .select('premium_collected, contracts')
+        .eq('user_id', user.id)
+        .eq('status', 'closed'),
+    ]);
+
+    // Process open holdings
+    let holdings: PortfolioHolding[] = [];
+    if (holdingsRes.status === 'fulfilled' && !holdingsRes.value.error && holdingsRes.value.data) {
+      holdings = (holdingsRes.value.data as DbHolding[]).map(dbToHolding);
+      setOpenHoldings(holdings);
+    }
+
+    // Process snapshots
+    let snapshotList: PortfolioSnapshot[] = [];
+    if (snapshotsRes.status === 'fulfilled' && !snapshotsRes.value.error && snapshotsRes.value.data) {
+      snapshotList = (snapshotsRes.value.data as DbSnapshot[]).map(dbToSnapshot);
+      setSnapshots(snapshotList);
+    }
+
+    // Compute realized P&L from closed holdings
+    let computedRealizedPnl = 0;
+    if (closedRes.status === 'fulfilled' && !closedRes.value.error && closedRes.value.data) {
+      const closed = (closedRes.value.data as DbHolding[]).map(dbToHolding);
+      computedRealizedPnl = closed.reduce((acc, h) => {
+        if (h.closingPrice != null) {
+          return acc + (h.closingPrice - h.avgCost) * h.quantity;
+        }
+        return acc;
+      }, 0);
+    }
+    setRealizedPnl(computedRealizedPnl);
+
+    // Compute options premium from closed wheel positions
+    let computedPremium = 0;
+    if (wheelRes.status === 'fulfilled' && !wheelRes.value.error && wheelRes.value.data) {
+      computedPremium = (wheelRes.value.data as DbWheelPosition[]).reduce(
+        (acc, p) => acc + Number(p.premium_collected) * p.contracts,
+        0
+      );
+    }
+    setOptionsPremium(computedPremium);
+
+    // Fetch live prices
+    if (holdings.length > 0) {
+      const uniqueTickers = [...new Set(holdings.map((h) => h.ticker))];
+      const priceMap = await getSnapshotBatch(uniqueTickers);
+
+      const enriched: HoldingWithPrice[] = holdings.map((h) => {
+        const quote = priceMap.get(h.ticker);
+        const currentPrice = quote?.price ?? null;
+        const marketValue = currentPrice != null ? currentPrice * h.quantity : null;
+        const costBasis = h.avgCost * h.quantity;
+        const unrealized = marketValue != null ? marketValue - costBasis : null;
+        const unrealizedPct =
+          unrealized != null && costBasis > 0 ? (unrealized / costBasis) * 100 : null;
+        return {
+          ...h,
+          currentPrice,
+          marketValue,
+          unrealizedPnl: unrealized,
+          unrealizedPnlPct: unrealizedPct,
+        };
+      });
+
+      setHoldingsWithPrice(enriched);
+
+      // Compute portfolio totals
+      const tv = enriched.reduce((acc, h) => acc + (h.marketValue ?? h.avgCost * h.quantity), 0);
+      const tc = enriched.reduce((acc, h) => acc + h.avgCost * h.quantity, 0);
+      const up = enriched.reduce((acc, h) => acc + (h.unrealizedPnl ?? 0), 0);
+      setTotalValue(tv);
+      setTotalCost(tc);
+      setUnrealizedPnl(up);
+
+      // Check if today's snapshot exists; if not, upsert one
+      const today = new Date().toISOString().split('T')[0];
+      const hasToday = snapshotList.some((s) => s.snapshotDate === today);
+      if (!hasToday && enriched.length > 0) {
+        const { data: inserted, error: snapErr } = await supabase
+          .from('portfolio_snapshots')
+          .upsert(
+            {
+              user_id: user.id,
+              snapshot_date: today,
+              total_value: tv,
+              total_cost: tc,
+              unrealized_pnl: up,
+              realized_pnl: computedRealizedPnl,
+              options_premium: computedPremium,
+            },
+            { onConflict: 'user_id,snapshot_date' }
+          )
+          .select('*')
+          .single();
+
+        if (!snapErr && inserted) {
+          const newSnap = dbToSnapshot(inserted as DbSnapshot);
+          setSnapshots((prev) => {
+            const filtered = prev.filter((s) => s.snapshotDate !== today);
+            return [...filtered, newSnap].sort((a, b) =>
+              a.snapshotDate.localeCompare(b.snapshotDate)
+            );
+          });
+        }
+      }
+    } else {
+      setHoldingsWithPrice([]);
+      setTotalValue(0);
+      setTotalCost(0);
+      setUnrealizedPnl(0);
+    }
+
+    setIsLoading(false);
+  }, [user]);
+
+  useEffect(() => {
+    void loadData();
+  }, [loadData]);
+
+  const addHolding = useCallback(
+    async (data: AddHoldingData) => {
+      if (!user) return;
+
+      const { error } = await supabase.from('portfolio_holdings').insert({
+        user_id: user.id,
+        ticker: data.ticker.toUpperCase(),
+        holding_type: data.holdingType,
+        quantity: data.quantity,
+        avg_cost: data.avgCost,
+        opened_at: data.openedAt,
+        expiry: data.expiry ?? null,
+        strike: data.strike ?? null,
+        notes: data.notes ?? null,
+        status: 'open',
+      });
+
+      if (error) {
+        showToast(`Failed to add holding: ${error.message}`, 'error');
+      } else {
+        showToast('Holding added', 'success');
+        await loadData();
+      }
+    },
+    [user, showToast, loadData]
+  );
+
+  const closeHolding = useCallback(
+    async (id: string, closingPrice: number) => {
+      if (!user) return;
+
+      const today = new Date().toISOString().split('T')[0];
+      const { error } = await supabase
+        .from('portfolio_holdings')
+        .update({
+          status: 'closed',
+          closing_price: closingPrice,
+          closed_at: today,
+        })
+        .eq('id', id)
+        .eq('user_id', user.id);
+
+      if (error) {
+        showToast(`Failed to close holding: ${error.message}`, 'error');
+      } else {
+        showToast('Holding closed', 'success');
+        await loadData();
+      }
+    },
+    [user, showToast, loadData]
+  );
+
+  return {
+    holdingsWithPrice,
+    openHoldings,
+    snapshots,
+    isLoading,
+    addHolding,
+    closeHolding,
+    totalValue,
+    totalCost,
+    unrealizedPnl,
+    realizedPnl,
+    optionsPremium,
+  };
+}

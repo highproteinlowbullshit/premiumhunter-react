@@ -4,10 +4,11 @@ import { useAuth } from '../context/AuthContext';
 import type { ThemeMode } from '../types';
 
 const NAV_ITEMS = [
-  { to: '/dashboard', label: 'Dashboard',    icon: GridIcon     },
-  { to: '/watchlist', label: 'Watchlist',    icon: ListIcon     },
-  { to: '/screener',  label: 'IV Screener',  icon: ScreenerIcon },
-  { to: '/wheel',     label: 'Wheel Tracker', icon: WheelIcon   },
+  { to: '/dashboard', label: 'Dashboard',    icon: GridIcon      },
+  { to: '/watchlist', label: 'Watchlist',    icon: ListIcon      },
+  { to: '/screener',  label: 'IV Screener',  icon: ScreenerIcon  },
+  { to: '/wheel',     label: 'Wheel Tracker', icon: WheelIcon    },
+  { to: '/portfolio', label: 'Portfolio',    icon: PortfolioIcon },
 ];
 
 interface NavbarProps {
@@ -205,6 +206,16 @@ export function Navbar({ theme, onToggleTheme }: NavbarProps) {
 }
 
 // Icon components
+function PortfolioIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+      <circle cx="7.5" cy="7.5" r="6" stroke="currentColor" strokeWidth="1.2" />
+      <path d="M7.5 7.5 L7.5 1.5 A6 6 0 0 1 13.5 7.5 Z" fill="currentColor" fillOpacity="0.3" stroke="currentColor" strokeWidth="1.1" />
+      <path d="M7.5 7.5 L13.5 7.5 A6 6 0 0 1 7.5 13.5 Z" fill="currentColor" fillOpacity="0.15" stroke="currentColor" strokeWidth="1.1" />
+    </svg>
+  );
+}
+
 function GridIcon() {
   return (
     <svg width="15" height="15" viewBox="0 0 15 15" fill="none">

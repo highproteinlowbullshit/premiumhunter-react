@@ -19,6 +19,7 @@ import { Signup } from './pages/Signup';
 import { ForgotPassword } from './pages/ForgotPassword';
 import { ResetPassword } from './pages/ResetPassword';
 import { NotFound } from './pages/NotFound';
+import { Portfolio } from './pages/Portfolio';
 import { DemoBanner } from './components/DemoBanner';
 
 const queryClient = new QueryClient({
@@ -65,6 +66,7 @@ function AppInner() {
           <Route path="/stock/:ticker" element={<ProtectedRoute><StockDetail /></ProtectedRoute>} />
           <Route path="/wheel" element={<ProtectedRoute><WheelTracker /></ProtectedRoute>} />
           <Route path="/screener" element={<ProtectedRoute><Screener /></ProtectedRoute>} />
+          <Route path="/portfolio" element={<ProtectedRoute><Portfolio /></ProtectedRoute>} />
 
           {/* Catch-all */}
           <Route path="*" element={<NotFound />} />

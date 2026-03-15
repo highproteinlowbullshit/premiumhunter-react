@@ -41,3 +41,31 @@ export interface SortOption {
 }
 
 export type ThemeMode = 'dark' | 'light';
+
+export type HoldingType = 'shares' | 'leaps_call' | 'leaps_put' | 'other';
+export type HoldingStatus = 'open' | 'closed';
+
+export interface PortfolioHolding {
+  id: string;
+  ticker: string;
+  holdingType: HoldingType;
+  quantity: number;
+  avgCost: number;
+  closingPrice?: number;
+  expiry?: string;
+  strike?: number;
+  notes?: string;
+  openedAt: string;
+  closedAt?: string;
+  status: HoldingStatus;
+}
+
+export interface PortfolioSnapshot {
+  id: string;
+  snapshotDate: string;
+  totalValue: number;
+  totalCost: number;
+  unrealizedPnl: number;
+  realizedPnl: number;
+  optionsPremium: number;
+}

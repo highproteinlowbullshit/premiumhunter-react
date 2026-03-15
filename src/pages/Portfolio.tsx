@@ -1,0 +1,1369 @@
+import { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  ReferenceLine,
+} from 'recharts';
+import { usePortfolio, type HoldingWithPrice } from '../hooks/usePortfolio';
+import { usePositions } from '../hooks/usePositions';
+import type { PortfolioSnapshot, HoldingType } from '../types';
+
+type RangeKey = '1W' | '1M' | '3M' | '6M' | '1Y' | 'All';
+
+const RANGES: RangeKey[] = ['1W', '1M', '3M', '6M', '1Y', 'All'];
+
+function filterSnapshotsByRange(snapshots: PortfolioSnapshot[], range: RangeKey): PortfolioSnapshot[] {
+  if (range === 'All') return snapshots;
+  const now = Date.now();
+  const msMap: Record<RangeKey, number> = {
+    '1W': 7 * 86400000,
+    '1M': 30 * 86400000,
+    '3M': 90 * 86400000,
+    '6M': 180 * 86400000,
+    '1Y': 365 * 86400000,
+    All: 0,
+  };
+  const cutoff = now - msMap[range];
+  return snapshots.filter((s) => new Date(s.snapshotDate).getTime() >= cutoff);
+}
+
+function formatDate(dateStr: string): string {
+  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function formatCurrency(val: number): string {
+  if (Math.abs(val) >= 1000) {
+    return `$${(val / 1000).toFixed(1)}k`;
+  }
+  return `$${val.toFixed(0)}`;
+}
+
+function formatDollars(val: number): string {
+  const abs = Math.abs(val);
+  const formatted = abs.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return val < 0 ? `-$${formatted}` : `$${formatted}`;
+}
+
+function holdingTypeLabel(type: HoldingType): string {
+  switch (type) {
+    case 'shares': return 'Shares';
+    case 'leaps_call': return 'LEAPS Call';
+    case 'leaps_put': return 'LEAPS Put';
+    case 'other': return 'Other';
+  }
+}
+
+function holdingTypeBadgeColor(type: HoldingType): string {
+  switch (type) {
+    case 'shares': return '#00e5c4';
+    case 'leaps_call': return '#00c6f5';
+    case 'leaps_put': return '#f5c842';
+    case 'other': return '#4a6a8a';
+  }
+}
+
+function getDte(expiry: string): number {
+  return Math.max(0, Math.ceil((new Date(expiry).getTime() - Date.now()) / 86400000));
+}
+
+// ── Custom Tooltip ─────────────────────────────────────────────────────────────
+
+interface TooltipPayloadEntry {
+  value: number;
+  name: string;
+  color?: string;
+}
+
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: TooltipPayloadEntry[];
+  label?: string;
+}
+
+function CustomChartTooltip({ active, payload, label }: CustomTooltipProps) {
+  if (!active || !payload || payload.length === 0) return null;
+  const value = payload.find((p) => p.name === 'portfolioValue')?.value ?? 0;
+  const cost = payload.find((p) => p.name === 'costBasis')?.value ?? 0;
+  const pnl = value - cost;
+  return (
+    <div
+      style={{
+        background: 'rgba(13,27,53,0.95)',
+        border: '1px solid rgba(0,229,196,0.15)',
+        borderRadius: 8,
+        padding: '10px 14px',
+        fontFamily: 'DM Sans, sans-serif',
+      }}
+    >
+      <div style={{ color: '#9ab4d4', fontSize: 11, marginBottom: 6 }}>{label}</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <span style={{ color: '#9ab4d4', fontSize: 12 }}>Value:</span>
+          <span style={{ color: '#e8f0fe', fontSize: 12, fontFamily: 'JetBrains Mono, monospace' }}>
+            {formatDollars(value)}
+          </span>
+        </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <span style={{ color: '#9ab4d4', fontSize: 12 }}>Cost:</span>
+          <span style={{ color: '#e8f0fe', fontSize: 12, fontFamily: 'JetBrains Mono, monospace' }}>
+            {formatDollars(cost)}
+          </span>
+        </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <span style={{ color: '#9ab4d4', fontSize: 12 }}>P&L:</span>
+          <span
+            style={{
+              color: pnl >= 0 ? '#00d68f' : '#ff4d6d',
+              fontSize: 12,
+              fontFamily: 'JetBrains Mono, monospace',
+            }}
+          >
+            {pnl >= 0 ? '+' : ''}{formatDollars(pnl)}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Add Holding Modal ──────────────────────────────────────────────────────────
+
+interface AddHoldingModalProps {
+  onClose: () => void;
+  onSubmit: (data: {
+    ticker: string;
+    holdingType: HoldingType;
+    quantity: number;
+    avgCost: number;
+    openedAt: string;
+    expiry?: string;
+    strike?: number;
+    notes?: string;
+  }) => void;
+  livePrices: Map<string, number | null>;
+}
+
+function AddHoldingModal({ onClose, onSubmit, livePrices }: AddHoldingModalProps) {
+  const today = new Date().toISOString().split('T')[0];
+  const [ticker, setTicker] = useState('');
+  const [holdingType, setHoldingType] = useState<HoldingType>('shares');
+  const [quantity, setQuantity] = useState('');
+  const [avgCost, setAvgCost] = useState('');
+  const [openedAt, setOpenedAt] = useState(today);
+  const [expiry, setExpiry] = useState('');
+  const [strike, setStrike] = useState('');
+  const [notes, setNotes] = useState('');
+
+  const isLeaps = holdingType === 'leaps_call' || holdingType === 'leaps_put';
+
+  const qty = parseFloat(quantity) || 0;
+  const cost = parseFloat(avgCost) || 0;
+  const livePrice = livePrices.get(ticker.toUpperCase()) ?? null;
+  const estMV = livePrice != null ? livePrice * qty : null;
+  const estPnl = estMV != null ? estMV - cost * qty : null;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!ticker.trim() || qty <= 0 || cost <= 0) return;
+    onSubmit({
+      ticker: ticker.toUpperCase(),
+      holdingType,
+      quantity: qty,
+      avgCost: cost,
+      openedAt,
+      expiry: isLeaps && expiry ? expiry : undefined,
+      strike: isLeaps && strike ? parseFloat(strike) : undefined,
+      notes: notes.trim() || undefined,
+    });
+  };
+
+  const inputStyle: React.CSSProperties = {
+    width: '100%',
+    background: 'rgba(0,229,196,0.04)',
+    border: '1px solid rgba(0,229,196,0.12)',
+    borderRadius: 6,
+    padding: '8px 12px',
+    color: '#e8f0fe',
+    fontFamily: 'DM Sans, sans-serif',
+    fontSize: 14,
+    outline: 'none',
+  };
+
+  const labelStyle: React.CSSProperties = {
+    display: 'block',
+    color: '#9ab4d4',
+    fontSize: 12,
+    fontFamily: 'DM Sans, sans-serif',
+    marginBottom: 4,
+  };
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0,0,0,0.7)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1000,
+        padding: '16px',
+      }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div
+        style={{
+          background: 'rgba(13,27,53,0.98)',
+          border: '1px solid rgba(0,229,196,0.12)',
+          borderRadius: 12,
+          padding: '24px',
+          width: '100%',
+          maxWidth: 480,
+          maxHeight: '90vh',
+          overflowY: 'auto',
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <h2 style={{ color: '#e8f0fe', fontFamily: 'Syne, sans-serif', fontSize: 18, fontWeight: 700, margin: 0 }}>
+            Add Holding
+          </h2>
+          <button
+            onClick={onClose}
+            style={{ background: 'none', border: 'none', color: '#4a6a8a', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}
+          >
+            ×
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div>
+            <label style={labelStyle}>Ticker</label>
+            <input
+              style={{ ...inputStyle, textTransform: 'uppercase', fontFamily: 'Syne, sans-serif', letterSpacing: '0.05em' }}
+              value={ticker}
+              onChange={(e) => setTicker(e.target.value.toUpperCase())}
+              placeholder="AAPL"
+              required
+            />
+          </div>
+
+          <div>
+            <label style={labelStyle}>Holding Type</label>
+            <select
+              style={{ ...inputStyle, cursor: 'pointer' }}
+              value={holdingType}
+              onChange={(e) => setHoldingType(e.target.value as HoldingType)}
+            >
+              <option value="shares">Shares</option>
+              <option value="leaps_call">LEAPS Call</option>
+              <option value="leaps_put">LEAPS Put</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={labelStyle}>Quantity</label>
+              <input
+                style={inputStyle}
+                type="number"
+                step="0.001"
+                min="0"
+                value={quantity}
+                onChange={(e) => setQuantity(e.target.value)}
+                placeholder="100"
+                required
+              />
+            </div>
+            <div>
+              <label style={labelStyle}>Avg Cost ($)</label>
+              <input
+                style={inputStyle}
+                type="number"
+                step="0.01"
+                min="0"
+                value={avgCost}
+                onChange={(e) => setAvgCost(e.target.value)}
+                placeholder="150.00"
+                required
+              />
+            </div>
+          </div>
+
+          <div>
+            <label style={labelStyle}>Date Opened</label>
+            <input
+              style={inputStyle}
+              type="date"
+              value={openedAt}
+              onChange={(e) => setOpenedAt(e.target.value)}
+              required
+            />
+          </div>
+
+          {isLeaps && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div>
+                <label style={labelStyle}>Strike ($)</label>
+                <input
+                  style={inputStyle}
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={strike}
+                  onChange={(e) => setStrike(e.target.value)}
+                  placeholder="150.00"
+                />
+              </div>
+              <div>
+                <label style={labelStyle}>Expiry</label>
+                <input
+                  style={inputStyle}
+                  type="date"
+                  value={expiry}
+                  onChange={(e) => setExpiry(e.target.value)}
+                />
+              </div>
+            </div>
+          )}
+
+          <div>
+            <label style={labelStyle}>Notes (optional)</label>
+            <input
+              style={inputStyle}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Add a note..."
+            />
+          </div>
+
+          {/* Preview row */}
+          {qty > 0 && cost > 0 && (
+            <div
+              style={{
+                background: 'rgba(0,229,196,0.04)',
+                border: '1px solid rgba(0,229,196,0.08)',
+                borderRadius: 8,
+                padding: '10px 14px',
+                display: 'flex',
+                gap: 16,
+                flexWrap: 'wrap',
+              }}
+            >
+              <span style={{ color: '#9ab4d4', fontSize: 12, fontFamily: 'DM Sans, sans-serif' }}>
+                Est. Market Value:{' '}
+                <span style={{ color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace' }}>
+                  {estMV != null ? formatDollars(estMV) : 'N/A'}
+                </span>
+              </span>
+              <span style={{ color: '#9ab4d4', fontSize: 12, fontFamily: 'DM Sans, sans-serif' }}>
+                Unrealized P&L:{' '}
+                <span
+                  style={{
+                    fontFamily: 'JetBrains Mono, monospace',
+                    color: estPnl == null ? '#9ab4d4' : estPnl >= 0 ? '#00d68f' : '#ff4d6d',
+                  }}
+                >
+                  {estPnl != null ? `${estPnl >= 0 ? '+' : ''}${formatDollars(estPnl)}` : 'N/A'}
+                </span>
+              </span>
+            </div>
+          )}
+
+          <button
+            type="submit"
+            style={{
+              background: '#00e5c4',
+              color: '#0d1b35',
+              border: 'none',
+              borderRadius: 8,
+              padding: '10px 0',
+              fontFamily: 'DM Sans, sans-serif',
+              fontWeight: 700,
+              fontSize: 14,
+              cursor: 'pointer',
+              marginTop: 4,
+            }}
+          >
+            Add Holding
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ── Close Holding Modal ────────────────────────────────────────────────────────
+
+interface CloseHoldingModalProps {
+  holding: HoldingWithPrice;
+  onClose: () => void;
+  onSubmit: (id: string, closingPrice: number) => void;
+}
+
+function CloseHoldingModal({ holding, onClose, onSubmit }: CloseHoldingModalProps) {
+  const today = new Date().toISOString().split('T')[0];
+  const [closingPrice, setClosingPrice] = useState(
+    holding.currentPrice != null ? String(holding.currentPrice.toFixed(2)) : ''
+  );
+  const [closeDate, setCloseDate] = useState(today);
+
+  const price = parseFloat(closingPrice) || 0;
+  const pnl = (price - holding.avgCost) * holding.quantity;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (price <= 0) return;
+    onSubmit(holding.id, price);
+  };
+
+  const inputStyle: React.CSSProperties = {
+    width: '100%',
+    background: 'rgba(0,229,196,0.04)',
+    border: '1px solid rgba(0,229,196,0.12)',
+    borderRadius: 6,
+    padding: '8px 12px',
+    color: '#e8f0fe',
+    fontFamily: 'DM Sans, sans-serif',
+    fontSize: 14,
+    outline: 'none',
+  };
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0,0,0,0.7)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1000,
+        padding: '16px',
+      }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div
+        style={{
+          background: 'rgba(13,27,53,0.98)',
+          border: '1px solid rgba(0,229,196,0.12)',
+          borderRadius: 12,
+          padding: '24px',
+          width: '100%',
+          maxWidth: 400,
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <h2 style={{ color: '#e8f0fe', fontFamily: 'Syne, sans-serif', fontSize: 18, fontWeight: 700, margin: 0 }}>
+            Close Position
+          </h2>
+          <button
+            onClick={onClose}
+            style={{ background: 'none', border: 'none', color: '#4a6a8a', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}
+          >
+            ×
+          </button>
+        </div>
+
+        <div style={{ marginBottom: 16, padding: '10px 14px', background: 'rgba(0,229,196,0.04)', borderRadius: 8 }}>
+          <div style={{ color: '#9ab4d4', fontSize: 12, fontFamily: 'DM Sans, sans-serif', marginBottom: 2 }}>
+            Closing
+          </div>
+          <div style={{ color: '#e8f0fe', fontFamily: 'Syne, sans-serif', fontSize: 16, fontWeight: 700 }}>
+            {holding.ticker}
+          </div>
+          <div style={{ color: '#9ab4d4', fontSize: 12, fontFamily: 'DM Sans, sans-serif' }}>
+            {holding.quantity} × avg {formatDollars(holding.avgCost)}
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div>
+            <label style={{ display: 'block', color: '#9ab4d4', fontSize: 12, fontFamily: 'DM Sans, sans-serif', marginBottom: 4 }}>
+              Closing Price ($)
+            </label>
+            <input
+              style={inputStyle}
+              type="number"
+              step="0.01"
+              min="0"
+              value={closingPrice}
+              onChange={(e) => setClosingPrice(e.target.value)}
+              placeholder="0.00"
+              required
+            />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', color: '#9ab4d4', fontSize: 12, fontFamily: 'DM Sans, sans-serif', marginBottom: 4 }}>
+              Date Closed
+            </label>
+            <input
+              style={inputStyle}
+              type="date"
+              value={closeDate}
+              onChange={(e) => setCloseDate(e.target.value)}
+            />
+          </div>
+
+          {price > 0 && (
+            <div
+              style={{
+                background: pnl >= 0 ? 'rgba(0,214,143,0.06)' : 'rgba(255,77,109,0.06)',
+                border: `1px solid ${pnl >= 0 ? 'rgba(0,214,143,0.15)' : 'rgba(255,77,109,0.15)'}`,
+                borderRadius: 8,
+                padding: '10px 14px',
+              }}
+            >
+              <div style={{ color: '#9ab4d4', fontSize: 12, fontFamily: 'DM Sans, sans-serif', marginBottom: 2 }}>
+                Realized P&L
+              </div>
+              <div
+                style={{
+                  color: pnl >= 0 ? '#00d68f' : '#ff4d6d',
+                  fontFamily: 'JetBrains Mono, monospace',
+                  fontSize: 18,
+                  fontWeight: 700,
+                }}
+              >
+                {pnl >= 0 ? '+' : ''}{formatDollars(pnl)}
+              </div>
+            </div>
+          )}
+
+          <button
+            type="submit"
+            style={{
+              background: 'rgba(255,77,109,0.15)',
+              color: '#ff4d6d',
+              border: '1px solid rgba(255,77,109,0.25)',
+              borderRadius: 8,
+              padding: '10px 0',
+              fontFamily: 'DM Sans, sans-serif',
+              fontWeight: 700,
+              fontSize: 14,
+              cursor: 'pointer',
+            }}
+          >
+            Close Position
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ── Main Portfolio Page ────────────────────────────────────────────────────────
+
+export function Portfolio() {
+  const navigate = useNavigate();
+  const {
+    holdingsWithPrice,
+    snapshots,
+    isLoading,
+    addHolding,
+    closeHolding,
+    totalValue,
+    totalCost,
+    unrealizedPnl,
+    realizedPnl,
+    optionsPremium,
+  } = usePortfolio();
+  const { openPositions } = usePositions();
+
+  const [range, setRange] = useState<RangeKey>('3M');
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [closingHolding, setClosingHolding] = useState<HoldingWithPrice | null>(null);
+
+  // Build a live price map for the add modal preview
+  const livePriceMap = useRef(new Map<string, number | null>());
+  useEffect(() => {
+    const map = new Map<string, number | null>();
+    for (const h of holdingsWithPrice) {
+      map.set(h.ticker, h.currentPrice);
+    }
+    livePriceMap.current = map;
+  }, [holdingsWithPrice]);
+
+  const filteredSnapshots = filterSnapshotsByRange(snapshots, range);
+
+  const chartData = filteredSnapshots.map((s) => ({
+    date: formatDate(s.snapshotDate),
+    portfolioValue: s.totalValue,
+    costBasis: s.totalCost,
+  }));
+
+  const unrealizedPnlPct = totalCost > 0 ? (unrealizedPnl / totalCost) * 100 : 0;
+
+  const wheelTotal = openPositions.reduce(
+    (acc, p) => acc + p.premiumCollected,
+    0
+  );
+
+  const handleAddHolding = async (data: Parameters<typeof addHolding>[0]) => {
+    await addHolding(data);
+    setShowAddModal(false);
+  };
+
+  const handleCloseHolding = async (id: string, price: number) => {
+    await closeHolding(id, price);
+    setClosingHolding(null);
+  };
+
+  // ── Stat cards ──────────────────────────────────────────────────────────────
+
+  const statCards = [
+    {
+      label: 'Total Portfolio Value',
+      value: formatDollars(totalValue),
+      accent: '#00e5c4',
+      sub: null,
+    },
+    {
+      label: 'Total Cost Basis',
+      value: formatDollars(totalCost),
+      accent: '#9ab4d4',
+      sub: null,
+    },
+    {
+      label: 'Unrealized P&L',
+      value: formatDollars(unrealizedPnl),
+      accent: unrealizedPnl >= 0 ? '#00d68f' : '#ff4d6d',
+      sub: `${unrealizedPnlPct >= 0 ? '+' : ''}${unrealizedPnlPct.toFixed(2)}%`,
+      subColor: unrealizedPnl >= 0 ? '#00d68f' : '#ff4d6d',
+    },
+    {
+      label: 'Realized P&L',
+      value: formatDollars(realizedPnl),
+      accent: realizedPnl >= 0 ? '#00d68f' : '#ff4d6d',
+      sub: null,
+    },
+    {
+      label: 'Options Premium Collected',
+      value: formatDollars(optionsPremium),
+      accent: '#00c6f5',
+      sub: null,
+    },
+  ];
+
+  return (
+    <div className="min-h-screen mesh-bg pt-24 pb-12 px-4 sm:px-6">
+      <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28 }}>
+          <div>
+            <h1
+              style={{
+                color: '#e8f0fe',
+                fontFamily: 'Syne, sans-serif',
+                fontSize: 26,
+                fontWeight: 700,
+                margin: 0,
+                letterSpacing: '-0.02em',
+              }}
+            >
+              Portfolio
+            </h1>
+            <p style={{ color: '#9ab4d4', fontFamily: 'DM Sans, sans-serif', fontSize: 14, margin: '4px 0 0' }}>
+              Track your holdings and performance over time
+            </p>
+          </div>
+          <button
+            onClick={() => setShowAddModal(true)}
+            style={{
+              background: '#00e5c4',
+              color: '#0d1b35',
+              border: 'none',
+              borderRadius: 8,
+              padding: '10px 18px',
+              fontFamily: 'DM Sans, sans-serif',
+              fontWeight: 700,
+              fontSize: 14,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              flexShrink: 0,
+            }}
+          >
+            <span style={{ fontSize: 18, lineHeight: 1 }}>+</span>
+            Add Holding
+          </button>
+        </div>
+
+        {/* Section A — Stat Cards */}
+        <div
+          style={{
+            display: 'flex',
+            gap: 12,
+            overflowX: 'auto',
+            marginBottom: 28,
+            paddingBottom: 4,
+          }}
+        >
+          {statCards.map((card) => (
+            <div
+              key={card.label}
+              className="stat-card-hover"
+              style={{
+                background: 'rgba(13,27,53,0.6)',
+                border: '1px solid rgba(0,229,196,0.08)',
+                borderRadius: 12,
+                padding: '16px 20px',
+                minWidth: 170,
+                flex: '1 1 170px',
+              }}
+            >
+              <div
+                style={{
+                  color: '#4a6a8a',
+                  fontFamily: 'DM Sans, sans-serif',
+                  fontSize: 11,
+                  fontWeight: 600,
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                  marginBottom: 8,
+                }}
+              >
+                {card.label}
+              </div>
+              <div
+                style={{
+                  color: card.accent,
+                  fontFamily: 'JetBrains Mono, monospace',
+                  fontSize: 20,
+                  fontWeight: 700,
+                  letterSpacing: '-0.02em',
+                }}
+              >
+                {isLoading ? '—' : card.value}
+              </div>
+              {card.sub && (
+                <div
+                  style={{
+                    color: card.subColor ?? '#9ab4d4',
+                    fontFamily: 'JetBrains Mono, monospace',
+                    fontSize: 12,
+                    marginTop: 4,
+                  }}
+                >
+                  {card.sub}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Section B — P&L Chart */}
+        <div
+          style={{
+            background: 'rgba(13,27,53,0.6)',
+            border: '1px solid rgba(0,229,196,0.08)',
+            borderRadius: 12,
+            padding: '20px 24px',
+            marginBottom: 24,
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: 16,
+              flexWrap: 'wrap',
+              gap: 12,
+            }}
+          >
+            <h2
+              style={{
+                color: '#4a6a8a',
+                fontFamily: 'DM Sans, sans-serif',
+                fontSize: 12,
+                fontWeight: 600,
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                margin: 0,
+              }}
+            >
+              Portfolio Value History
+            </h2>
+            <div style={{ display: 'flex', gap: 4, overflowX: 'auto' }}>
+              {RANGES.map((r) => (
+                <button
+                  key={r}
+                  onClick={() => setRange(r)}
+                  style={{
+                    background: range === r ? 'rgba(0,229,196,0.12)' : 'transparent',
+                    border: `1px solid ${range === r ? 'rgba(0,229,196,0.25)' : 'rgba(0,229,196,0.08)'}`,
+                    borderRadius: 6,
+                    color: range === r ? '#00e5c4' : '#4a6a8a',
+                    fontFamily: 'DM Sans, sans-serif',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    padding: '4px 10px',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {r}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {chartData.length === 0 ? (
+            <div
+              style={{
+                height: 220,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#4a6a8a',
+                fontFamily: 'DM Sans, sans-serif',
+                fontSize: 14,
+                textAlign: 'center',
+              }}
+            >
+              No history yet — portfolio value snapshots are saved each time you visit this page
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <AreaChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="portfolioGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#00e5c4" stopOpacity={0.18} />
+                    <stop offset="95%" stopColor="#00e5c4" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,229,196,0.06)" vertical={false} />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fill: '#4a6a8a', fontSize: 11, fontFamily: 'DM Sans, sans-serif' }}
+                  axisLine={false}
+                  tickLine={false}
+                  interval="preserveStartEnd"
+                />
+                <YAxis
+                  tick={{ fill: '#4a6a8a', fontSize: 11, fontFamily: 'DM Sans, sans-serif' }}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={formatCurrency}
+                  width={56}
+                />
+                <Tooltip content={<CustomChartTooltip />} />
+                <ReferenceLine y={0} stroke="rgba(0,229,196,0.1)" strokeDasharray="3 3" />
+                <Area
+                  type="monotone"
+                  dataKey="costBasis"
+                  name="costBasis"
+                  stroke="#4a6a8a"
+                  strokeWidth={1.5}
+                  strokeDasharray="4 4"
+                  fill="none"
+                  dot={false}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="portfolioValue"
+                  name="portfolioValue"
+                  stroke="#00e5c4"
+                  strokeWidth={2}
+                  fill="url(#portfolioGrad)"
+                  dot={false}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+
+        {/* Section C — Holdings Table */}
+        <div
+          style={{
+            background: 'rgba(13,27,53,0.6)',
+            border: '1px solid rgba(0,229,196,0.08)',
+            borderRadius: 12,
+            marginBottom: 24,
+            overflow: 'hidden',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '16px 20px',
+              borderBottom: holdingsWithPrice.length > 0 ? '1px solid rgba(0,229,196,0.06)' : 'none',
+            }}
+          >
+            <h2
+              style={{
+                color: '#4a6a8a',
+                fontFamily: 'DM Sans, sans-serif',
+                fontSize: 12,
+                fontWeight: 600,
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                margin: 0,
+              }}
+            >
+              Holdings{' '}
+              {holdingsWithPrice.length > 0 && (
+                <span style={{ color: '#9ab4d4', fontFamily: 'JetBrains Mono, monospace', fontWeight: 400 }}>
+                  ({holdingsWithPrice.length})
+                </span>
+              )}
+            </h2>
+          </div>
+
+          {isLoading ? (
+            <div style={{ padding: '32px 20px', textAlign: 'center', color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', fontSize: 14 }}>
+              Loading holdings...
+            </div>
+          ) : holdingsWithPrice.length === 0 ? (
+            <div style={{ padding: '48px 20px', textAlign: 'center' }}>
+              <div style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', fontSize: 14, marginBottom: 16 }}>
+                No open holdings yet
+              </div>
+              <button
+                onClick={() => setShowAddModal(true)}
+                style={{
+                  background: 'rgba(0,229,196,0.1)',
+                  border: '1px solid rgba(0,229,196,0.2)',
+                  borderRadius: 8,
+                  color: '#00e5c4',
+                  fontFamily: 'DM Sans, sans-serif',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  padding: '10px 20px',
+                  cursor: 'pointer',
+                }}
+              >
+                Add Your First Holding
+              </button>
+            </div>
+          ) : (
+            <>
+              {/* Desktop Table */}
+              <div className="hidden md:block" style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid rgba(0,229,196,0.06)' }}>
+                      {['Ticker', 'Type', 'Qty', 'Avg Cost', 'Current Price', 'Market Value', 'Unrealized P&L', 'P&L%', 'Expiry', 'Actions'].map((col) => (
+                        <th
+                          key={col}
+                          style={{
+                            padding: '10px 14px',
+                            textAlign: col === 'Actions' ? 'center' : 'left',
+                            color: '#4a6a8a',
+                            fontFamily: 'DM Sans, sans-serif',
+                            fontSize: 11,
+                            fontWeight: 600,
+                            letterSpacing: '0.06em',
+                            textTransform: 'uppercase',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {col}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {holdingsWithPrice.map((h) => {
+                      const pnlColor = h.unrealizedPnl == null ? '#9ab4d4' : h.unrealizedPnl >= 0 ? '#00d68f' : '#ff4d6d';
+                      const dte = h.expiry ? getDte(h.expiry) : null;
+                      return (
+                        <tr
+                          key={h.id}
+                          className="stock-row-hover"
+                          style={{ borderBottom: '1px solid rgba(0,229,196,0.04)' }}
+                        >
+                          <td style={{ padding: '12px 14px' }}>
+                            <span style={{ color: '#e8f0fe', fontFamily: 'Syne, sans-serif', fontSize: 14, fontWeight: 700 }}>
+                              {h.ticker}
+                            </span>
+                          </td>
+                          <td style={{ padding: '12px 14px' }}>
+                            <span
+                              style={{
+                                background: `${holdingTypeBadgeColor(h.holdingType)}18`,
+                                border: `1px solid ${holdingTypeBadgeColor(h.holdingType)}30`,
+                                color: holdingTypeBadgeColor(h.holdingType),
+                                borderRadius: 4,
+                                padding: '2px 8px',
+                                fontSize: 11,
+                                fontFamily: 'DM Sans, sans-serif',
+                                fontWeight: 600,
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {holdingTypeLabel(h.holdingType)}
+                            </span>
+                          </td>
+                          <td style={{ padding: '12px 14px', color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace', fontSize: 13 }}>
+                            {h.quantity.toLocaleString()}
+                          </td>
+                          <td style={{ padding: '12px 14px', color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace', fontSize: 13 }}>
+                            {formatDollars(h.avgCost)}
+                          </td>
+                          <td style={{ padding: '12px 14px', color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace', fontSize: 13 }}>
+                            {h.currentPrice != null ? formatDollars(h.currentPrice) : '—'}
+                          </td>
+                          <td style={{ padding: '12px 14px', color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace', fontSize: 13 }}>
+                            {h.marketValue != null ? formatDollars(h.marketValue) : '—'}
+                          </td>
+                          <td style={{ padding: '12px 14px', color: pnlColor, fontFamily: 'JetBrains Mono, monospace', fontSize: 13 }}>
+                            {h.unrealizedPnl != null ? `${h.unrealizedPnl >= 0 ? '+' : ''}${formatDollars(h.unrealizedPnl)}` : '—'}
+                          </td>
+                          <td style={{ padding: '12px 14px', color: pnlColor, fontFamily: 'JetBrains Mono, monospace', fontSize: 13 }}>
+                            {h.unrealizedPnlPct != null ? `${h.unrealizedPnlPct >= 0 ? '+' : ''}${h.unrealizedPnlPct.toFixed(2)}%` : '—'}
+                          </td>
+                          <td style={{ padding: '12px 14px', fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}>
+                            {h.expiry && dte != null ? (
+                              <span style={{ color: dte < 30 ? '#ff4d6d' : '#9ab4d4' }}>
+                                {new Date(h.expiry).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })}
+                                <span style={{ marginLeft: 4, fontSize: 10, opacity: 0.8 }}>({dte}d)</span>
+                              </span>
+                            ) : (
+                              <span style={{ color: '#4a6a8a' }}>—</span>
+                            )}
+                          </td>
+                          <td style={{ padding: '12px 14px', textAlign: 'center' }}>
+                            <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
+                              <button
+                                onClick={() => navigate(`/stock/${h.ticker}`)}
+                                style={{
+                                  background: 'rgba(0,198,245,0.08)',
+                                  border: '1px solid rgba(0,198,245,0.15)',
+                                  borderRadius: 5,
+                                  color: '#00c6f5',
+                                  fontFamily: 'DM Sans, sans-serif',
+                                  fontSize: 11,
+                                  fontWeight: 600,
+                                  padding: '4px 8px',
+                                  cursor: 'pointer',
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                View
+                              </button>
+                              <button
+                                onClick={() => setClosingHolding(h)}
+                                style={{
+                                  background: 'rgba(255,77,109,0.08)',
+                                  border: '1px solid rgba(255,77,109,0.15)',
+                                  borderRadius: 5,
+                                  color: '#ff4d6d',
+                                  fontFamily: 'DM Sans, sans-serif',
+                                  fontSize: 11,
+                                  fontWeight: 600,
+                                  padding: '4px 8px',
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                Close
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile Cards */}
+              <div className="md:hidden" style={{ padding: '4px 0' }}>
+                {holdingsWithPrice.map((h) => {
+                  const pnlColor = h.unrealizedPnl == null ? '#9ab4d4' : h.unrealizedPnl >= 0 ? '#00d68f' : '#ff4d6d';
+                  const dte = h.expiry ? getDte(h.expiry) : null;
+                  return (
+                    <div
+                      key={h.id}
+                      style={{
+                        padding: '14px 16px',
+                        borderBottom: '1px solid rgba(0,229,196,0.06)',
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ color: '#e8f0fe', fontFamily: 'Syne, sans-serif', fontSize: 16, fontWeight: 700 }}>
+                            {h.ticker}
+                          </span>
+                          <span
+                            style={{
+                              background: `${holdingTypeBadgeColor(h.holdingType)}18`,
+                              border: `1px solid ${holdingTypeBadgeColor(h.holdingType)}30`,
+                              color: holdingTypeBadgeColor(h.holdingType),
+                              borderRadius: 4,
+                              padding: '1px 6px',
+                              fontSize: 10,
+                              fontFamily: 'DM Sans, sans-serif',
+                              fontWeight: 600,
+                            }}
+                          >
+                            {holdingTypeLabel(h.holdingType)}
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', gap: 5 }}>
+                          <button
+                            onClick={() => navigate(`/stock/${h.ticker}`)}
+                            style={{
+                              background: 'rgba(0,198,245,0.08)',
+                              border: '1px solid rgba(0,198,245,0.15)',
+                              borderRadius: 5,
+                              color: '#00c6f5',
+                              fontFamily: 'DM Sans, sans-serif',
+                              fontSize: 11,
+                              fontWeight: 600,
+                              padding: '4px 8px',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            View
+                          </button>
+                          <button
+                            onClick={() => setClosingHolding(h)}
+                            style={{
+                              background: 'rgba(255,77,109,0.08)',
+                              border: '1px solid rgba(255,77,109,0.15)',
+                              borderRadius: 5,
+                              color: '#ff4d6d',
+                              fontFamily: 'DM Sans, sans-serif',
+                              fontSize: 11,
+                              fontWeight: 600,
+                              padding: '4px 8px',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            Close
+                          </button>
+                        </div>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                        <div>
+                          <div style={{ color: '#4a6a8a', fontSize: 10, fontFamily: 'DM Sans, sans-serif', marginBottom: 2 }}>Qty / Avg Cost</div>
+                          <div style={{ color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}>
+                            {h.quantity.toLocaleString()} @ {formatDollars(h.avgCost)}
+                          </div>
+                        </div>
+                        <div>
+                          <div style={{ color: '#4a6a8a', fontSize: 10, fontFamily: 'DM Sans, sans-serif', marginBottom: 2 }}>Market Value</div>
+                          <div style={{ color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}>
+                            {h.marketValue != null ? formatDollars(h.marketValue) : '—'}
+                          </div>
+                        </div>
+                        <div>
+                          <div style={{ color: '#4a6a8a', fontSize: 10, fontFamily: 'DM Sans, sans-serif', marginBottom: 2 }}>Unrealized P&L</div>
+                          <div style={{ color: pnlColor, fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}>
+                            {h.unrealizedPnl != null
+                              ? `${h.unrealizedPnl >= 0 ? '+' : ''}${formatDollars(h.unrealizedPnl)}`
+                              : '—'}
+                            {h.unrealizedPnlPct != null && (
+                              <span style={{ fontSize: 10, marginLeft: 4, opacity: 0.8 }}>
+                                ({h.unrealizedPnlPct >= 0 ? '+' : ''}{h.unrealizedPnlPct.toFixed(2)}%)
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div>
+                          <div style={{ color: '#4a6a8a', fontSize: 10, fontFamily: 'DM Sans, sans-serif', marginBottom: 2 }}>Expiry</div>
+                          <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}>
+                            {h.expiry && dte != null ? (
+                              <span style={{ color: dte < 30 ? '#ff4d6d' : '#9ab4d4' }}>
+                                {new Date(h.expiry).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })}
+                              </span>
+                            ) : (
+                              <span style={{ color: '#4a6a8a' }}>—</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Section D — Wheel Positions (read-only) */}
+        <div
+          style={{
+            background: 'rgba(13,27,53,0.6)',
+            border: '1px solid rgba(0,229,196,0.08)',
+            borderRadius: 12,
+            marginBottom: 24,
+            overflow: 'hidden',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '16px 20px',
+              borderBottom: openPositions.length > 0 ? '1px solid rgba(0,229,196,0.06)' : 'none',
+              flexWrap: 'wrap',
+              gap: 8,
+            }}
+          >
+            <div>
+              <h2
+                style={{
+                  color: '#4a6a8a',
+                  fontFamily: 'DM Sans, sans-serif',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                  margin: 0,
+                }}
+              >
+                Wheel Positions{' '}
+                {openPositions.length > 0 && (
+                  <span style={{ color: '#9ab4d4', fontFamily: 'JetBrains Mono, monospace', fontWeight: 400 }}>
+                    ({openPositions.length})
+                  </span>
+                )}
+              </h2>
+              <div style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', fontSize: 11, marginTop: 2 }}>
+                Manage in Wheel Tracker
+              </div>
+            </div>
+            <button
+              onClick={() => navigate('/wheel')}
+              style={{
+                background: 'rgba(0,229,196,0.06)',
+                border: '1px solid rgba(0,229,196,0.12)',
+                borderRadius: 6,
+                color: '#00e5c4',
+                fontFamily: 'DM Sans, sans-serif',
+                fontSize: 12,
+                fontWeight: 600,
+                padding: '5px 12px',
+                cursor: 'pointer',
+              }}
+            >
+              Open Tracker →
+            </button>
+          </div>
+
+          {openPositions.length === 0 ? (
+            <div style={{ padding: '24px 20px', textAlign: 'center', color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', fontSize: 14 }}>
+              No open wheel positions
+            </div>
+          ) : (
+            <>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid rgba(0,229,196,0.06)' }}>
+                      {['Ticker', 'Strategy', 'Strike', 'Expiry', 'Premium', 'DTE'].map((col) => (
+                        <th
+                          key={col}
+                          style={{
+                            padding: '10px 14px',
+                            textAlign: 'left',
+                            color: '#4a6a8a',
+                            fontFamily: 'DM Sans, sans-serif',
+                            fontSize: 11,
+                            fontWeight: 600,
+                            letterSpacing: '0.06em',
+                            textTransform: 'uppercase',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {col}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {openPositions.map((p) => (
+                      <tr key={p.id} className="stock-row-hover" style={{ borderBottom: '1px solid rgba(0,229,196,0.04)' }}>
+                        <td style={{ padding: '12px 14px', color: '#e8f0fe', fontFamily: 'Syne, sans-serif', fontSize: 14, fontWeight: 700 }}>
+                          {p.ticker}
+                        </td>
+                        <td style={{ padding: '12px 14px' }}>
+                          <span
+                            style={{
+                              background: p.strategy === 'CSP' ? 'rgba(0,229,196,0.1)' : 'rgba(0,198,245,0.1)',
+                              border: `1px solid ${p.strategy === 'CSP' ? 'rgba(0,229,196,0.2)' : 'rgba(0,198,245,0.2)'}`,
+                              color: p.strategy === 'CSP' ? '#00e5c4' : '#00c6f5',
+                              borderRadius: 4,
+                              padding: '2px 7px',
+                              fontSize: 11,
+                              fontFamily: 'DM Sans, sans-serif',
+                              fontWeight: 600,
+                            }}
+                          >
+                            {p.strategy}
+                          </span>
+                        </td>
+                        <td style={{ padding: '12px 14px', color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace', fontSize: 13 }}>
+                          ${p.strike.toFixed(2)}
+                        </td>
+                        <td style={{ padding: '12px 14px', color: '#9ab4d4', fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}>
+                          {new Date(p.expiry).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })}
+                        </td>
+                        <td style={{ padding: '12px 14px', color: '#00d68f', fontFamily: 'JetBrains Mono, monospace', fontSize: 13 }}>
+                          {formatDollars(p.premiumCollected)}
+                        </td>
+                        <td style={{ padding: '12px 14px', color: p.daysToExpiry < 7 ? '#ff4d6d' : p.daysToExpiry < 21 ? '#f5c842' : '#9ab4d4', fontFamily: 'JetBrains Mono, monospace', fontSize: 13 }}>
+                          {p.daysToExpiry}d
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Wheel subtotal */}
+              <div
+                style={{
+                  padding: '12px 20px',
+                  borderTop: '1px solid rgba(0,229,196,0.06)',
+                  display: 'flex',
+                  justifyContent: 'flex-end',
+                  gap: 12,
+                  alignItems: 'center',
+                }}
+              >
+                <span style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', fontSize: 12 }}>
+                  Total Open Premium:
+                </span>
+                <span style={{ color: '#00d68f', fontFamily: 'JetBrains Mono, monospace', fontSize: 14, fontWeight: 700 }}>
+                  {formatDollars(wheelTotal)}
+                </span>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Modals */}
+      {showAddModal && (
+        <AddHoldingModal
+          onClose={() => setShowAddModal(false)}
+          onSubmit={handleAddHolding}
+          livePrices={livePriceMap.current}
+        />
+      )}
+
+      {closingHolding && (
+        <CloseHoldingModal
+          holding={closingHolding}
+          onClose={() => setClosingHolding(null)}
+          onSubmit={handleCloseHolding}
+        />
+      )}
+    </div>
+  );
+}
