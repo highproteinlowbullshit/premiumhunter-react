@@ -63,32 +63,6 @@
   --ph-input-bg: rgba(5, 13, 26, 0.8);
 }
 
-.light {
-  /* Backgrounds */
-  --ph-bg:          #f0f4fb;
-  --ph-bg-elevated: #e8eef8;
-  --ph-surface:     rgba(255, 255, 255, 0.7);
-  --ph-surface-60:  rgba(255, 255, 255, 0.85);
-  --ph-surface-80:  rgba(255, 255, 255, 0.95);
-  --ph-overlay:     rgba(0, 0, 0, 0.04);
-  --ph-overlay-hover: rgba(0, 180, 160, 0.05);
-  /* Text */
-  --ph-text-1: #0a1628;
-  --ph-text-2: #3d5a80;
-  --ph-text-3: #6b8aad;
-  --ph-text-4: #9ab4d4;
-  --ph-text-nav-inactive: #5a7a9a;
-  /* Borders */
-  --ph-border:        rgba(0, 150, 130, 0.12);
-  --ph-border-md:     rgba(0, 150, 130, 0.15);
-  --ph-border-bright: rgba(0, 150, 130, 0.25);
-  --ph-border-row:    rgba(0, 150, 130, 0.08);
-  /* Navbar */
-  --ph-navbar-bg:        rgba(240, 244, 251, 0.92);
-  --ph-navbar-mobile-bg: rgba(240, 244, 251, 0.98);
-  /* Inputs */
-  --ph-input-bg: rgba(255, 255, 255, 0.9);
-}
 
 * {
   box-sizing: border-box;
@@ -161,13 +135,6 @@ body {
     var(--ph-bg);
 }
 
-.light .mesh-bg {
-  background:
-    radial-gradient(ellipse at 20% 20%, rgba(0, 200, 180, 0.08) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 80%, rgba(0, 150, 220, 0.05) 0%, transparent 50%),
-    radial-gradient(ellipse at 50% 50%, rgba(0, 80, 160, 0.03) 0%, transparent 70%),
-    var(--ph-bg);
-}
 
 /* Noise texture overlay */
 .noise::after {

@@ -1,7 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import type { ThemeMode } from '../types';
 
 const NAV_ITEMS = [
   { to: '/dashboard', label: 'Dashboard',    icon: GridIcon      },
@@ -12,12 +11,10 @@ const NAV_ITEMS = [
 ];
 
 interface NavbarProps {
-  theme: ThemeMode;
-  onToggleTheme: () => void;
   onOpenLeapsCalc: () => void;
 }
 
-export function Navbar({ theme, onToggleTheme, onOpenLeapsCalc }: NavbarProps) {
+export function Navbar({ onOpenLeapsCalc }: NavbarProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
@@ -85,15 +82,6 @@ export function Navbar({ theme, onToggleTheme, onOpenLeapsCalc }: NavbarProps) {
             title="LEAPS Calculator"
           >
             <CalcIcon />
-          </button>
-
-          {/* Theme toggle */}
-          <button
-            onClick={onToggleTheme}
-            className="w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-200 hover:bg-[rgba(0,229,196,0.08)] text-[#6a8fb0] hover:text-[#00e5c4]"
-            title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-          >
-            {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
           </button>
 
           {/* Profile / auth */}
@@ -287,29 +275,6 @@ function WheelIconSmall() {
   );
 }
 
-function SunIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-      <circle cx="8" cy="8" r="3" stroke="currentColor" strokeWidth="1.2" />
-      <line x1="8" y1="1" x2="8" y2="2.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-      <line x1="8" y1="13.5" x2="8" y2="15" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-      <line x1="1" y1="8" x2="2.5" y2="8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-      <line x1="13.5" y1="8" x2="15" y2="8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-      <line x1="3.05" y1="3.05" x2="4.12" y2="4.12" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-      <line x1="11.88" y1="11.88" x2="12.95" y2="12.95" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-      <line x1="12.95" y1="3.05" x2="11.88" y2="4.12" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-      <line x1="4.12" y1="11.88" x2="3.05" y2="12.95" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function MoonIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-      <path d="M13.5 9.5A6 6 0 0 1 6.5 2.5a6 6 0 1 0 7 7z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
 
 function UserIcon() {
   return (

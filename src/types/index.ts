@@ -40,8 +40,6 @@ export interface SortOption {
   direction: 'asc' | 'desc';
 }
 
-export type ThemeMode = 'dark' | 'light';
-
 export type HoldingType = 'shares' | 'leaps_call' | 'leaps_put' | 'other';
 export type HoldingStatus = 'open' | 'closed';
 

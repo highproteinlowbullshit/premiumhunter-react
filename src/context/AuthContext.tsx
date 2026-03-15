@@ -8,15 +8,12 @@ import {
 } from 'react';
 import type { User, Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
-import type { ThemeMode } from '../types';
 
 interface AuthContextValue {
   user: User | null;
   session: Session | null;
   loading: boolean;
   signOut: () => Promise<void>;
-  theme: ThemeMode;
-  setTheme: (theme: ThemeMode) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -25,19 +22,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const [theme, setThemeState] = useState<ThemeMode>('dark');
-
-  // Load saved theme from Supabase user_preferences
-  const loadPreferences = useCallback(async (userId: string) => {
-    const { data } = await supabase
-      .from('user_preferences')
-      .select('theme')
-      .eq('user_id', userId)
-      .single();
-    if (data?.theme === 'light' || data?.theme === 'dark') {
-      setThemeState(data.theme);
-    }
-  }, []);
 
   // Initialize preferences row for new users (ON CONFLICT DO NOTHING via ignoreDuplicates)
   const initPreferences = useCallback(async (userId: string) => {
@@ -54,7 +38,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
-      if (session?.user) loadPreferences(session.user.id);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -65,33 +48,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (event === 'SIGNED_IN' && session?.user) {
           initPreferences(session.user.id);
-          loadPreferences(session.user.id);
-        }
-        if (event === 'SIGNED_OUT') {
-          setThemeState('dark');
         }
       }
     );
 
     return () => subscription.unsubscribe();
-  }, [loadPreferences, initPreferences]);
-
-  const setTheme = useCallback(async (newTheme: ThemeMode) => {
-    setThemeState(newTheme);
-    if (user) {
-      await supabase
-        .from('user_preferences')
-        .update({ theme: newTheme, updated_at: new Date().toISOString() })
-        .eq('user_id', user.id);
-    }
-  }, [user]);
+  }, [initPreferences]);
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signOut, theme, setTheme }}>
+    <AuthContext.Provider value={{ user, session, loading, signOut }}>
       {children}
     </AuthContext.Provider>
   );
