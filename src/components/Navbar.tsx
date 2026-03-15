@@ -1,7 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { LeapsCalculator } from './LeapsCalculator';
 import type { ThemeMode } from '../types';
 
 const NAV_ITEMS = [
@@ -15,11 +14,11 @@ const NAV_ITEMS = [
 interface NavbarProps {
   theme: ThemeMode;
   onToggleTheme: () => void;
+  onOpenLeapsCalc: () => void;
 }
 
-export function Navbar({ theme, onToggleTheme }: NavbarProps) {
+export function Navbar({ theme, onToggleTheme, onOpenLeapsCalc }: NavbarProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [leapsCalcOpen, setLeapsCalcOpen] = useState(false);
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
 
@@ -81,7 +80,7 @@ export function Navbar({ theme, onToggleTheme }: NavbarProps) {
         <div className="flex items-center gap-3">
           {/* LEAPS Calculator */}
           <button
-            onClick={() => setLeapsCalcOpen(true)}
+            onClick={onOpenLeapsCalc}
             className="w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-200 hover:bg-[rgba(0,229,196,0.08)] text-[#6a8fb0] hover:text-[#00e5c4]"
             title="LEAPS Calculator"
           >
@@ -158,9 +157,6 @@ export function Navbar({ theme, onToggleTheme }: NavbarProps) {
           </button>
         </div>
       </div>
-
-      {/* LEAPS Calculator panel */}
-      <LeapsCalculator isOpen={leapsCalcOpen} onClose={() => setLeapsCalcOpen(false)} />
 
       {/* Mobile dropdown */}
       {mobileOpen && (

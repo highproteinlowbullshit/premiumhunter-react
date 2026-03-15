@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './context/AuthContext';
@@ -6,6 +7,7 @@ import { ToastProvider } from './context/ToastContext';
 import { WatchlistProvider } from './context/WatchlistContext';
 import { Navbar } from './components/Navbar';
 import { ToastContainer } from './components/Toast';
+import { LeapsCalculator } from './components/LeapsCalculator';
 import * as Sentry from '@sentry/react';
 import { ErrorFallback } from './components/ErrorBoundary';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -46,10 +48,16 @@ export default function App() {
 
 function AppInner() {
   const { theme, setTheme } = useAuth();
+  const [leapsCalcOpen, setLeapsCalcOpen] = useState(false);
 
   return (
     <div className={theme === 'light' ? 'light' : ''} style={{ minHeight: '100vh' }}>
-      <Navbar theme={theme} onToggleTheme={() => setTheme(theme === 'dark' ? 'light' : 'dark')} />
+      <Navbar
+        theme={theme}
+        onToggleTheme={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+        onOpenLeapsCalc={() => setLeapsCalcOpen(true)}
+      />
+      <LeapsCalculator isOpen={leapsCalcOpen} onClose={() => setLeapsCalcOpen(false)} />
       <ToastContainer />
       <Sentry.ErrorBoundary fallback={(props) => <ErrorFallback onReset={props.resetError} />}>
         <Routes>
