@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { usePaperMode } from '../context/PaperModeContext';
 
 // ── Section heading with teal left border ─────────────────────────────────────
 function SectionHeading({ title, subtitle }: { title: string; subtitle?: string }) {
@@ -286,6 +288,9 @@ const PAIN_POINTS = [
 // ── Main component ────────────────────────────────────────────────────────────
 export function HelpPage() {
   const [showBackToTop, setShowBackToTop] = useState(false);
+  const { user } = useAuth();
+  const { isPaperMode, togglePaperMode } = usePaperMode();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const handler = () => setShowBackToTop(window.scrollY > 400);
@@ -294,6 +299,20 @@ export function HelpPage() {
   }, []);
 
   const scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  const handleGetStarted = () => {
+    if (user) { navigate('/wheel'); return; }
+    navigate('/signup');
+  };
+
+  const handlePaperTrading = () => {
+    if (user) {
+      if (!isPaperMode) togglePaperMode();
+      navigate('/wheel');
+      return;
+    }
+    navigate('/signup');
+  };
 
   const section: React.CSSProperties = {
     marginBottom: 72,
@@ -371,12 +390,12 @@ export function HelpPage() {
 
           {/* CTA buttons */}
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 36 }}>
-            <Link to="/signup" style={ctaButton(true)}>
-              Get Started Free
-            </Link>
-            <Link to="/signup" style={ctaButton(false)}>
-              Try Paper Trading
-            </Link>
+            <button onClick={handleGetStarted} style={{ ...ctaButton(true), border: 'none', cursor: 'pointer' }}>
+              {user ? 'Go to Wheel Tracker' : 'Get Started Free'}
+            </button>
+            <button onClick={handlePaperTrading} style={{ ...ctaButton(false), cursor: 'pointer' }}>
+              {user ? 'Switch to Paper Trading' : 'Try Paper Trading'}
+            </button>
           </div>
 
           {/* Trust badges */}
@@ -682,12 +701,12 @@ export function HelpPage() {
             Join Premium Hunter free. Start with paper trading, learn the wheel, and build the confidence to trade with real capital.
           </p>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 18 }}>
-            <Link to="/signup" style={ctaButton(true)}>
-              Create Free Account
-            </Link>
-            <Link to="/signup" style={ctaButton(false)}>
-              Start Paper Trading
-            </Link>
+            <button onClick={handleGetStarted} style={{ ...ctaButton(true), border: 'none', cursor: 'pointer' }}>
+              {user ? 'Go to Wheel Tracker' : 'Create Free Account'}
+            </button>
+            <button onClick={handlePaperTrading} style={{ ...ctaButton(false), cursor: 'pointer' }}>
+              {user ? 'Switch to Paper Trading' : 'Start Paper Trading'}
+            </button>
           </div>
           <p style={{
             fontFamily: 'DM Sans, sans-serif',
