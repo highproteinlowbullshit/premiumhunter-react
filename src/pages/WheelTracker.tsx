@@ -635,7 +635,7 @@ function AddPositionModal({ onClose, onAdd }: AddPositionModalProps) {
             <input
               value={form.ticker}
               onChange={(e) => setForm((f) => ({ ...f, ticker: e.target.value.toUpperCase() }))}
-              placeholder="GME"
+              placeholder=""
               className="w-full px-3 py-2.5 rounded-xl text-sm"
               style={inputStyle('ticker')}
             />
@@ -672,7 +672,7 @@ function AddPositionModal({ onClose, onAdd }: AddPositionModalProps) {
               <input
                 value={form.strike}
                 onChange={(e) => setForm((f) => ({ ...f, strike: e.target.value }))}
-                placeholder="25.00" type="number" step="0.50"
+                placeholder="" type="number" step="0.50"
                 className="w-full pl-7 pr-3 py-2.5 rounded-xl text-sm"
                 style={inputStyle('strike')}
               />
