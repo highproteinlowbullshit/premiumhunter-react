@@ -94,12 +94,16 @@ export function Navbar({ onOpenLeapsCalc }: NavbarProps) {
           {/* Paper mode toggle */}
           <button
             onClick={togglePaperMode}
-            className="w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-200"
-            style={{
-              color: isPaperMode ? '#f5c842' : '#6a8fb0',
-              background: isPaperMode ? 'rgba(245,200,66,0.12)' : 'transparent',
-              border: isPaperMode ? '1px solid rgba(245,200,66,0.25)' : '1px solid transparent',
-            }}
+            className={
+              isPaperMode
+                ? 'w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-200'
+                : 'w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-200 hover:bg-[rgba(245,200,66,0.08)] text-[#6a8fb0] hover:text-[#f5c842]'
+            }
+            style={isPaperMode ? {
+              color: '#f5c842',
+              background: 'rgba(245,200,66,0.12)',
+              border: '1px solid rgba(245,200,66,0.25)',
+            } : undefined}
             title={isPaperMode ? 'Disable paper trading' : 'Enable paper trading'}
           >
             <PaperIcon />
