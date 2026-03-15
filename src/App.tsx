@@ -24,6 +24,7 @@ import { ForgotPassword } from './pages/ForgotPassword';
 import { ResetPassword } from './pages/ResetPassword';
 import { NotFound } from './pages/NotFound';
 import { Portfolio } from './pages/Portfolio';
+import { HelpPage } from './pages/HelpPage';
 import { DemoBanner } from './components/DemoBanner';
 
 const queryClient = new QueryClient({
@@ -70,6 +71,7 @@ function AppInner() {
           <Route path="/signup" element={<Signup />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/help" element={<HelpPage />} />
 
           {/* Protected */}
           <Route path="/" element={<Navigate to="/dashboard" replace />} />

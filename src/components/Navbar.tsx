@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { to: '/screener',  label: 'IV Screener',  icon: ScreenerIcon  },
   { to: '/wheel',     label: 'Wheel Tracker', icon: WheelIcon    },
   { to: '/portfolio', label: 'Portfolio',    icon: PortfolioIcon },
+  { to: '/help',      label: 'Help',         icon: HelpIcon      },
 ];
 
 interface NavbarProps {
@@ -366,6 +367,16 @@ function CalcIcon() {
       <rect x="4" y="10.5" width="2" height="1.5" rx="0.4" fill="currentColor" />
       <rect x="7" y="10.5" width="2" height="1.5" rx="0.4" fill="currentColor" />
       <rect x="10" y="10.5" width="2" height="1.5" rx="0.4" fill="currentColor" />
+    </svg>
+  );
+}
+
+function HelpIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+      <circle cx="7.5" cy="7.5" r="6" stroke="currentColor" strokeWidth="1.2" />
+      <path d="M5.5 5.5a2 2 0 0 1 3.9.7c0 1.3-1.9 1.8-1.9 3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+      <circle cx="7.5" cy="11" r="0.75" fill="currentColor" />
     </svg>
   );
 }
