@@ -40,7 +40,7 @@ export interface SortOption {
   direction: 'asc' | 'desc';
 }
 
-export type HoldingType = 'shares' | 'leaps_call' | 'leaps_put' | 'other';
+export type HoldingType = 'shares' | 'leaps_call' | 'leaps_put' | 'other' | 'cash';
 export type HoldingStatus = 'open' | 'closed';
 
 export interface PortfolioHolding {

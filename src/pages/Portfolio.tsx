@@ -59,6 +59,7 @@ function holdingTypeLabel(type: HoldingType): string {
     case 'leaps_call': return 'LEAPS Call';
     case 'leaps_put': return 'LEAPS Put';
     case 'other': return 'Other';
+    case 'cash': return 'Cash';
   }
 }
 
@@ -68,6 +69,7 @@ function holdingTypeBadgeColor(type: HoldingType): string {
     case 'leaps_call': return '#00c6f5';
     case 'leaps_put': return '#f5c842';
     case 'other': return '#4a6a8a';
+    case 'cash': return '#22d68f';
   }
 }
 
@@ -163,12 +165,13 @@ function AddHoldingModal({ onClose, onSubmit, livePrices }: AddHoldingModalProps
   const [strike, setStrike] = useState('');
   const [notes, setNotes] = useState('');
 
+  const isCash = holdingType === 'cash';
   const isLeaps = holdingType === 'leaps_call' || holdingType === 'leaps_put';
 
   const qty = parseFloat(quantity) || 0;
-  const cost = parseFloat(avgCost) || 0;
-  const livePrice = livePrices.get(ticker.toUpperCase()) ?? null;
-  const estMV = livePrice != null ? livePrice * qty : null;
+  const cost = isCash ? 1 : (parseFloat(avgCost) || 0);
+  const livePrice = !isCash ? (livePrices.get(ticker.toUpperCase()) ?? null) : null;
+  const estMV = !isCash && livePrice != null ? livePrice * qty : null;
   const estPnl = estMV != null ? estMV - cost * qty : null;
 
   // BS estimate for LEAPS
@@ -191,6 +194,11 @@ function AddHoldingModal({ onClose, onSubmit, livePrices }: AddHoldingModalProps
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isCash) {
+      if (qty <= 0) return;
+      onSubmit({ ticker: 'CASH', holdingType: 'cash', quantity: qty, avgCost: 1, openedAt, notes: notes.trim() || undefined });
+      return;
+    }
     if (!ticker.trim() || qty <= 0 || cost <= 0) return;
     onSubmit({
       ticker: ticker.toUpperCase(),
@@ -264,17 +272,6 @@ function AddHoldingModal({ onClose, onSubmit, livePrices }: AddHoldingModalProps
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div>
-            <label style={labelStyle}>Ticker</label>
-            <input
-              style={{ ...inputStyle, textTransform: 'uppercase', fontFamily: 'Syne, sans-serif', letterSpacing: '0.05em' }}
-              value={ticker}
-              onChange={(e) => setTicker(e.target.value.toUpperCase())}
-              placeholder="AAPL"
-              required
-            />
-          </div>
-
-          <div>
             <label style={labelStyle}>Holding Type</label>
             <select
               style={{ ...inputStyle, cursor: 'pointer' }}
@@ -284,37 +281,53 @@ function AddHoldingModal({ onClose, onSubmit, livePrices }: AddHoldingModalProps
               <option value="shares">Shares</option>
               <option value="leaps_call">LEAPS Call</option>
               <option value="leaps_put">LEAPS Put</option>
+              <option value="cash">Cash</option>
               <option value="other">Other</option>
             </select>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          {!isCash && (
             <div>
-              <label style={labelStyle}>Quantity</label>
+              <label style={labelStyle}>Ticker</label>
+              <input
+                style={{ ...inputStyle, textTransform: 'uppercase', fontFamily: 'Syne, sans-serif', letterSpacing: '0.05em' }}
+                value={ticker}
+                onChange={(e) => setTicker(e.target.value.toUpperCase())}
+                placeholder="AAPL"
+                required
+              />
+            </div>
+          )}
+
+          <div style={{ display: 'grid', gridTemplateColumns: isCash ? '1fr' : '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={labelStyle}>{isCash ? 'Cash Amount ($)' : 'Quantity'}</label>
               <input
                 style={inputStyle}
                 type="number"
-                step="0.001"
+                step={isCash ? '0.01' : '0.001'}
                 min="0"
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}
-                placeholder="100"
+                placeholder={isCash ? '50000.00' : '100'}
                 required
               />
             </div>
-            <div>
-              <label style={labelStyle}>Avg Cost ($)</label>
-              <input
-                style={inputStyle}
-                type="number"
-                step="0.01"
-                min="0"
-                value={avgCost}
-                onChange={(e) => setAvgCost(e.target.value)}
-                placeholder="150.00"
-                required
-              />
-            </div>
+            {!isCash && (
+              <div>
+                <label style={labelStyle}>Avg Cost ($)</label>
+                <input
+                  style={inputStyle}
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={avgCost}
+                  onChange={(e) => setAvgCost(e.target.value)}
+                  placeholder="150.00"
+                  required
+                />
+              </div>
+            )}
           </div>
 
           <div>
@@ -365,7 +378,18 @@ function AddHoldingModal({ onClose, onSubmit, livePrices }: AddHoldingModalProps
           </div>
 
           {/* Preview row */}
-          {qty > 0 && cost > 0 && (
+          {isCash && qty > 0 && (
+            <div style={{ background: 'rgba(34,214,143,0.06)', border: '1px solid rgba(34,214,143,0.15)', borderRadius: 8, padding: '10px 14px' }}>
+              <span style={{ color: '#9ab4d4', fontSize: 12, fontFamily: 'DM Sans, sans-serif' }}>
+                Cash balance:{' '}
+                <span style={{ color: '#22d68f', fontFamily: 'JetBrains Mono, monospace', fontWeight: 700 }}>
+                  ${qty.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </span>
+            </div>
+          )}
+
+          {!isCash && qty > 0 && cost > 0 && (
             <div
               style={{
                 background: 'rgba(0,229,196,0.04)',
@@ -462,13 +486,19 @@ function EditHoldingModal({ holding, onClose, onSubmit }: EditHoldingModalProps)
   const [strike, setStrike] = useState(holding.strike != null ? String(holding.strike) : '');
   const [notes, setNotes] = useState(holding.notes ?? '');
 
+  const isCash = holdingType === 'cash';
   const isLeaps = holdingType === 'leaps_call' || holdingType === 'leaps_put';
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const qty = parseFloat(quantity);
+    if (!qty) return;
+    if (isCash) {
+      onSubmit(holding.id, { ticker: 'CASH', holdingType: 'cash', quantity: qty, avgCost: 1, openedAt, notes: notes.trim() || undefined });
+      return;
+    }
     const cost = parseFloat(avgCost);
-    if (!qty || !cost) return;
+    if (!cost) return;
     onSubmit(holding.id, {
       ticker: ticker.trim().toUpperCase(),
       holdingType,
@@ -525,37 +555,42 @@ function EditHoldingModal({ holding, onClose, onSubmit }: EditHoldingModalProps)
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div>
-            <label style={labelStyle}>Ticker</label>
-            <input
-              type="text"
-              required
-              value={ticker}
-              onChange={(e) => setTicker(e.target.value.toUpperCase())}
-              style={{ ...inputStyle, textTransform: 'uppercase' }}
-              placeholder="e.g. AAPL"
-              maxLength={10}
-            />
-          </div>
-
-          <div>
             <label style={labelStyle}>Holding Type</label>
             <select value={holdingType} onChange={(e) => setHoldingType(e.target.value as HoldingType)} style={{ ...inputStyle, cursor: 'pointer' }}>
               <option value="shares">Shares</option>
               <option value="leaps_call">LEAPS Call</option>
               <option value="leaps_put">LEAPS Put</option>
+              <option value="cash">Cash</option>
               <option value="other">Other</option>
             </select>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          {!isCash && (
             <div>
-              <label style={labelStyle}>Quantity</label>
-              <input type="number" step="0.001" min="0.001" required value={quantity} onChange={(e) => setQuantity(e.target.value)} style={inputStyle} placeholder="e.g. 100" />
+              <label style={labelStyle}>Ticker</label>
+              <input
+                type="text"
+                required
+                value={ticker}
+                onChange={(e) => setTicker(e.target.value.toUpperCase())}
+                style={{ ...inputStyle, textTransform: 'uppercase' }}
+                placeholder="e.g. AAPL"
+                maxLength={10}
+              />
             </div>
+          )}
+
+          <div style={{ display: 'grid', gridTemplateColumns: isCash ? '1fr' : '1fr 1fr', gap: 12 }}>
             <div>
-              <label style={labelStyle}>Avg Cost ($)</label>
-              <input type="number" step="0.01" min="0.01" required value={avgCost} onChange={(e) => setAvgCost(e.target.value)} style={inputStyle} placeholder="e.g. 45.00" />
+              <label style={labelStyle}>{isCash ? 'Cash Amount ($)' : 'Quantity'}</label>
+              <input type="number" step={isCash ? '0.01' : '0.001'} min={isCash ? '0.01' : '0.001'} required value={quantity} onChange={(e) => setQuantity(e.target.value)} style={inputStyle} placeholder={isCash ? 'e.g. 50000' : 'e.g. 100'} />
             </div>
+            {!isCash && (
+              <div>
+                <label style={labelStyle}>Avg Cost ($)</label>
+                <input type="number" step="0.01" min="0.01" required value={avgCost} onChange={(e) => setAvgCost(e.target.value)} style={inputStyle} placeholder="e.g. 45.00" />
+              </div>
+            )}
           </div>
 
           <div>
@@ -755,6 +790,159 @@ function CloseHoldingModal({ holding, onClose, onSubmit }: CloseHoldingModalProp
   );
 }
 
+// ── CSP Coverage Panel ─────────────────────────────────────────────────────────
+
+interface CspCoveragePanelProps {
+  totalCash: number;
+  cspObligation: number;
+  cspUsedPct: number;
+  openCSPs: { ticker: string; strike: number; contracts: number }[];
+  isLoading: boolean;
+}
+
+function CspCoveragePanel({ totalCash, cspObligation, cspUsedPct, openCSPs, isLoading }: CspCoveragePanelProps) {
+  const isUncovered = !isFinite(cspUsedPct) || cspUsedPct > 100;
+  const isTight = cspUsedPct > 80 && cspUsedPct <= 100;
+  const isHealthy = cspUsedPct <= 80;
+
+  const statusColor = isUncovered ? '#ff4d6d' : isTight ? '#f5c842' : '#00d68f';
+  const barColor = isUncovered ? '#ff4d6d' : isTight ? '#f5c842' : '#00d68f';
+  const barPct = isFinite(cspUsedPct) ? Math.min(cspUsedPct, 100) : 100;
+
+  const statusLabel = isUncovered
+    ? 'On Margin — Not Cash Secured'
+    : isTight
+    ? 'Nearly Fully Allocated'
+    : isHealthy
+    ? 'Fully Cash Secured'
+    : '';
+
+  const statusIcon = isUncovered ? '✗' : isTight ? '⚠' : '✓';
+
+  return (
+    <div
+      style={{
+        background: 'rgba(13,27,53,0.6)',
+        border: `1px solid ${isUncovered ? 'rgba(255,77,109,0.2)' : isTight ? 'rgba(245,200,66,0.2)' : 'rgba(0,214,143,0.15)'}`,
+        borderRadius: 12,
+        padding: '16px 20px',
+        marginBottom: 24,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', fontSize: 12, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+            CSP Cash Coverage
+          </span>
+          {!isLoading && (
+            <span
+              style={{
+                background: `${statusColor}18`,
+                border: `1px solid ${statusColor}40`,
+                color: statusColor,
+                borderRadius: 4,
+                padding: '1px 7px',
+                fontSize: 11,
+                fontFamily: 'DM Sans, sans-serif',
+                fontWeight: 700,
+              }}
+            >
+              {statusIcon} {statusLabel}
+            </span>
+          )}
+        </div>
+        {!isLoading && openCSPs.length > 0 && (
+          <span style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', fontSize: 12 }}>
+            {openCSPs.length} open CSP{openCSPs.length !== 1 ? 's' : ''}
+          </span>
+        )}
+      </div>
+
+      {isLoading ? (
+        <div style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', fontSize: 13 }}>Loading...</div>
+      ) : (
+        <>
+          {/* Numbers row */}
+          <div style={{ display: 'flex', gap: 24, marginBottom: 12, flexWrap: 'wrap' }}>
+            <div>
+              <div style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', fontSize: 11, marginBottom: 3 }}>Cash Available</div>
+              <div style={{ color: '#22d68f', fontFamily: 'JetBrains Mono, monospace', fontSize: 15, fontWeight: 700 }}>
+                {totalCash > 0 ? formatDollars(totalCash) : <span style={{ color: '#4a6a8a' }}>No cash holdings</span>}
+              </div>
+            </div>
+            <div>
+              <div style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', fontSize: 11, marginBottom: 3 }}>CSP Obligation</div>
+              <div style={{ color: isUncovered ? '#ff4d6d' : '#e8f0fe', fontFamily: 'JetBrains Mono, monospace', fontSize: 15, fontWeight: 700 }}>
+                {cspObligation > 0 ? formatDollars(cspObligation) : <span style={{ color: '#4a6a8a' }}>No open CSPs</span>}
+              </div>
+              {cspObligation > 0 && (
+                <div style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', fontSize: 10, marginTop: 1 }}>
+                  strike × contracts × 100
+                </div>
+              )}
+            </div>
+            {totalCash > 0 && cspObligation > 0 && (
+              <div>
+                <div style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', fontSize: 11, marginBottom: 3 }}>Cash Used</div>
+                <div style={{ color: statusColor, fontFamily: 'JetBrains Mono, monospace', fontSize: 15, fontWeight: 700 }}>
+                  {isFinite(cspUsedPct) ? `${cspUsedPct.toFixed(1)}%` : '∞'}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Progress bar */}
+          {totalCash > 0 && (
+            <div style={{ position: 'relative' }}>
+              <div
+                style={{
+                  height: 6,
+                  borderRadius: 3,
+                  background: 'rgba(255,255,255,0.06)',
+                  overflow: 'hidden',
+                }}
+              >
+                <div
+                  style={{
+                    height: '100%',
+                    width: `${barPct}%`,
+                    background: barColor,
+                    borderRadius: 3,
+                    transition: 'width 0.4s ease',
+                    boxShadow: `0 0 8px ${barColor}60`,
+                  }}
+                />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+                <span style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', fontSize: 10 }}>$0</span>
+                <span style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', fontSize: 10 }}>{formatDollars(totalCash)}</span>
+              </div>
+            </div>
+          )}
+
+          {/* No cash warning */}
+          {totalCash === 0 && cspObligation > 0 && (
+            <div
+              style={{
+                background: 'rgba(255,77,109,0.06)',
+                border: '1px solid rgba(255,77,109,0.15)',
+                borderRadius: 6,
+                padding: '8px 12px',
+                marginTop: 4,
+                color: '#ff4d6d',
+                fontFamily: 'DM Sans, sans-serif',
+                fontSize: 12,
+              }}
+            >
+              Add a Cash holding to track whether your CSPs are fully cash-secured.
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 // ── Main Portfolio Page ────────────────────────────────────────────────────────
 
 export function Portfolio() {
@@ -804,6 +992,16 @@ export function Portfolio() {
     (acc, p) => acc + p.premiumCollected,
     0
   );
+
+  // ── CSP Cash Coverage ────────────────────────────────────────────────────────
+  const totalCashBalance = holdingsWithPrice
+    .filter((h) => h.holdingType === 'cash')
+    .reduce((acc, h) => acc + h.quantity, 0);
+
+  const openCSPs = openPositions.filter((p) => p.strategy === 'CSP');
+  const cspObligation = openCSPs.reduce((acc, p) => acc + p.strike * p.contracts * 100, 0);
+  const showCspPanel = totalCashBalance > 0 || openCSPs.length > 0;
+  const cspUsedPct = totalCashBalance > 0 ? Math.min((cspObligation / totalCashBalance) * 100, 999) : (cspObligation > 0 ? Infinity : 0);
 
   const handleAddHolding = async (data: Parameters<typeof addHolding>[0]) => {
     await addHolding(data);
@@ -963,7 +1161,18 @@ export function Portfolio() {
           ))}
         </div>
 
-        {/* Section B — P&L Chart */}
+        {/* Section B — CSP Cash Coverage */}
+        {showCspPanel && (
+          <CspCoveragePanel
+            totalCash={totalCashBalance}
+            cspObligation={cspObligation}
+            cspUsedPct={cspUsedPct}
+            openCSPs={openCSPs}
+            isLoading={isLoading}
+          />
+        )}
+
+        {/* Section C — P&L Chart */}
         <div
           style={{
             background: 'rgba(13,27,53,0.6)',
@@ -1210,10 +1419,10 @@ export function Portfolio() {
                             </span>
                           </td>
                           <td style={{ padding: '12px 14px', color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace', fontSize: 13 }}>
-                            {h.quantity.toLocaleString()}
+                            {h.holdingType === 'cash' ? formatDollars(h.quantity) : h.quantity.toLocaleString()}
                           </td>
                           <td style={{ padding: '12px 14px', color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace', fontSize: 13 }}>
-                            {formatDollars(h.avgCost)}
+                            {h.holdingType === 'cash' ? '—' : formatDollars(h.avgCost)}
                           </td>
                           {(h.holdingType === 'leaps_call' || h.holdingType === 'leaps_put') && h.strike != null && h.expiry ? (
                             <LeapsTableCells
@@ -1224,6 +1433,15 @@ export function Portfolio() {
                               quantity={h.quantity}
                               avgCost={h.avgCost}
                             />
+                          ) : h.holdingType === 'cash' ? (
+                            <>
+                              <td style={{ padding: '12px 14px', color: '#4a6a8a', fontFamily: 'JetBrains Mono, monospace', fontSize: 13 }}>—</td>
+                              <td style={{ padding: '12px 14px', color: '#22d68f', fontFamily: 'JetBrains Mono, monospace', fontSize: 13, fontWeight: 700 }}>
+                                {formatDollars(h.quantity)}
+                              </td>
+                              <td style={{ padding: '12px 14px', color: '#4a6a8a', fontFamily: 'JetBrains Mono, monospace', fontSize: 13 }}>—</td>
+                              <td style={{ padding: '12px 14px', color: '#4a6a8a', fontFamily: 'JetBrains Mono, monospace', fontSize: 13 }}>—</td>
+                            </>
                           ) : (
                             <>
                               <td style={{ padding: '12px 14px', color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace', fontSize: 13 }}>
@@ -1261,12 +1479,14 @@ export function Portfolio() {
                                   ⊞ Calc
                                 </button>
                               )}
-                              <button
-                                onClick={() => navigate(`/stock/${h.ticker}`)}
-                                style={{ background: 'rgba(0,198,245,0.08)', border: '1px solid rgba(0,198,245,0.15)', borderRadius: 5, color: '#00c6f5', fontFamily: 'DM Sans, sans-serif', fontSize: 11, fontWeight: 600, padding: '4px 8px', cursor: 'pointer', whiteSpace: 'nowrap' }}
-                              >
-                                View
-                              </button>
+                              {h.holdingType !== 'cash' && (
+                                <button
+                                  onClick={() => navigate(`/stock/${h.ticker}`)}
+                                  style={{ background: 'rgba(0,198,245,0.08)', border: '1px solid rgba(0,198,245,0.15)', borderRadius: 5, color: '#00c6f5', fontFamily: 'DM Sans, sans-serif', fontSize: 11, fontWeight: 600, padding: '4px 8px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                                >
+                                  View
+                                </button>
+                              )}
                               <button
                                 onClick={() => setEditingHolding(h)}
                                 style={{ background: 'rgba(245,200,66,0.08)', border: '1px solid rgba(245,200,66,0.15)', borderRadius: 5, color: '#f5c842', fontFamily: 'DM Sans, sans-serif', fontSize: 11, fontWeight: 600, padding: '4px 8px', cursor: 'pointer' }}
@@ -1330,12 +1550,14 @@ export function Portfolio() {
                               Calc
                             </button>
                           )}
-                          <button
-                            onClick={() => navigate(`/stock/${h.ticker}`)}
-                            style={{ background: 'rgba(0,198,245,0.08)', border: '1px solid rgba(0,198,245,0.15)', borderRadius: 5, color: '#00c6f5', fontFamily: 'DM Sans, sans-serif', fontSize: 11, fontWeight: 600, padding: '4px 8px', cursor: 'pointer' }}
-                          >
-                            View
-                          </button>
+                          {h.holdingType !== 'cash' && (
+                            <button
+                              onClick={() => navigate(`/stock/${h.ticker}`)}
+                              style={{ background: 'rgba(0,198,245,0.08)', border: '1px solid rgba(0,198,245,0.15)', borderRadius: 5, color: '#00c6f5', fontFamily: 'DM Sans, sans-serif', fontSize: 11, fontWeight: 600, padding: '4px 8px', cursor: 'pointer' }}
+                            >
+                              View
+                            </button>
+                          )}
                           <button
                             onClick={() => setEditingHolding(h)}
                             style={{ background: 'rgba(245,200,66,0.08)', border: '1px solid rgba(245,200,66,0.15)', borderRadius: 5, color: '#f5c842', fontFamily: 'DM Sans, sans-serif', fontSize: 11, fontWeight: 600, padding: '4px 8px', cursor: 'pointer' }}
@@ -1350,26 +1572,35 @@ export function Portfolio() {
                           </button>
                         </div>
                       </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                        <div>
-                          <div style={{ color: '#4a6a8a', fontSize: 10, fontFamily: 'DM Sans, sans-serif', marginBottom: 2 }}>Qty / Avg Cost</div>
-                          <div style={{ color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}>
-                            {h.quantity.toLocaleString()} @ {formatDollars(h.avgCost)}
+                      {h.holdingType === 'cash' ? (
+                        <div style={{ marginTop: 8 }}>
+                          <div style={{ color: '#4a6a8a', fontSize: 10, fontFamily: 'DM Sans, sans-serif', marginBottom: 2 }}>Balance</div>
+                          <div style={{ color: '#22d68f', fontFamily: 'JetBrains Mono, monospace', fontSize: 15, fontWeight: 700 }}>
+                            {formatDollars(h.quantity)}
                           </div>
                         </div>
-                        <div>
-                          <div style={{ color: '#4a6a8a', fontSize: 10, fontFamily: 'DM Sans, sans-serif', marginBottom: 2 }}>Expiry</div>
-                          <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}>
-                            {h.expiry && dte != null ? (
-                              <span style={{ color: dte < 30 ? '#ff4d6d' : '#9ab4d4' }}>
-                                {new Date(h.expiry).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })}
-                              </span>
-                            ) : (
-                              <span style={{ color: '#4a6a8a' }}>—</span>
-                            )}
+                      ) : (
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                          <div>
+                            <div style={{ color: '#4a6a8a', fontSize: 10, fontFamily: 'DM Sans, sans-serif', marginBottom: 2 }}>Qty / Avg Cost</div>
+                            <div style={{ color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}>
+                              {h.quantity.toLocaleString()} @ {formatDollars(h.avgCost)}
+                            </div>
+                          </div>
+                          <div>
+                            <div style={{ color: '#4a6a8a', fontSize: 10, fontFamily: 'DM Sans, sans-serif', marginBottom: 2 }}>Expiry</div>
+                            <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}>
+                              {h.expiry && dte != null ? (
+                                <span style={{ color: dte < 30 ? '#ff4d6d' : '#9ab4d4' }}>
+                                  {new Date(h.expiry).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })}
+                                </span>
+                              ) : (
+                                <span style={{ color: '#4a6a8a' }}>—</span>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
+                      )}
 
                       {/* LEAPS: BS-computed values */}
                       {(h.holdingType === 'leaps_call' || h.holdingType === 'leaps_put') && h.strike != null && h.expiry ? (

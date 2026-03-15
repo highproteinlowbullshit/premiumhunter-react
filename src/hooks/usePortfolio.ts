@@ -174,12 +174,15 @@ export function usePortfolio() {
     setOptionsPremium(computedPremium);
 
     // Fetch live prices via Finnhub (portfolio has few tickers; queue overhead is fine)
+    // Cash holdings don't need price fetching — their value is always their quantity in dollars
+    const nonCashHoldings = holdings.filter((h) => h.holdingType !== 'cash');
+
     if (holdings.length > 0) {
-      const uniqueTickers = [...new Set(holdings.map((h) => h.ticker))];
+      const uniqueTickers = [...new Set(nonCashHoldings.map((h) => h.ticker))];
 
       // Also fetch IV for any LEAPS holdings (needed for Black-Scholes valuation)
       const leapsTickers = [...new Set(
-        holdings
+        nonCashHoldings
           .filter((h) => (h.holdingType === 'leaps_call' || h.holdingType === 'leaps_put') && h.strike != null && h.expiry)
           .map((h) => h.ticker)
       )];
@@ -213,6 +216,11 @@ export function usePortfolio() {
       });
 
       const enriched: HoldingWithPrice[] = holdings.map((h) => {
+        // Cash: value is always face value (quantity = dollar amount, avgCost = 1)
+        if (h.holdingType === 'cash') {
+          return { ...h, currentPrice: 1, marketValue: h.quantity, unrealizedPnl: 0, unrealizedPnlPct: 0 };
+        }
+
         const isLeaps =
           (h.holdingType === 'leaps_call' || h.holdingType === 'leaps_put') &&
           h.strike != null &&
