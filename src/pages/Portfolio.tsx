@@ -801,11 +801,10 @@ interface CspCoveragePanelProps {
   cspObligation: number;
   cspUsedPct: number;
   totalCSPContracts: number;
-  openCSPs: { ticker: string; strike: number; contracts: number }[];
   isLoading: boolean;
 }
 
-function CspCoveragePanel({ totalCash, cspObligation, cspUsedPct, totalCSPContracts, openCSPs, isLoading }: CspCoveragePanelProps) {
+function CspCoveragePanel({ totalCash, cspObligation, cspUsedPct, totalCSPContracts, isLoading }: CspCoveragePanelProps) {
   const isUncovered = !isFinite(cspUsedPct) || cspUsedPct > 100;
   const isTight = cspUsedPct > 80 && cspUsedPct <= 100;
   const isHealthy = cspUsedPct <= 80;
@@ -1256,7 +1255,6 @@ export function Portfolio() {
             cspObligation={cspObligation}
             cspUsedPct={cspUsedPct}
             totalCSPContracts={totalCSPContracts}
-            openCSPs={openCSPs}
             isLoading={isLoading}
           />
         )}
