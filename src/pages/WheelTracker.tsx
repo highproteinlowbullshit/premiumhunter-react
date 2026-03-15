@@ -8,7 +8,8 @@ export function WheelTracker() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [closingPosition, setClosingPosition] = useState<WheelPosition | null>(null);
   const [editingPosition, setEditingPosition] = useState<WheelPosition | null>(null);
-  const { positions, openPositions, monthlyPnL, addPosition, removePosition, closePosition, editPosition } = usePositions();
+  const [assigningPosition, setAssigningPosition] = useState<WheelPosition | null>(null);
+  const { positions, openPositions, monthlyPnL, addPosition, removePosition, closePosition, editPosition, assignPosition } = usePositions();
 
   useEffect(() => {
     setMounted(true);
@@ -103,6 +104,7 @@ export function WheelTracker() {
             onRemove={removePosition}
             onClose={setClosingPosition}
             onEdit={setEditingPosition}
+            onAssign={setAssigningPosition}
           />
         </div>
       </div>
@@ -138,6 +140,24 @@ export function WheelTracker() {
           onSave={(data) => {
             editPosition(editingPosition.id, data);
             setEditingPosition(null);
+          }}
+        />
+      )}
+
+      {/* Assign Position Modal */}
+      {assigningPosition && (
+        <AssignPositionModal
+          position={assigningPosition}
+          onClose={() => setAssigningPosition(null)}
+          onConfirm={() => {
+            assignPosition(assigningPosition.id, {
+              strategy: assigningPosition.strategy,
+              ticker: assigningPosition.ticker,
+              strike: assigningPosition.strike,
+              contracts: assigningPosition.contracts,
+              premiumCollected: assigningPosition.premiumCollected,
+            });
+            setAssigningPosition(null);
           }}
         />
       )}
@@ -437,6 +457,102 @@ function EditPositionModal({ position, onClose, onSave }: {
             Save Changes
           </button>
         </div>
+      </div>
+    </ModalShell>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Assign Position Modal
+// ─────────────────────────────────────────────────────────────────────────────
+function AssignPositionModal({ position, onClose, onConfirm }: {
+  position: WheelPosition;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  const isCSP = position.strategy === 'CSP';
+  const sharesQty = position.contracts * 100;
+  const premiumPerShare = (position.premiumCollected / position.contracts) / 100;
+  const effectiveBasis = Math.max(0, position.strike - premiumPerShare);
+  const totalCashFlow = isCSP
+    ? position.strike * sharesQty  // cash paid for shares
+    : position.strike * sharesQty; // cash received for shares
+
+  return (
+    <ModalShell
+      title="Mark as Assigned"
+      subtitle={`${position.ticker} ${position.strategy} · $${position.strike} strike · ${position.contracts}x`}
+      onClose={onClose}
+    >
+      {/* Assignment summary */}
+      <div className="rounded-xl p-4 mb-4"
+        style={{ background: 'rgba(245,200,66,0.06)', border: '1px solid rgba(245,200,66,0.2)' }}>
+        <p className="text-xs font-semibold mb-3 tracking-widest uppercase"
+          style={{ color: '#f5c842', fontFamily: 'DM Sans, sans-serif' }}>
+          {isCSP ? 'Put Assigned — Shares Purchased' : 'Call Assigned — Shares Called Away'}
+        </p>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <p className="text-xs mb-1" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>Shares</p>
+            <p className="text-sm font-bold" style={{ color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace' }}>
+              {isCSP ? '+' : '−'}{sharesQty} {position.ticker}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs mb-1" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
+              {isCSP ? 'Cash Out' : 'Cash In'}
+            </p>
+            <p className="text-sm font-bold" style={{ color: isCSP ? '#ff4d6d' : '#00d68f', fontFamily: 'JetBrains Mono, monospace' }}>
+              {isCSP ? '−' : '+'}${totalCashFlow.toLocaleString()}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs mb-1" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>Premium Kept</p>
+            <p className="text-sm font-bold" style={{ color: '#00e5c4', fontFamily: 'JetBrains Mono, monospace' }}>
+              +${position.premiumCollected.toFixed(0)}
+            </p>
+          </div>
+          {isCSP && (
+            <div>
+              <p className="text-xs mb-1" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>Effective Basis</p>
+              <p className="text-sm font-bold" style={{ color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace' }}>
+                ${effectiveBasis.toFixed(2)}/share
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* What will happen */}
+      <div className="rounded-lg px-4 py-3 mb-5"
+        style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.06)' }}>
+        {isCSP ? (
+          <p className="text-xs leading-relaxed" style={{ color: '#6a8fb0', fontFamily: 'DM Sans, sans-serif' }}>
+            <span style={{ color: '#9ab4d4' }}>{sharesQty} shares</span> of {position.ticker} will be added to your Portfolio holdings at an effective cost basis of <span style={{ color: '#00e5c4' }}>${effectiveBasis.toFixed(2)}/share</span> (strike minus premium received).
+          </p>
+        ) : (
+          <p className="text-xs leading-relaxed" style={{ color: '#6a8fb0', fontFamily: 'DM Sans, sans-serif' }}>
+            This position will be marked as assigned. Go to <span style={{ color: '#9ab4d4' }}>Portfolio → Holdings</span> and close your {position.ticker} shares at <span style={{ color: '#00e5c4' }}>${position.strike}/share</span> to record the sale.
+          </p>
+        )}
+      </div>
+
+      <div className="flex gap-3">
+        <button type="button" onClick={onClose}
+          className="flex-1 py-2.5 rounded-xl text-sm font-medium hover:bg-[rgba(255,255,255,0.05)] transition-colors"
+          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#6a8fb0', fontFamily: 'DM Sans, sans-serif' }}>
+          Cancel
+        </button>
+        <button type="button" onClick={onConfirm}
+          className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 hover:opacity-90"
+          style={{
+            background: 'linear-gradient(135deg, #f5c842, #f59e0b)',
+            color: '#1a1200',
+            fontFamily: 'DM Sans, sans-serif',
+            boxShadow: '0 4px 16px rgba(245,200,66,0.2)',
+          }}>
+          Confirm Assignment
+        </button>
       </div>
     </ModalShell>
   );

@@ -213,6 +213,64 @@ export function usePositions() {
     return totalRealized / monthsElapsed;
   })();
 
+  // ── Assign position ─────────────────────────────────────────────────────────
+  const assignPosition = useCallback(
+    async (id: string, data: { strategy: 'CSP' | 'CC'; ticker: string; strike: number; contracts: number; premiumCollected: number }) => {
+      // Optimistic update
+      setPositions((prev) =>
+        prev.map((p) => p.id === id ? { ...p, status: 'assigned' as PositionStatus } : p)
+      );
+
+      if (!user || id.startsWith('tmp-')) return;
+
+      const { error } = await supabase
+        .from('wheel_positions')
+        .update({ status: 'assigned', closed_at: new Date().toISOString() })
+        .eq('id', id)
+        .eq('user_id', user.id);
+
+      if (error) {
+        Sentry.captureException(error);
+        showToast('Failed to mark assignment', 'error');
+        setPositions((prev) =>
+          prev.map((p) => p.id === id ? { ...p, status: 'open' as PositionStatus } : p)
+        );
+        return;
+      }
+
+      if (data.strategy === 'CSP') {
+        // CSP assignment: buy shares at effective cost basis (strike − premium per share)
+        const premiumPerShare = (data.premiumCollected / data.contracts) / 100;
+        const effectiveBasis = Math.max(0, data.strike - premiumPerShare);
+        const today = new Date().toISOString().split('T')[0];
+
+        const { error: holdingErr } = await supabase
+          .from('portfolio_holdings')
+          .insert({
+            user_id: user.id,
+            ticker: data.ticker,
+            holding_type: 'shares',
+            quantity: data.contracts * 100,
+            avg_cost: Number(effectiveBasis.toFixed(4)),
+            opened_at: today,
+            status: 'open',
+            notes: `Assigned from CSP — $${data.strike} strike`,
+          });
+
+        if (holdingErr) {
+          Sentry.captureException(holdingErr);
+          showToast('Assigned — but failed to create shares holding. Add manually in Portfolio.', 'error');
+        } else {
+          showToast(`Assigned! Added ${data.contracts * 100} ${data.ticker} shares at $${effectiveBasis.toFixed(2)}/share`, 'success');
+        }
+      } else {
+        // CC assignment: shares called away — user closes shares in Portfolio manually
+        showToast(`Assigned — ${data.contracts * 100} ${data.ticker} shares called away at $${data.strike}`, 'success');
+      }
+    },
+    [user, showToast]
+  );
+
   // ── Edit position ───────────────────────────────────────────────────────────
   const editPosition = useCallback(
     async (id: string, data: { strike: number; expiry: string; premiumCollected: number; contracts: number }) => {
@@ -255,5 +313,5 @@ export function usePositions() {
     [user, showToast]
   );
 
-  return { positions, openPositions, monthlyPnL, addPosition, removePosition, closePosition, editPosition };
+  return { positions, openPositions, monthlyPnL, addPosition, removePosition, closePosition, editPosition, assignPosition };
 }

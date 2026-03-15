@@ -15,7 +15,11 @@ import { usePositions } from '../hooks/usePositions';
 import { LeapsTableCells, LeapsMobileValues } from '../components/LeapsTableCells';
 import { LeapsCalculator } from '../components/LeapsCalculator';
 import { blackScholes, yearsToExpiry, estimateVolatility } from '../lib/blackScholes';
+import { getQuote } from '../lib/finnhub';
 import type { PortfolioSnapshot, HoldingType } from '../types';
+
+type Currency = 'USD' | 'SGD';
+const SGD_FALLBACK_RATE = 1.34; // fallback if Finnhub fetch fails
 
 type RangeKey = '1W' | '1M' | '3M' | '6M' | '1Y' | 'All';
 
@@ -963,6 +967,10 @@ export function Portfolio() {
   const { openPositions } = usePositions();
 
   const [range, setRange] = useState<RangeKey>('3M');
+  const [currency, setCurrency] = useState<Currency>('USD');
+  const [sgdRate, setSgdRate] = useState<number>(SGD_FALLBACK_RATE);
+  const [rateLoading, setRateLoading] = useState(false);
+  const sgdRateFetched = useRef(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [closingHolding, setClosingHolding] = useState<HoldingWithPrice | null>(null);
   const [editingHolding, setEditingHolding] = useState<HoldingWithPrice | null>(null);
@@ -1018,37 +1026,70 @@ export function Portfolio() {
     setEditingHolding(null);
   };
 
+  // ── Currency toggle ──────────────────────────────────────────────────────────
+  const handleCurrencyToggle = async (next: Currency) => {
+    if (next === currency) return;
+    if (next === 'SGD' && !sgdRateFetched.current) {
+      setRateLoading(true);
+      try {
+        const quote = await getQuote('OANDA:USD_SGD');
+        if (quote.c > 0) setSgdRate(quote.c);
+      } catch {
+        // fall back to constant — already set
+      } finally {
+        sgdRateFetched.current = true;
+        setRateLoading(false);
+      }
+    }
+    setCurrency(next);
+  };
+
+  const convert = (usd: number) => currency === 'SGD' ? usd * sgdRate : usd;
+  const fmtCard = (usd: number) => {
+    const val = convert(usd);
+    const prefix = currency === 'SGD' ? 'S$' : '$';
+    const abs = Math.abs(val);
+    const formatted = abs.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return val < 0 ? `-${prefix}${formatted}` : `${prefix}${formatted}`;
+  };
+
   // ── Stat cards ──────────────────────────────────────────────────────────────
 
+  const currencyTag = rateLoading ? '…' : `(${currency})`;
   const statCards = [
     {
       label: 'Total Portfolio Value',
-      value: formatDollars(totalValue),
+      currency: currencyTag,
+      value: fmtCard(totalValue),
       accent: '#00e5c4',
       sub: null,
     },
     {
       label: 'Total Cost Basis',
-      value: formatDollars(totalCost),
+      currency: currencyTag,
+      value: fmtCard(totalCost),
       accent: '#9ab4d4',
       sub: null,
     },
     {
       label: 'Unrealized P&L',
-      value: formatDollars(unrealizedPnl),
+      currency: currencyTag,
+      value: fmtCard(unrealizedPnl),
       accent: unrealizedPnl >= 0 ? '#00d68f' : '#ff4d6d',
       sub: `${unrealizedPnlPct >= 0 ? '+' : ''}${unrealizedPnlPct.toFixed(2)}%`,
       subColor: unrealizedPnl >= 0 ? '#00d68f' : '#ff4d6d',
     },
     {
       label: 'Realized P&L',
-      value: formatDollars(realizedPnl),
+      currency: currencyTag,
+      value: fmtCard(realizedPnl),
       accent: realizedPnl >= 0 ? '#00d68f' : '#ff4d6d',
       sub: null,
     },
     {
       label: 'Options Premium Collected',
-      value: formatDollars(optionsPremium),
+      currency: currencyTag,
+      value: fmtCard(optionsPremium),
       accent: '#00c6f5',
       sub: null,
     },
@@ -1100,6 +1141,41 @@ export function Portfolio() {
         </div>
 
         {/* Section A — Stat Cards */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginBottom: 10 }}>
+          <div
+            style={{
+              display: 'flex',
+              background: 'rgba(13,27,53,0.6)',
+              border: '1px solid rgba(0,229,196,0.08)',
+              borderRadius: 8,
+              padding: 3,
+              gap: 2,
+            }}
+          >
+            {(['USD', 'SGD'] as Currency[]).map((c) => (
+              <button
+                key={c}
+                onClick={() => handleCurrencyToggle(c)}
+                style={{
+                  background: currency === c ? 'rgba(0,229,196,0.12)' : 'transparent',
+                  border: currency === c ? '1px solid rgba(0,229,196,0.25)' : '1px solid transparent',
+                  borderRadius: 5,
+                  color: currency === c ? '#00e5c4' : '#4a6a8a',
+                  fontFamily: 'JetBrains Mono, monospace',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  padding: '4px 10px',
+                  cursor: 'pointer',
+                  letterSpacing: '0.05em',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div
           style={{
             display: 'flex',
@@ -1129,10 +1205,20 @@ export function Portfolio() {
                   fontWeight: 600,
                   letterSpacing: '0.08em',
                   textTransform: 'uppercase',
-                  marginBottom: 8,
+                  marginBottom: 2,
                 }}
               >
                 {card.label}
+              </div>
+              <div
+                style={{
+                  color: '#2e4a6a',
+                  fontFamily: 'JetBrains Mono, monospace',
+                  fontSize: 10,
+                  marginBottom: 6,
+                }}
+              >
+                {card.currency}
               </div>
               <div
                 style={{

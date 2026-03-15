@@ -5,9 +5,10 @@ interface PositionTableProps {
   onRemove?: (id: string) => void;
   onClose?: (position: WheelPosition) => void;
   onEdit?: (position: WheelPosition) => void;
+  onAssign?: (position: WheelPosition) => void;
 }
 
-export function PositionTable({ positions, onRemove, onClose, onEdit }: PositionTableProps) {
+export function PositionTable({ positions, onRemove, onClose, onEdit, onAssign }: PositionTableProps) {
   if (!positions.length) {
     return (
       <div className="flex flex-col items-center justify-center py-16 gap-3">
@@ -29,7 +30,7 @@ export function PositionTable({ positions, onRemove, onClose, onEdit }: Position
     );
   }
 
-  const hasActions = onRemove || onClose || onEdit;
+  const hasActions = onRemove || onClose || onEdit || onAssign;
 
   return (
     <>
@@ -65,6 +66,14 @@ export function PositionTable({ positions, onRemove, onClose, onEdit }: Position
                 </div>
                 {/* Mobile actions */}
                 <div className="flex items-center gap-1">
+                  {onAssign && (
+                    <button onClick={() => onAssign(pos)}
+                      className="w-7 h-7 rounded-lg flex items-center justify-center"
+                      style={{ color: '#f5c842', background: 'rgba(245,200,66,0.08)' }}
+                      title="Mark as assigned">
+                      <AssignIcon />
+                    </button>
+                  )}
                   {onEdit && (
                     <button onClick={() => onEdit(pos)}
                       className="w-7 h-7 rounded-lg flex items-center justify-center"
@@ -237,6 +246,16 @@ export function PositionTable({ positions, onRemove, onClose, onEdit }: Position
                   {hasActions && (
                     <td className="py-3.5 px-4 last:pr-0">
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                        {onAssign && (
+                          <button
+                            onClick={() => onAssign(pos)}
+                            className="w-7 h-7 rounded-md flex items-center justify-center transition-all duration-150 hover:bg-[rgba(245,200,66,0.12)]"
+                            style={{ color: '#f5c842' }}
+                            title="Mark as assigned"
+                          >
+                            <AssignIcon />
+                          </button>
+                        )}
                         {onEdit && (
                           <button
                             onClick={() => onEdit(pos)}
@@ -300,6 +319,15 @@ function TrashIcon() {
   return (
     <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
       <path d="M2 3.5h9M5 3.5V2.5h3v1M4.5 3.5l.5 7h3l.5-7" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function AssignIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+      <path d="M6.5 1v7M4 5.5l2.5 2.5L9 5.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M2 10h9" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
     </svg>
   );
 }
