@@ -312,10 +312,11 @@ export function usePortfolio() {
   );
 
   const editHolding = useCallback(
-    async (id: string, data: Partial<Pick<AddHoldingData, 'quantity' | 'avgCost' | 'holdingType' | 'openedAt' | 'expiry' | 'strike' | 'notes'>>) => {
+    async (id: string, data: Partial<Pick<AddHoldingData, 'ticker' | 'quantity' | 'avgCost' | 'holdingType' | 'openedAt' | 'expiry' | 'strike' | 'notes'>>) => {
       if (!user) return;
 
       const updates: Record<string, unknown> = {};
+      if (data.ticker !== undefined) updates.ticker = data.ticker.toUpperCase();
       if (data.quantity !== undefined) updates.quantity = data.quantity;
       if (data.avgCost !== undefined) updates.avg_cost = data.avgCost;
       if (data.holdingType !== undefined) updates.holding_type = data.holdingType;

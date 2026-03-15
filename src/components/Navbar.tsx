@@ -1,6 +1,7 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { LeapsCalculator } from './LeapsCalculator';
 import type { ThemeMode } from '../types';
 
 const NAV_ITEMS = [
@@ -18,6 +19,7 @@ interface NavbarProps {
 
 export function Navbar({ theme, onToggleTheme }: NavbarProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [leapsCalcOpen, setLeapsCalcOpen] = useState(false);
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
 
@@ -77,6 +79,15 @@ export function Navbar({ theme, onToggleTheme }: NavbarProps) {
 
         {/* Right actions */}
         <div className="flex items-center gap-3">
+          {/* LEAPS Calculator */}
+          <button
+            onClick={() => setLeapsCalcOpen(true)}
+            className="w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-200 hover:bg-[rgba(0,229,196,0.08)] text-[#6a8fb0] hover:text-[#00e5c4]"
+            title="LEAPS Calculator"
+          >
+            <CalcIcon />
+          </button>
+
           {/* Theme toggle */}
           <button
             onClick={onToggleTheme}
@@ -147,6 +158,9 @@ export function Navbar({ theme, onToggleTheme }: NavbarProps) {
           </button>
         </div>
       </div>
+
+      {/* LEAPS Calculator panel */}
+      <LeapsCalculator isOpen={leapsCalcOpen} onClose={() => setLeapsCalcOpen(false)} />
 
       {/* Mobile dropdown */}
       {mobileOpen && (
@@ -335,6 +349,21 @@ function SignOutIcon() {
       <path d="M5 11.5H2.5a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1H5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
       <path d="M8.5 9.5L11 6.5l-2.5-3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
       <line x1="11" y1="6.5" x2="5" y2="6.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function CalcIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <rect x="2" y="1.5" width="12" height="13" rx="2" stroke="currentColor" strokeWidth="1.2" />
+      <line x1="5" y1="5" x2="11" y2="5" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
+      <rect x="4" y="7.5" width="2" height="1.5" rx="0.4" fill="currentColor" />
+      <rect x="7" y="7.5" width="2" height="1.5" rx="0.4" fill="currentColor" />
+      <rect x="10" y="7.5" width="2" height="1.5" rx="0.4" fill="currentColor" />
+      <rect x="4" y="10.5" width="2" height="1.5" rx="0.4" fill="currentColor" />
+      <rect x="7" y="10.5" width="2" height="1.5" rx="0.4" fill="currentColor" />
+      <rect x="10" y="10.5" width="2" height="1.5" rx="0.4" fill="currentColor" />
     </svg>
   );
 }

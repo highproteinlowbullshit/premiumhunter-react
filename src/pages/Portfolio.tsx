@@ -12,6 +12,9 @@ import {
 } from 'recharts';
 import { usePortfolio, type HoldingWithPrice } from '../hooks/usePortfolio';
 import { usePositions } from '../hooks/usePositions';
+import { LeapsValuator } from '../components/LeapsValuator';
+import { LeapsCalculator } from '../components/LeapsCalculator';
+import { blackScholes, yearsToExpiry, estimateVolatility } from '../lib/blackScholes';
 import type { PortfolioSnapshot, HoldingType } from '../types';
 
 type RangeKey = '1W' | '1M' | '3M' | '6M' | '1Y' | 'All';
@@ -167,6 +170,24 @@ function AddHoldingModal({ onClose, onSubmit, livePrices }: AddHoldingModalProps
   const livePrice = livePrices.get(ticker.toUpperCase()) ?? null;
   const estMV = livePrice != null ? livePrice * qty : null;
   const estPnl = estMV != null ? estMV - cost * qty : null;
+
+  // BS estimate for LEAPS
+  const strikeNum = parseFloat(strike) || 0;
+  const leapsBSPrice: number | null = (() => {
+    if (!isLeaps || !livePrice || !strikeNum || !expiry) return null;
+    const T = yearsToExpiry(expiry);
+    if (T <= 0) return null;
+    const vol = estimateVolatility(ticker.toUpperCase());
+    const result = blackScholes({
+      spotPrice: livePrice,
+      strikePrice: strikeNum,
+      timeToExpiry: T,
+      riskFreeRate: 0.045,
+      volatility: vol,
+      optionType: holdingType === 'leaps_call' ? 'call' : 'put',
+    });
+    return result.price;
+  })();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -352,27 +373,42 @@ function AddHoldingModal({ onClose, onSubmit, livePrices }: AddHoldingModalProps
                 borderRadius: 8,
                 padding: '10px 14px',
                 display: 'flex',
-                gap: 16,
-                flexWrap: 'wrap',
+                flexDirection: 'column',
+                gap: 8,
               }}
             >
-              <span style={{ color: '#9ab4d4', fontSize: 12, fontFamily: 'DM Sans, sans-serif' }}>
-                Est. Market Value:{' '}
-                <span style={{ color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace' }}>
-                  {estMV != null ? formatDollars(estMV) : 'N/A'}
+              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                <span style={{ color: '#9ab4d4', fontSize: 12, fontFamily: 'DM Sans, sans-serif' }}>
+                  Est. Market Value:{' '}
+                  <span style={{ color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace' }}>
+                    {estMV != null ? formatDollars(estMV) : 'N/A'}
+                  </span>
                 </span>
-              </span>
-              <span style={{ color: '#9ab4d4', fontSize: 12, fontFamily: 'DM Sans, sans-serif' }}>
-                Unrealized P&L:{' '}
-                <span
-                  style={{
-                    fontFamily: 'JetBrains Mono, monospace',
-                    color: estPnl == null ? '#9ab4d4' : estPnl >= 0 ? '#00d68f' : '#ff4d6d',
-                  }}
-                >
-                  {estPnl != null ? `${estPnl >= 0 ? '+' : ''}${formatDollars(estPnl)}` : 'N/A'}
+                <span style={{ color: '#9ab4d4', fontSize: 12, fontFamily: 'DM Sans, sans-serif' }}>
+                  Unrealized P&L:{' '}
+                  <span
+                    style={{
+                      fontFamily: 'JetBrains Mono, monospace',
+                      color: estPnl == null ? '#9ab4d4' : estPnl >= 0 ? '#00d68f' : '#ff4d6d',
+                    }}
+                  >
+                    {estPnl != null ? `${estPnl >= 0 ? '+' : ''}${formatDollars(estPnl)}` : 'N/A'}
+                  </span>
                 </span>
-              </span>
+              </div>
+              {isLeaps && leapsBSPrice != null && (
+                <div style={{ borderTop: '1px solid rgba(0,229,196,0.08)', paddingTop: 6 }}>
+                  <span style={{ color: '#9ab4d4', fontSize: 12, fontFamily: 'DM Sans, sans-serif' }}>
+                    Est. option value (Black-Scholes):{' '}
+                    <span style={{ color: '#00e5c4', fontFamily: 'JetBrains Mono, monospace', fontWeight: 600 }}>
+                      ~${leapsBSPrice.toFixed(2)}/share
+                    </span>
+                    <span style={{ color: '#4a6a8a', fontSize: 11, marginLeft: 6 }}>
+                      (~${(leapsBSPrice * 100).toFixed(0)}/contract) · Default vol estimate
+                    </span>
+                  </span>
+                </div>
+              )}
             </div>
           )}
 
@@ -405,6 +441,7 @@ interface EditHoldingModalProps {
   holding: HoldingWithPrice;
   onClose: () => void;
   onSubmit: (id: string, data: {
+    ticker: string;
     holdingType: HoldingType;
     quantity: number;
     avgCost: number;
@@ -416,6 +453,7 @@ interface EditHoldingModalProps {
 }
 
 function EditHoldingModal({ holding, onClose, onSubmit }: EditHoldingModalProps) {
+  const [ticker, setTicker] = useState(holding.ticker.toUpperCase());
   const [holdingType, setHoldingType] = useState<HoldingType>(holding.holdingType);
   const [quantity, setQuantity] = useState(String(holding.quantity));
   const [avgCost, setAvgCost] = useState(String(holding.avgCost));
@@ -432,6 +470,7 @@ function EditHoldingModal({ holding, onClose, onSubmit }: EditHoldingModalProps)
     const cost = parseFloat(avgCost);
     if (!qty || !cost) return;
     onSubmit(holding.id, {
+      ticker: ticker.trim().toUpperCase(),
       holdingType,
       quantity: qty,
       avgCost: cost,
@@ -485,6 +524,19 @@ function EditHoldingModal({ holding, onClose, onSubmit }: EditHoldingModalProps)
         </div>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div>
+            <label style={labelStyle}>Ticker</label>
+            <input
+              type="text"
+              required
+              value={ticker}
+              onChange={(e) => setTicker(e.target.value.toUpperCase())}
+              style={{ ...inputStyle, textTransform: 'uppercase' }}
+              placeholder="e.g. AAPL"
+              maxLength={10}
+            />
+          </div>
+
           <div>
             <label style={labelStyle}>Holding Type</label>
             <select value={holdingType} onChange={(e) => setHoldingType(e.target.value as HoldingType)} style={{ ...inputStyle, cursor: 'pointer' }}>
@@ -726,6 +778,7 @@ export function Portfolio() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [closingHolding, setClosingHolding] = useState<HoldingWithPrice | null>(null);
   const [editingHolding, setEditingHolding] = useState<HoldingWithPrice | null>(null);
+  const [leapsCalcHolding, setLeapsCalcHolding] = useState<HoldingWithPrice | null>(null);
 
   // Build a live price map for the add modal preview
   const livePriceMap = useRef(new Map<string, number | null>());
@@ -861,7 +914,6 @@ export function Portfolio() {
           {statCards.map((card) => (
             <div
               key={card.label}
-              className="stat-card-hover"
               style={{
                 background: 'rgba(13,27,53,0.6)',
                 border: '1px solid rgba(0,229,196,0.08)',
@@ -1163,18 +1215,33 @@ export function Portfolio() {
                           <td style={{ padding: '12px 14px', color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace', fontSize: 13 }}>
                             {formatDollars(h.avgCost)}
                           </td>
-                          <td style={{ padding: '12px 14px', color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace', fontSize: 13 }}>
-                            {h.currentPrice != null ? formatDollars(h.currentPrice) : '—'}
-                          </td>
-                          <td style={{ padding: '12px 14px', color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace', fontSize: 13 }}>
-                            {h.marketValue != null ? formatDollars(h.marketValue) : '—'}
-                          </td>
-                          <td style={{ padding: '12px 14px', color: pnlColor, fontFamily: 'JetBrains Mono, monospace', fontSize: 13 }}>
-                            {h.unrealizedPnl != null ? `${h.unrealizedPnl >= 0 ? '+' : ''}${formatDollars(h.unrealizedPnl)}` : '—'}
-                          </td>
-                          <td style={{ padding: '12px 14px', color: pnlColor, fontFamily: 'JetBrains Mono, monospace', fontSize: 13 }}>
-                            {h.unrealizedPnlPct != null ? `${h.unrealizedPnlPct >= 0 ? '+' : ''}${h.unrealizedPnlPct.toFixed(2)}%` : '—'}
-                          </td>
+                          {(h.holdingType === 'leaps_call' || h.holdingType === 'leaps_put') && h.strike != null && h.expiry ? (
+                            <td colSpan={4} style={{ padding: '10px 14px', verticalAlign: 'top' }}>
+                              <LeapsValuator
+                                ticker={h.ticker}
+                                optionType={h.holdingType === 'leaps_call' ? 'call' : 'put'}
+                                strike={h.strike}
+                                expiry={h.expiry}
+                                quantity={h.quantity}
+                                avgCost={h.avgCost}
+                              />
+                            </td>
+                          ) : (
+                            <>
+                              <td style={{ padding: '12px 14px', color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace', fontSize: 13 }}>
+                                {h.currentPrice != null ? formatDollars(h.currentPrice) : '—'}
+                              </td>
+                              <td style={{ padding: '12px 14px', color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace', fontSize: 13 }}>
+                                {h.marketValue != null ? formatDollars(h.marketValue) : '—'}
+                              </td>
+                              <td style={{ padding: '12px 14px', color: pnlColor, fontFamily: 'JetBrains Mono, monospace', fontSize: 13 }}>
+                                {h.unrealizedPnl != null ? `${h.unrealizedPnl >= 0 ? '+' : ''}${formatDollars(h.unrealizedPnl)}` : '—'}
+                              </td>
+                              <td style={{ padding: '12px 14px', color: pnlColor, fontFamily: 'JetBrains Mono, monospace', fontSize: 13 }}>
+                                {h.unrealizedPnlPct != null ? `${h.unrealizedPnlPct >= 0 ? '+' : ''}${h.unrealizedPnlPct.toFixed(2)}%` : '—'}
+                              </td>
+                            </>
+                          )}
                           <td style={{ padding: '12px 14px', fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}>
                             {h.expiry && dte != null ? (
                               <span style={{ color: dte < 30 ? '#ff4d6d' : '#9ab4d4' }}>
@@ -1186,7 +1253,16 @@ export function Portfolio() {
                             )}
                           </td>
                           <td style={{ padding: '12px 14px', textAlign: 'center' }}>
-                            <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
+                            <div style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap' }}>
+                              {(h.holdingType === 'leaps_call' || h.holdingType === 'leaps_put') && h.strike != null && h.expiry && (
+                                <button
+                                  onClick={() => setLeapsCalcHolding(h)}
+                                  style={{ background: 'rgba(0,229,196,0.08)', border: '1px solid rgba(0,229,196,0.15)', borderRadius: 5, color: '#00e5c4', fontFamily: 'DM Sans, sans-serif', fontSize: 11, fontWeight: 600, padding: '4px 8px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                                  title="Open LEAPS Calculator"
+                                >
+                                  ⊞ Calc
+                                </button>
+                              )}
                               <button
                                 onClick={() => navigate(`/stock/${h.ticker}`)}
                                 style={{ background: 'rgba(0,198,245,0.08)', border: '1px solid rgba(0,198,245,0.15)', borderRadius: 5, color: '#00c6f5', fontFamily: 'DM Sans, sans-serif', fontSize: 11, fontWeight: 600, padding: '4px 8px', cursor: 'pointer', whiteSpace: 'nowrap' }}
@@ -1247,7 +1323,15 @@ export function Portfolio() {
                             {holdingTypeLabel(h.holdingType)}
                           </span>
                         </div>
-                        <div style={{ display: 'flex', gap: 5 }}>
+                        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                          {(h.holdingType === 'leaps_call' || h.holdingType === 'leaps_put') && h.strike != null && h.expiry && (
+                            <button
+                              onClick={() => setLeapsCalcHolding(h)}
+                              style={{ background: 'rgba(0,229,196,0.08)', border: '1px solid rgba(0,229,196,0.15)', borderRadius: 5, color: '#00e5c4', fontFamily: 'DM Sans, sans-serif', fontSize: 11, fontWeight: 600, padding: '4px 8px', cursor: 'pointer' }}
+                            >
+                              Calc
+                            </button>
+                          )}
                           <button
                             onClick={() => navigate(`/stock/${h.ticker}`)}
                             style={{ background: 'rgba(0,198,245,0.08)', border: '1px solid rgba(0,198,245,0.15)', borderRadius: 5, color: '#00c6f5', fontFamily: 'DM Sans, sans-serif', fontSize: 11, fontWeight: 600, padding: '4px 8px', cursor: 'pointer' }}
@@ -1307,6 +1391,23 @@ export function Portfolio() {
                           </div>
                         </div>
                       </div>
+
+                      {/* LEAPS BS Valuation for mobile */}
+                      {(h.holdingType === 'leaps_call' || h.holdingType === 'leaps_put') && h.strike != null && h.expiry && (
+                        <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(0,229,196,0.06)' }}>
+                          <div style={{ color: '#4a6a8a', fontSize: 10, fontFamily: 'DM Sans, sans-serif', marginBottom: 6, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                            BS Valuation
+                          </div>
+                          <LeapsValuator
+                            ticker={h.ticker}
+                            optionType={h.holdingType === 'leaps_call' ? 'call' : 'put'}
+                            strike={h.strike}
+                            expiry={h.expiry}
+                            quantity={h.quantity}
+                            avgCost={h.avgCost}
+                          />
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -1494,6 +1595,17 @@ export function Portfolio() {
           onSubmit={handleCloseHolding}
         />
       )}
+
+      <LeapsCalculator
+        isOpen={leapsCalcHolding != null}
+        onClose={() => setLeapsCalcHolding(null)}
+        initialTicker={leapsCalcHolding?.ticker}
+        initialOptionType={leapsCalcHolding?.holdingType === 'leaps_put' ? 'put' : 'call'}
+        initialStrike={leapsCalcHolding?.strike}
+        initialExpiry={leapsCalcHolding?.expiry}
+        initialContracts={leapsCalcHolding?.quantity}
+        initialCostBasis={leapsCalcHolding?.avgCost}
+      />
     </div>
   );
 }
