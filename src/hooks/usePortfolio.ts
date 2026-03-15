@@ -3,6 +3,8 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { getQuote } from '../lib/finnhub';
+import { getIVData } from '../lib/polygon';
+import { blackScholes, yearsToExpiry, estimateVolatility } from '../lib/blackScholes';
 import type { PortfolioHolding, PortfolioSnapshot, HoldingType } from '../types';
 
 // DB row types (snake_case from Supabase)
@@ -174,7 +176,19 @@ export function usePortfolio() {
     // Fetch live prices via Finnhub (portfolio has few tickers; queue overhead is fine)
     if (holdings.length > 0) {
       const uniqueTickers = [...new Set(holdings.map((h) => h.ticker))];
-      const quoteResults = await Promise.allSettled(uniqueTickers.map((t) => getQuote(t)));
+
+      // Also fetch IV for any LEAPS holdings (needed for Black-Scholes valuation)
+      const leapsTickers = [...new Set(
+        holdings
+          .filter((h) => (h.holdingType === 'leaps_call' || h.holdingType === 'leaps_put') && h.strike != null && h.expiry)
+          .map((h) => h.ticker)
+      )];
+
+      const [quoteResults, ivResults] = await Promise.all([
+        Promise.allSettled(uniqueTickers.map((t) => getQuote(t))),
+        Promise.allSettled(leapsTickers.map((t) => getIVData(t))),
+      ]);
+
       const priceMap = new Map<string, { price: number | null; priceChangePct: number | null }>();
       uniqueTickers.forEach((ticker, i) => {
         const r = quoteResults[i];
@@ -187,28 +201,68 @@ export function usePortfolio() {
         }
       });
 
+      // Volatility map for LEAPS tickers (HV30 as decimal, or hardcoded fallback)
+      const volMap = new Map<string, number>();
+      leapsTickers.forEach((ticker, i) => {
+        const r = ivResults[i];
+        const vol =
+          r.status === 'fulfilled' && r.value.currentHV > 0
+            ? r.value.currentHV / 100
+            : estimateVolatility(ticker);
+        volMap.set(ticker, vol);
+      });
+
       const enriched: HoldingWithPrice[] = holdings.map((h) => {
-        const quote = priceMap.get(h.ticker);
-        const currentPrice = quote?.price ?? null;
-        const marketValue = currentPrice != null ? currentPrice * h.quantity : null;
-        const costBasis = h.avgCost * h.quantity;
-        const unrealized = marketValue != null ? marketValue - costBasis : null;
-        const unrealizedPct =
-          unrealized != null && costBasis > 0 ? (unrealized / costBasis) * 100 : null;
-        return {
-          ...h,
-          currentPrice,
-          marketValue,
-          unrealizedPnl: unrealized,
-          unrealizedPnlPct: unrealizedPct,
-        };
+        const isLeaps =
+          (h.holdingType === 'leaps_call' || h.holdingType === 'leaps_put') &&
+          h.strike != null &&
+          h.expiry != null;
+
+        const spotPrice = priceMap.get(h.ticker)?.price ?? null;
+
+        if (isLeaps && spotPrice != null && h.strike != null && h.expiry != null) {
+          // For options: market value = BS price × contracts × 100
+          const T = yearsToExpiry(h.expiry);
+          const vol = volMap.get(h.ticker) ?? estimateVolatility(h.ticker);
+          const bsResult = T > 0
+            ? blackScholes({
+                spotPrice,
+                strikePrice: h.strike,
+                timeToExpiry: T,
+                riskFreeRate: 0.045,
+                volatility: vol,
+                optionType: h.holdingType === 'leaps_call' ? 'call' : 'put',
+              })
+            : null;
+
+          const currentPrice = bsResult?.price ?? null; // per-share option price
+          const marketValue  = currentPrice != null ? currentPrice * h.quantity * 100 : null;
+          const costBasis    = h.avgCost * h.quantity * 100; // avgCost is per-share basis
+          const unrealized   = marketValue != null ? marketValue - costBasis : null;
+          const unrealizedPct = unrealized != null && costBasis > 0 ? (unrealized / costBasis) * 100 : null;
+          return { ...h, currentPrice, marketValue, unrealizedPnl: unrealized, unrealizedPnlPct: unrealizedPct };
+        }
+
+        // Shares / other: standard price × quantity
+        const currentPrice = spotPrice;
+        const marketValue  = currentPrice != null ? currentPrice * h.quantity : null;
+        const costBasis    = h.avgCost * h.quantity;
+        const unrealized   = marketValue != null ? marketValue - costBasis : null;
+        const unrealizedPct = unrealized != null && costBasis > 0 ? (unrealized / costBasis) * 100 : null;
+        return { ...h, currentPrice, marketValue, unrealizedPnl: unrealized, unrealizedPnlPct: unrealizedPct };
       });
 
       setHoldingsWithPrice(enriched);
 
       // Compute portfolio totals
-      const tv = enriched.reduce((acc, h) => acc + (h.marketValue ?? h.avgCost * h.quantity), 0);
-      const tc = enriched.reduce((acc, h) => acc + h.avgCost * h.quantity, 0);
+      // LEAPS cost basis = avgCost × qty × 100 (avgCost is per-share); shares = avgCost × qty
+      const holdingCostBasis = (h: HoldingWithPrice) =>
+        (h.holdingType === 'leaps_call' || h.holdingType === 'leaps_put') && h.strike != null && h.expiry != null
+          ? h.avgCost * h.quantity * 100
+          : h.avgCost * h.quantity;
+
+      const tv = enriched.reduce((acc, h) => acc + (h.marketValue ?? holdingCostBasis(h)), 0);
+      const tc = enriched.reduce((acc, h) => acc + holdingCostBasis(h), 0);
       const up = enriched.reduce((acc, h) => acc + (h.unrealizedPnl ?? 0), 0);
       setTotalValue(tv);
       setTotalCost(tc);
