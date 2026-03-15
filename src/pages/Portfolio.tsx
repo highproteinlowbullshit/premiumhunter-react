@@ -12,7 +12,7 @@ import {
 } from 'recharts';
 import { usePortfolio, type HoldingWithPrice } from '../hooks/usePortfolio';
 import { usePositions } from '../hooks/usePositions';
-import { LeapsValuator } from '../components/LeapsValuator';
+import { LeapsTableCells, LeapsMobileValues } from '../components/LeapsTableCells';
 import { LeapsCalculator } from '../components/LeapsCalculator';
 import { blackScholes, yearsToExpiry, estimateVolatility } from '../lib/blackScholes';
 import type { PortfolioSnapshot, HoldingType } from '../types';
@@ -1216,16 +1216,14 @@ export function Portfolio() {
                             {formatDollars(h.avgCost)}
                           </td>
                           {(h.holdingType === 'leaps_call' || h.holdingType === 'leaps_put') && h.strike != null && h.expiry ? (
-                            <td colSpan={4} style={{ padding: '10px 14px', verticalAlign: 'top' }}>
-                              <LeapsValuator
-                                ticker={h.ticker}
-                                optionType={h.holdingType === 'leaps_call' ? 'call' : 'put'}
-                                strike={h.strike}
-                                expiry={h.expiry}
-                                quantity={h.quantity}
-                                avgCost={h.avgCost}
-                              />
-                            </td>
+                            <LeapsTableCells
+                              ticker={h.ticker}
+                              optionType={h.holdingType === 'leaps_call' ? 'call' : 'put'}
+                              strike={h.strike}
+                              expiry={h.expiry}
+                              quantity={h.quantity}
+                              avgCost={h.avgCost}
+                            />
                           ) : (
                             <>
                               <td style={{ padding: '12px 14px', color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace', fontSize: 13 }}>
@@ -1360,25 +1358,6 @@ export function Portfolio() {
                           </div>
                         </div>
                         <div>
-                          <div style={{ color: '#4a6a8a', fontSize: 10, fontFamily: 'DM Sans, sans-serif', marginBottom: 2 }}>Market Value</div>
-                          <div style={{ color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}>
-                            {h.marketValue != null ? formatDollars(h.marketValue) : '—'}
-                          </div>
-                        </div>
-                        <div>
-                          <div style={{ color: '#4a6a8a', fontSize: 10, fontFamily: 'DM Sans, sans-serif', marginBottom: 2 }}>Unrealized P&L</div>
-                          <div style={{ color: pnlColor, fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}>
-                            {h.unrealizedPnl != null
-                              ? `${h.unrealizedPnl >= 0 ? '+' : ''}${formatDollars(h.unrealizedPnl)}`
-                              : '—'}
-                            {h.unrealizedPnlPct != null && (
-                              <span style={{ fontSize: 10, marginLeft: 4, opacity: 0.8 }}>
-                                ({h.unrealizedPnlPct >= 0 ? '+' : ''}{h.unrealizedPnlPct.toFixed(2)}%)
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <div>
                           <div style={{ color: '#4a6a8a', fontSize: 10, fontFamily: 'DM Sans, sans-serif', marginBottom: 2 }}>Expiry</div>
                           <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}>
                             {h.expiry && dte != null ? (
@@ -1392,13 +1371,10 @@ export function Portfolio() {
                         </div>
                       </div>
 
-                      {/* LEAPS BS Valuation for mobile */}
-                      {(h.holdingType === 'leaps_call' || h.holdingType === 'leaps_put') && h.strike != null && h.expiry && (
+                      {/* LEAPS: BS-computed values */}
+                      {(h.holdingType === 'leaps_call' || h.holdingType === 'leaps_put') && h.strike != null && h.expiry ? (
                         <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(0,229,196,0.06)' }}>
-                          <div style={{ color: '#4a6a8a', fontSize: 10, fontFamily: 'DM Sans, sans-serif', marginBottom: 6, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-                            BS Valuation
-                          </div>
-                          <LeapsValuator
+                          <LeapsMobileValues
                             ticker={h.ticker}
                             optionType={h.holdingType === 'leaps_call' ? 'call' : 'put'}
                             strike={h.strike}
@@ -1406,6 +1382,29 @@ export function Portfolio() {
                             quantity={h.quantity}
                             avgCost={h.avgCost}
                           />
+                        </div>
+                      ) : (
+                        /* Non-LEAPS: show standard market value + P&L */
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 8 }}>
+                          <div>
+                            <div style={{ color: '#4a6a8a', fontSize: 10, fontFamily: 'DM Sans, sans-serif', marginBottom: 2 }}>Market Value</div>
+                            <div style={{ color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}>
+                              {h.marketValue != null ? formatDollars(h.marketValue) : '—'}
+                            </div>
+                          </div>
+                          <div>
+                            <div style={{ color: '#4a6a8a', fontSize: 10, fontFamily: 'DM Sans, sans-serif', marginBottom: 2 }}>Unrealized P&L</div>
+                            <div style={{ color: pnlColor, fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}>
+                              {h.unrealizedPnl != null
+                                ? `${h.unrealizedPnl >= 0 ? '+' : ''}${formatDollars(h.unrealizedPnl)}`
+                                : '—'}
+                              {h.unrealizedPnlPct != null && (
+                                <span style={{ fontSize: 10, marginLeft: 4, opacity: 0.8 }}>
+                                  ({h.unrealizedPnlPct >= 0 ? '+' : ''}{h.unrealizedPnlPct.toFixed(2)}%)
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       )}
                     </div>
