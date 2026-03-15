@@ -8,6 +8,7 @@ import {
   getMoneynessLevel,
   MONEYNESS_COLORS,
 } from '../lib/blackScholes';
+import { LeapsCalculator } from './LeapsCalculator';
 
 export interface LeapsValuatorProps {
   ticker: string;
@@ -29,6 +30,7 @@ interface ValuationState {
 export function LeapsValuator({ ticker, optionType, strike, expiry, quantity, avgCost }: LeapsValuatorProps) {
   const [loading, setLoading] = useState(true);
   const [valuation, setValuation] = useState<ValuationState | null>(null);
+  const [calcOpen, setCalcOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -167,10 +169,30 @@ export function LeapsValuator({ ticker, optionType, strike, expiry, quantity, av
         </span>
       </div>
 
-      {/* Source disclaimer */}
-      <div style={{ color: '#2a4060', fontSize: 9, fontFamily: 'DM Sans, sans-serif' }}>
-        IV: {valuation.ivSource === 'hv30' ? `HV30 (${(valuation.volatility * 100).toFixed(0)}%)` : `Default (${(valuation.volatility * 100).toFixed(0)}%)`} · Black-Scholes est.
+      {/* Source disclaimer + Simulate button */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, marginTop: 2 }}>
+        <div style={{ color: '#2a4060', fontSize: 9, fontFamily: 'DM Sans, sans-serif' }}>
+          IV: {valuation.ivSource === 'hv30' ? `HV30 (${(valuation.volatility * 100).toFixed(0)}%)` : `Default (${(valuation.volatility * 100).toFixed(0)}%)`} · Black-Scholes est.
+        </div>
+        <button
+          onClick={() => setCalcOpen(true)}
+          style={{ background: 'rgba(0,229,196,0.08)', border: '1px solid rgba(0,229,196,0.2)', borderRadius: 4, color: '#00e5c4', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', fontSize: 9, fontWeight: 600, padding: '2px 6px', whiteSpace: 'nowrap', flexShrink: 0 }}
+        >
+          Simulate ↗
+        </button>
       </div>
+
+      {/* Full calculator (fixed overlay, escapes table cell layout) */}
+      <LeapsCalculator
+        isOpen={calcOpen}
+        onClose={() => setCalcOpen(false)}
+        initialTicker={ticker}
+        initialOptionType={optionType}
+        initialStrike={strike}
+        initialExpiry={expiry}
+        initialContracts={quantity}
+        initialCostBasis={avgCost}
+      />
     </div>
   );
 }
