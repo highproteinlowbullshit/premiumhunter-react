@@ -131,6 +131,49 @@ export function usePositions() {
         setPositions((prev) =>
           prev.map((p) => (p.id === tempId ? dbToPosition(inserted as DbPosition) : p))
         );
+
+        // Credit premium received to cash holdings
+        const totalPremium = data.premiumCollected * data.contracts;
+        const { data: cashRow } = await supabase
+          .from('portfolio_holdings')
+          .select('id, quantity')
+          .eq('user_id', user.id)
+          .eq('holding_type', 'cash')
+          .eq('status', 'open')
+          .order('quantity', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (cashRow) {
+          const { error: cashErr } = await supabase
+            .from('portfolio_holdings')
+            .update({ quantity: Number(cashRow.quantity) + totalPremium })
+            .eq('id', cashRow.id);
+          if (cashErr) {
+            Sentry.captureException(cashErr);
+            showToast('Position added — but failed to credit premium to cash. Update manually in Portfolio.', 'error');
+            return;
+          }
+        } else {
+          const { error: cashErr } = await supabase
+            .from('portfolio_holdings')
+            .insert({
+              user_id: user.id,
+              holding_type: 'cash',
+              ticker: 'USD',
+              quantity: totalPremium,
+              avg_cost: 1,
+              status: 'open',
+              notes: `Auto-created from ${data.strategy} premium — ${data.ticker.toUpperCase()} $${data.strike} strike`,
+              opened_at: new Date().toISOString().split('T')[0],
+            });
+          if (cashErr) {
+            Sentry.captureException(cashErr);
+            showToast('Position added — but failed to record premium as cash. Update manually in Portfolio.', 'error');
+            return;
+          }
+        }
+
         showToast('Position added', 'success');
       }
     },
