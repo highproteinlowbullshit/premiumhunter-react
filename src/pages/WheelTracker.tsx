@@ -611,6 +611,7 @@ interface AddPositionModalProps {
 }
 
 function AddPositionModal({ cashBalance, lockedCollateral, onClose, onAdd }: AddPositionModalProps) {
+  const { user } = useAuth();
   const [form, setForm] = useState({
     ticker: '',
     strategy: 'CSP' as WheelStrategy,
@@ -622,6 +623,8 @@ function AddPositionModal({ cashBalance, lockedCollateral, onClose, onAdd }: Add
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [spotPrice, setSpotPrice] = useState<number | null>(null);
   const [fetchingPrice, setFetchingPrice] = useState(false);
+  const [sharesHeld, setSharesHeld] = useState<number | null>(null);
+  const [fetchingShares, setFetchingShares] = useState(false);
 
   const contracts = Number(form.contracts) || 1;
   const strike = Number(form.strike) || 0;
@@ -643,6 +646,23 @@ function AddPositionModal({ cashBalance, lockedCollateral, onClose, onAdd }: Add
     } catch { /* ignore */ }
     setFetchingPrice(false);
   }, [form.strike]);
+
+  const fetchShares = useCallback(async (ticker: string) => {
+    if (!ticker || !user) return;
+    setFetchingShares(true);
+    try {
+      const { data } = await supabase
+        .from('portfolio_holdings')
+        .select('quantity')
+        .eq('user_id', user.id)
+        .eq('ticker', ticker.toUpperCase())
+        .eq('holding_type', 'shares')
+        .eq('status', 'open');
+      const total = (data ?? []).reduce((acc: number, row: { quantity: string }) => acc + Number(row.quantity), 0);
+      setSharesHeld(total > 0 ? total : 0);
+    } catch { /* ignore */ }
+    setFetchingShares(false);
+  }, [user]);
 
   const validate = () => {
     const e: Record<string, string> = {};
@@ -686,8 +706,8 @@ function AddPositionModal({ cashBalance, lockedCollateral, onClose, onAdd }: Add
             <label className="block text-xs mb-1.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>Ticker</label>
             <input
               value={form.ticker}
-              onChange={(e) => { setForm((f) => ({ ...f, ticker: e.target.value.toUpperCase() })); setSpotPrice(null); }}
-              onBlur={(e) => void fetchSpot(e.target.value)}
+              onChange={(e) => { setForm((f) => ({ ...f, ticker: e.target.value.toUpperCase() })); setSpotPrice(null); setSharesHeld(null); }}
+              onBlur={(e) => { void fetchSpot(e.target.value); void fetchShares(e.target.value); }}
               placeholder=""
               className="w-full px-3 py-2.5 rounded-xl text-sm"
               style={inputStyle('ticker')}
@@ -707,7 +727,7 @@ function AddPositionModal({ cashBalance, lockedCollateral, onClose, onAdd }: Add
               {(['CSP', 'CC'] as WheelStrategy[]).map((s) => (
                 <button
                   key={s} type="button"
-                  onClick={() => setForm((f) => ({ ...f, strategy: s }))}
+                  onClick={() => { setForm((f) => ({ ...f, strategy: s })); if (s === 'CC' && form.ticker) void fetchShares(form.ticker); }}
                   className="py-1.5 rounded-lg text-xs font-semibold transition-all duration-150"
                   style={{
                     background: form.strategy === s ? (s === 'CSP' ? 'rgba(0,198,245,0.15)' : 'rgba(0,229,196,0.15)') : 'transparent',
@@ -749,6 +769,46 @@ function AddPositionModal({ cashBalance, lockedCollateral, onClose, onAdd }: Add
             />
           </div>
         </div>
+
+        {/* CC capacity panel */}
+        {form.strategy === 'CC' && form.ticker && (
+          <div className="rounded-lg px-4 py-3 text-xs"
+            style={{
+              background: 'rgba(0,229,196,0.05)',
+              border: '1px solid rgba(0,229,196,0.15)',
+            }}>
+            {fetchingShares ? (
+              <p style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>Checking share holdings…</p>
+            ) : sharesHeld !== null ? (
+              <>
+                <div className="flex justify-between items-center mb-1">
+                  <span style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>{form.ticker} shares held</span>
+                  <span style={{ color: '#9ab4d4', fontFamily: 'JetBrains Mono, monospace', fontWeight: 600 }}>{sharesHeld.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between items-center pt-1.5"
+                  style={{ borderTop: '1px solid rgba(255,255,255,0.06)', marginTop: 2 }}>
+                  <span style={{ color: '#6a8fb0', fontFamily: 'DM Sans, sans-serif', fontWeight: 600 }}>Max CCs you can sell</span>
+                  <span style={{
+                    color: sharesHeld === 0 ? '#ff4d6d' : contracts > Math.floor(sharesHeld / 100) ? '#ff4d6d' : '#00e5c4',
+                    fontFamily: 'JetBrains Mono, monospace', fontWeight: 700,
+                  }}>
+                    {Math.floor(sharesHeld / 100)}
+                    {contracts > Math.floor(sharesHeld / 100) && sharesHeld > 0 && (
+                      <span style={{ marginLeft: 6, fontWeight: 400, fontSize: 10 }}>(exceeds holdings)</span>
+                    )}
+                    {sharesHeld === 0 && (
+                      <span style={{ marginLeft: 6, fontWeight: 400, fontSize: 10 }}>(no shares held)</span>
+                    )}
+                  </span>
+                </div>
+              </>
+            ) : (
+              <p style={{ color: '#2a4060', fontFamily: 'DM Sans, sans-serif' }}>
+                Enter ticker to check share holdings
+              </p>
+            )}
+          </div>
+        )}
 
         {/* CSP Collateral required */}
         {form.strategy === 'CSP' && collateral > 0 && (
