@@ -148,7 +148,7 @@ export async function getIVData(
   ticker: string,
   opts?: { skipSupabase?: boolean }
 ): Promise<PolygonIVData> {
-  const cacheKey = `wh_hv_v3_${ticker}`;
+  const cacheKey = `wh_hv_v4_${ticker}`;
 
   // 1. Check localStorage (fastest, per-device, 6h TTL)
   const cached = getCached<PolygonIVData>(cacheKey);
@@ -212,10 +212,12 @@ export async function getIVData(
     const hv60 = calcHV(closes, 60);
     const ivHvRatio = hv60 > 0 ? parseFloat((currentHV / hv60).toFixed(2)) : 1.0;
 
-    // 52 weekly data points, evenly sampled from the HV series
+    // 52 weekly data points sampled so the first point is the oldest bar and
+    // the last point is always the most recent bar (today).
     const weeklyHistory: IVDataPoint[] = [];
-    const step = Math.max(1, Math.floor(hvSeries.length / 52));
-    for (let i = 0; i < hvSeries.length && weeklyHistory.length < 52; i += step) {
+    const totalPoints = Math.min(52, hvSeries.length);
+    for (let p = 0; p < totalPoints; p++) {
+      const i = Math.round(p * (hvSeries.length - 1) / (totalPoints - 1));
       const tsIndex = 31 + i;
       const ts = timestamps[tsIndex] ?? Date.now();
       const weekHV = hvSeries[i];
@@ -224,7 +226,7 @@ export async function getIVData(
           ? Math.min(100, Math.max(0, Math.round(((weekHV - hv52wkLow) / (hv52wkHigh - hv52wkLow)) * 100)))
           : 50;
       weeklyHistory.push({
-        week: `W${weeklyHistory.length + 1}`,
+        week: `W${p + 1}`,
         date: new Date(ts).toISOString().split('T')[0],
         ivRank: weekIVRank,
         iv: weekHV,
