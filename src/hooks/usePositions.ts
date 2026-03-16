@@ -161,6 +161,8 @@ export function usePositions() {
   // ── Close position ──────────────────────────────────────────────────────────
   const closePosition = useCallback(
     async (id: string, closingPrice: number) => {
+      const position = positions.find((p) => p.id === id);
+
       setPositions((prev) =>
         prev.map((p) =>
           p.id === id
@@ -184,11 +186,63 @@ export function usePositions() {
       if (error) {
         Sentry.captureException(error);
         showToast('Failed to close position', 'error');
-      } else {
-        showToast('Position closed', 'success');
+        return;
       }
+
+      // For CC closed early (Buy To Close), deduct the BTC cost from cash holdings.
+      // closingPrice is per-contract dollar value; contracts drives total outflow.
+      if (position?.strategy === 'CC' && closingPrice > 0) {
+        const btcCost = closingPrice * position.contracts;
+
+        const { data: cashRow } = await supabase
+          .from('portfolio_holdings')
+          .select('id, quantity')
+          .eq('user_id', user.id)
+          .eq('holding_type', 'cash')
+          .eq('status', 'open')
+          .order('quantity', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (cashRow) {
+          const newBalance = Number(cashRow.quantity) - btcCost;
+          const { error: cashErr } = await supabase
+            .from('portfolio_holdings')
+            .update({ quantity: newBalance })
+            .eq('id', cashRow.id);
+
+          if (cashErr) {
+            Sentry.captureException(cashErr);
+            showToast('Position closed — but failed to deduct BTC cost from cash. Update manually in Portfolio.', 'error');
+            return;
+          }
+        } else {
+          // No cash row exists — create one with a negative balance so the
+          // outflow is always recorded even if the user hasn't set up a cash holding.
+          const { error: cashErr } = await supabase
+            .from('portfolio_holdings')
+            .insert({
+              user_id: user.id,
+              holding_type: 'cash',
+              ticker: 'USD',
+              quantity: -btcCost,
+              avg_cost: 1,
+              status: 'open',
+              notes: `Auto-created from CC BTC — ${position.ticker} $${position.strike} strike`,
+              opened_at: new Date().toISOString().split('T')[0],
+            });
+
+          if (cashErr) {
+            Sentry.captureException(cashErr);
+            showToast('Position closed — but failed to record cash outflow. Update manually in Portfolio.', 'error');
+            return;
+          }
+        }
+      }
+
+      showToast('Position closed', 'success');
     },
-    [user, showToast]
+    [user, showToast, positions]
   );
 
   // ── Derived values ──────────────────────────────────────────────────────────
