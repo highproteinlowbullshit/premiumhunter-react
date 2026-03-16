@@ -37,6 +37,7 @@ interface DbSnapshot {
 interface DbWheelPosition {
   premium_collected: string;
   contracts: number;
+  closing_price: string | null;
 }
 
 function dbToHolding(row: DbHolding): PortfolioHolding {
@@ -131,7 +132,7 @@ export function usePortfolio() {
         .eq('status', 'closed'),
       supabase
         .from('wheel_positions')
-        .select('premium_collected, contracts')
+        .select('premium_collected, contracts, closing_price')
         .eq('user_id', user.id)
         .eq('status', 'closed'),
     ]);
@@ -161,16 +162,20 @@ export function usePortfolio() {
         return acc;
       }, 0);
     }
-    setRealizedPnl(computedRealizedPnl);
-
-    // Compute options premium from closed wheel positions
+    // Compute net wheel position P&L and add to realized P&L
     let computedPremium = 0;
     if (wheelRes.status === 'fulfilled' && !wheelRes.value.error && wheelRes.value.data) {
-      computedPremium = (wheelRes.value.data as DbWheelPosition[]).reduce(
-        (acc, p) => acc + Number(p.premium_collected) * p.contracts,
-        0
-      );
+      const wheelPositions = wheelRes.value.data as DbWheelPosition[];
+      // Net options premium: premium collected minus BTC cost (or full premium if expired worthless)
+      computedPremium = wheelPositions.reduce((acc, p) => {
+        const premium = Number(p.premium_collected);
+        const btcCost = p.closing_price != null ? Number(p.closing_price) : 0;
+        return acc + (premium - btcCost) * p.contracts;
+      }, 0);
+      // Also roll net wheel P&L into overall realized P&L
+      computedRealizedPnl += computedPremium;
     }
+    setRealizedPnl(computedRealizedPnl);
     setOptionsPremium(computedPremium);
 
     // Fetch live prices via Finnhub (portfolio has few tickers; queue overhead is fine)
