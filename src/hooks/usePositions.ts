@@ -371,6 +371,12 @@ export function usePositions() {
   // ── Edit position ───────────────────────────────────────────────────────────
   const editPosition = useCallback(
     async (id: string, data: { strike: number; expiry: string; premiumCollected: number; contracts: number }) => {
+      // Capture old total premium before optimistic update
+      const oldPosition = positions.find((p) => p.id === id);
+      const oldTotal = oldPosition ? oldPosition.premiumCollected : 0;
+      const newTotal = data.premiumCollected * data.contracts;
+      const premiumDelta = newTotal - oldTotal;
+
       const newDte = Math.max(0, Math.ceil((new Date(data.expiry).getTime() - Date.now()) / 86_400_000));
       setPositions((prev) =>
         prev.map((p) =>
@@ -379,7 +385,7 @@ export function usePositions() {
                 ...p,
                 strike: data.strike,
                 expiry: data.expiry,
-                premiumCollected: data.premiumCollected * data.contracts,
+                premiumCollected: newTotal,
                 contracts: data.contracts,
                 daysToExpiry: newDte,
               }
@@ -403,11 +409,56 @@ export function usePositions() {
       if (error) {
         Sentry.captureException(error);
         showToast('Failed to update position', 'error');
-      } else {
-        showToast('Position updated', 'success');
+        return;
       }
+
+      // Reflect premium change in cash holdings if the total premium changed
+      if (premiumDelta !== 0) {
+        const { data: cashRow } = await supabase
+          .from('portfolio_holdings')
+          .select('id, quantity')
+          .eq('user_id', user.id)
+          .eq('holding_type', 'cash')
+          .eq('status', 'open')
+          .order('quantity', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (cashRow) {
+          const { error: cashErr } = await supabase
+            .from('portfolio_holdings')
+            .update({ quantity: Number(cashRow.quantity) + premiumDelta })
+            .eq('id', cashRow.id);
+          if (cashErr) {
+            Sentry.captureException(cashErr);
+            showToast('Position updated — but failed to adjust cash for premium change. Update manually in Portfolio.', 'error');
+            return;
+          }
+        } else {
+          // No cash row — create one representing the premium adjustment
+          const { error: cashErr } = await supabase
+            .from('portfolio_holdings')
+            .insert({
+              user_id: user.id,
+              holding_type: 'cash',
+              ticker: 'USD',
+              quantity: premiumDelta,
+              avg_cost: 1,
+              status: 'open',
+              notes: `Auto-created from premium edit — ${oldPosition?.ticker ?? ''} position`,
+              opened_at: new Date().toISOString().split('T')[0],
+            });
+          if (cashErr) {
+            Sentry.captureException(cashErr);
+            showToast('Position updated — but failed to record premium adjustment in cash. Update manually in Portfolio.', 'error');
+            return;
+          }
+        }
+      }
+
+      showToast('Position updated', 'success');
     },
-    [user, showToast]
+    [user, showToast, positions]
   );
 
   return { positions, openPositions, monthlyPnL, addPosition, removePosition, closePosition, editPosition, assignPosition };
