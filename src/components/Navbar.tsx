@@ -34,8 +34,8 @@ export function Navbar({ onOpenLeapsCalc }: NavbarProps) {
 
   // Derive a display name: first part of email before @, with per-user overrides
   const DISPLAY_NAME_OVERRIDES: Record<string, string> = {
-    'yuanennnn': 'Pobby',
-      'branyzp': 'Bran'
+    'yuanennnn@gmail.com': 'Pobby',
+      'branyzp@gmail.com': 'Bran'
   };
   const displayName = (user?.email && DISPLAY_NAME_OVERRIDES[user.email])
     ?? user?.email?.split('@')[0]
