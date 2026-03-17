@@ -8,6 +8,7 @@ import {
 } from '../lib/marketData';
 import { STOCK_LIST } from '../lib/stockList';
 import { getSnapshotBatch } from '../lib/polygon';
+import { getQuote } from '../lib/finnhub';
 import type { ScreenerStock } from '../lib/screenerData';
 
 const SCREENER_BATCH = 20;         // tickers per batch
@@ -123,6 +124,40 @@ export function useScreenerStream(): ScreenerStreamState {
           setStocks(cachedStocks);
           setLoadedCount(cachedStocks.length);
           _cache = { stocks: cachedStocks, loadedAt: Date.now(), isComplete: uncachedTickers.length === 0 };
+        }
+
+        // ── Step 2b: Finnhub price fallback for cached tickers with null price ─
+        // Polygon snapshot requires a paid plan — if it 403'd, snapshotMap is
+        // empty and all prices are null. Fall back to Finnhub (free plan) for
+        // only the tickers that are missing a price, batched to respect rate limits.
+        const needsPrice = cachedTickers.filter((s) => snapshotMap.get(s.ticker)?.price == null);
+        for (let i = 0; i < needsPrice.length && !cancelledRef.current; i += SCREENER_BATCH) {
+          const batch = needsPrice.slice(i, i + SCREENER_BATCH);
+          const quoteResults = await Promise.allSettled(batch.map((s) => getQuote(s.ticker)));
+          if (!cancelledRef.current) {
+            setStocks((prev) => {
+              const updates = new Map<string, { price: number | null; priceChange: number | null }>();
+              batch.forEach((s, j) => {
+                const r = quoteResults[j];
+                if (r.status === 'fulfilled') {
+                  const q = r.value;
+                  updates.set(s.ticker, {
+                    price: q.c > 0 ? q.c : (q.pc > 0 ? q.pc : null),
+                    priceChange: q.dp ?? null,
+                  });
+                }
+              });
+              const next = prev.map((stock) => {
+                const update = updates.get(stock.ticker);
+                return update ? { ...stock, ...update } : stock;
+              });
+              if (_cache) _cache = { ..._cache, stocks: next };
+              return next;
+            });
+          }
+          if (i + SCREENER_BATCH < needsPrice.length && !cancelledRef.current) {
+            await new Promise<void>((r) => setTimeout(r, SCREENER_BATCH_DELAY_MS));
+          }
         }
       }
 
