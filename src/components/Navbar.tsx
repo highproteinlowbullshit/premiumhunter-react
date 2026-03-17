@@ -32,8 +32,14 @@ export function Navbar({ onOpenLeapsCalc }: NavbarProps) {
     navigate('/login');
   };
 
-  // Derive a display name: first part of email before @
-  const displayName = user?.email?.split('@')[0] ?? '';
+  // Derive a display name: first part of email before @, with per-user overrides
+  const DISPLAY_NAME_OVERRIDES: Record<string, string> = {
+    'yuanennnn': 'Pobby',
+      'branyzp': 'Bran'
+  };
+  const displayName = (user?.email && DISPLAY_NAME_OVERRIDES[user.email])
+    ?? user?.email?.split('@')[0]
+    ?? '';
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 h-16" style={{
