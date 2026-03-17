@@ -62,7 +62,8 @@ export async function getSupabaseCachedToday(): Promise<Map<string, SupabaseIVRo
 function buildScreenerFromLive(
   ticker: string,
   quote: { c: number; dp: number; pc?: number } | null,
-  hv: { ivRank: number; ivPercentile: number; currentHV: number; hv30: number; hv52wkHigh: number; hv52wkLow: number; ivHvRatio: number; volume: number | null } | null
+  hv: { ivRank: number; ivPercentile: number; currentHV: number; hv30: number; hv52wkHigh: number; hv52wkLow: number; ivHvRatio: number; volume: number | null } | null,
+  earningsDate: string | null = null,
 ): ScreenerStock {
   const meta = STOCK_META[ticker];
   return {
@@ -79,7 +80,7 @@ function buildScreenerFromLive(
     iv52wkHigh: hv?.hv52wkHigh ?? null,
     iv52wkLow: hv?.hv52wkLow ?? null,
     volume: hv?.volume ?? null,
-    earningsDate: null,
+    earningsDate,
     dataSource: 'live',
   };
 }
@@ -87,21 +88,24 @@ function buildScreenerFromLive(
 /** Fetch a single stock from APIs (used for uncached tickers in the screener).
  *  skipSupabase=true avoids a redundant per-ticker Supabase round-trip when the
  *  caller has already confirmed this ticker is not in today's snapshot table.
- *  preloadedQuote skips the Finnhub call when the caller already has price data. */
+ *  preloadedQuote skips the Finnhub call when the caller already has price data.
+ *  Earnings runs in parallel via finnhubQueue (rate-limited) — safe to fire per ticker. */
 export async function fetchScreenerStock(
   ticker: string,
   opts?: { skipSupabase?: boolean; preloadedQuote?: { c: number; dp: number } }
 ): Promise<ScreenerStock> {
-  const [quoteRes, hvRes] = await Promise.allSettled([
+  const [quoteRes, hvRes, earningsRes] = await Promise.allSettled([
     opts?.preloadedQuote ? Promise.resolve(opts.preloadedQuote) : getQuote(ticker),
     getIVData(ticker, opts),
+    getNextEarnings(ticker),
   ]);
   const quote = quoteRes.status === 'fulfilled' ? quoteRes.value : null;
   const hv = hvRes.status === 'fulfilled' ? hvRes.value : null;
+  const earningsDate = earningsRes.status === 'fulfilled' ? earningsRes.value : null;
   if (hvRes.status === 'rejected') {
     console.error(`IV fetch failed for ${ticker}:`, (hvRes as PromiseRejectedResult).reason);
   }
-  return buildScreenerFromLive(ticker, quote, hv);
+  return buildScreenerFromLive(ticker, quote, hv, earningsDate);
 }
 
 // ── Watchlist data ────────────────────────────────────────────────────────────

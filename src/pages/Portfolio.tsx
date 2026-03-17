@@ -1128,23 +1128,20 @@ function RealPortfolio() {
           </div>
           <button
             onClick={() => setShowAddModal(true)}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 hover:opacity-90 active:scale-[0.98]"
             style={{
-              background: '#00e5c4',
-              color: '#0d1b35',
+              background: 'linear-gradient(135deg, #00e5c4, #00b4d8)',
+              color: '#050d1a',
               border: 'none',
-              borderRadius: 8,
-              padding: '10px 18px',
               fontFamily: 'DM Sans, sans-serif',
-              fontWeight: 700,
-              fontSize: 14,
               cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
               flexShrink: 0,
+              boxShadow: '0 4px 16px rgba(0,229,196,0.2)',
             }}
           >
-            <span style={{ fontSize: 18, lineHeight: 1 }}>+</span>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+            </svg>
             Add Holding
           </button>
         </div>

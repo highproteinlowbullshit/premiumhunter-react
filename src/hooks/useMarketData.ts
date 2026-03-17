@@ -26,6 +26,11 @@ interface ScreenerSessionCache {
 }
 let _cache: ScreenerSessionCache | null = null;
 
+// Tracks when live prices were last refreshed for a cache-hit session.
+// Module-level so it persists across navigations and prevents concurrent refreshes.
+let _priceRefreshedAt = 0;
+const PRICE_REFRESH_INTERVAL = 30 * 60 * 1000; // 30 min
+
 function loadFromStorage(): void {
   try {
     const raw = localStorage.getItem(SCREENER_LS_KEY);
@@ -76,8 +81,35 @@ export function useScreenerStream(): ScreenerStreamState {
   const cancelledRef = useRef(false);
 
   useEffect(() => {
-    // Return cached results immediately — no network needed
-    if (cacheIsFresh()) return;
+    // IV data is fresh — do a single lightweight snapshot refresh to update live
+    // prices/volumes. _priceRefreshedAt is module-level, so this fires at most once
+    // per 30 min across all navigations, not on every component mount.
+    if (cacheIsFresh()) {
+      if (Date.now() - _priceRefreshedAt > PRICE_REFRESH_INTERVAL) {
+        _priceRefreshedAt = Date.now(); // claim the slot before async starts
+        void getSnapshotBatch(STOCK_LIST.map((s) => s.ticker))
+          .then((snapshotMap) => {
+            setStocks((prev) => {
+              const next = prev.map((stock) => {
+                const snap = snapshotMap.get(stock.ticker);
+                if (!snap) return stock;
+                return {
+                  ...stock,
+                  price: snap.price ?? stock.price,
+                  priceChange: snap.priceChangePct ?? stock.priceChange,
+                  volume: snap.volume ?? stock.volume,
+                };
+              });
+              if (_cache) _cache = { ..._cache, stocks: next };
+              return next;
+            });
+          })
+          .catch(() => {
+            _priceRefreshedAt = 0; // allow retry on next mount if it failed
+          });
+      }
+      return;
+    }
 
     cancelledRef.current = false;
     if (!_cache) {
@@ -134,10 +166,12 @@ export function useScreenerStream(): ScreenerStreamState {
         const results = await Promise.allSettled(
           batch.map((s) => {
             const snap = snapshotMap.get(s.ticker);
+            // Only pass preloadedQuote when snapshot has a real price —
+            // c:0 causes buildScreenerFromLive to cache a null price permanently.
             return fetchScreenerStock(s.ticker, {
               skipSupabase: true,
-              preloadedQuote: snap
-                ? { c: snap.price ?? 0, dp: snap.priceChangePct ?? 0 }
+              preloadedQuote: snap?.price != null
+                ? { c: snap.price, dp: snap.priceChangePct ?? 0 }
                 : undefined,
             });
           })
