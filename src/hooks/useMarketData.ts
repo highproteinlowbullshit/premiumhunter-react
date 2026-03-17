@@ -7,7 +7,6 @@ import {
   fetchScreenerStock,
 } from '../lib/marketData';
 import { STOCK_LIST } from '../lib/stockList';
-import { getSnapshotBatch } from '../lib/polygon';
 import { getQuote } from '../lib/finnhub';
 import type { ScreenerStock } from '../lib/screenerData';
 
@@ -88,26 +87,21 @@ export function useScreenerStream(): ScreenerStreamState {
     setIsLoading(true);
 
     async function run() {
-      // ── Step 1: Supabase IV cache + Polygon batch snapshot (parallel) ──────
-      // Single snapshot call replaces N individual Finnhub price calls.
-      const [cachedMap, snapshotMap] = await Promise.all([
-        getSupabaseCachedToday(),
-        getSnapshotBatch(STOCK_LIST.map((s) => s.ticker)),
-      ]);
+      // ── Step 1: Supabase IV cache only (no Polygon snapshot — requires paid plan) ─
+      const cachedMap = await getSupabaseCachedToday();
       const cachedTickers = STOCK_LIST.filter((s) => cachedMap.has(s.ticker));
       const uncachedTickers = STOCK_LIST.filter((s) => !cachedMap.has(s.ticker));
 
-      // ── Step 2: Build cached rows instantly — prices from snapshot ──────────
+      // ── Step 2: Build cached rows instantly (IV from Supabase, price pending) ─
       if (cachedTickers.length > 0 && !cancelledRef.current) {
         const cachedStocks: ScreenerStock[] = cachedTickers.map((s) => {
           const row = cachedMap.get(s.ticker)!;
-          const snap = snapshotMap.get(s.ticker);
           return {
             ticker: s.ticker,
             name: s.name,
             sector: s.sector,
-            price: snap?.price ?? null,
-            priceChange: snap?.priceChangePct ?? null,
+            price: null,
+            priceChange: null,
             ivRank: row.iv_rank,
             ivPercentile: row.iv_percentile,
             currentIV: row.current_hv,
@@ -115,7 +109,7 @@ export function useScreenerStream(): ScreenerStreamState {
             ivHvRatio: row.iv_hv_ratio,
             iv52wkHigh: row.hv_52wk_high,
             iv52wkLow: row.hv_52wk_low,
-            volume: snap?.volume ?? null,
+            volume: null,
             earningsDate: null,
             dataSource: 'cached' as const,
           };
@@ -126,13 +120,9 @@ export function useScreenerStream(): ScreenerStreamState {
           _cache = { stocks: cachedStocks, loadedAt: Date.now(), isComplete: uncachedTickers.length === 0 };
         }
 
-        // ── Step 2b: Finnhub price fallback for cached tickers with null price ─
-        // Polygon snapshot requires a paid plan — if it 403'd, snapshotMap is
-        // empty and all prices are null. Fall back to Finnhub (free plan) for
-        // only the tickers that are missing a price, batched to respect rate limits.
-        const needsPrice = cachedTickers.filter((s) => snapshotMap.get(s.ticker)?.price == null);
-        for (let i = 0; i < needsPrice.length && !cancelledRef.current; i += SCREENER_BATCH) {
-          const batch = needsPrice.slice(i, i + SCREENER_BATCH);
+        // ── Step 2b: Fetch prices from Finnhub for all cached tickers ──────────
+        for (let i = 0; i < cachedTickers.length && !cancelledRef.current; i += SCREENER_BATCH) {
+          const batch = cachedTickers.slice(i, i + SCREENER_BATCH);
           const quoteResults = await Promise.allSettled(batch.map((s) => getQuote(s.ticker)));
           if (!cancelledRef.current) {
             setStocks((prev) => {
@@ -155,29 +145,17 @@ export function useScreenerStream(): ScreenerStreamState {
               return next;
             });
           }
-          if (i + SCREENER_BATCH < needsPrice.length && !cancelledRef.current) {
+          if (i + SCREENER_BATCH < cachedTickers.length && !cancelledRef.current) {
             await new Promise<void>((r) => setTimeout(r, SCREENER_BATCH_DELAY_MS));
           }
         }
       }
 
-      // ── Step 3: HV-only fetch for uncached tickers in batches ──────────────
-      // skipSupabase=true: confirmed absent from Supabase in step 1.
-      // preloadedQuote: snapshot already has price — skip the Finnhub call entirely.
+      // ── Step 3: Full fetch (IV + Finnhub price) for uncached tickers ──────────
       for (let i = 0; i < uncachedTickers.length && !cancelledRef.current; i += SCREENER_BATCH) {
         const batch = uncachedTickers.slice(i, i + SCREENER_BATCH);
         const results = await Promise.allSettled(
-          batch.map((s) => {
-            const snap = snapshotMap.get(s.ticker);
-            // Only pass preloadedQuote when snapshot has a real price —
-            // c:0 causes buildScreenerFromLive to cache a null price permanently.
-            return fetchScreenerStock(s.ticker, {
-              skipSupabase: true,
-              preloadedQuote: snap?.price != null
-                ? { c: snap.price, dp: snap.priceChangePct ?? 0 }
-                : undefined,
-            });
-          })
+          batch.map((s) => fetchScreenerStock(s.ticker, { skipSupabase: true }))
         );
         if (!cancelledRef.current) {
           const batchStocks = results.map((r, j) => {
