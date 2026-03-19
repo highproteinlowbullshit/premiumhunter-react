@@ -2,13 +2,36 @@ import type { WheelPosition } from '../types';
 
 interface PositionTableProps {
   positions: WheelPosition[];
+  livePrices?: Map<string, number>;
   onRemove?: (id: string) => void;
   onClose?: (position: WheelPosition) => void;
   onEdit?: (position: WheelPosition) => void;
   onAssign?: (position: WheelPosition) => void;
 }
 
-export function PositionTable({ positions, onRemove, onClose, onEdit, onAssign }: PositionTableProps) {
+interface LivePnl {
+  unrealizedPnl: number;
+  pctMaxProfit: number;
+  isItm: boolean;
+  stockPrice: number;
+}
+
+function computeLivePnl(pos: WheelPosition, stockPrice: number): LivePnl {
+  const intrinsicPerShare =
+    pos.strategy === 'CSP'
+      ? Math.max(0, pos.strike - stockPrice)
+      : Math.max(0, stockPrice - pos.strike);
+  const estimatedCostToClose = intrinsicPerShare * 100 * pos.contracts;
+  const unrealizedPnl = pos.premiumCollected - estimatedCostToClose;
+  const pctMaxProfit =
+    pos.premiumCollected > 0
+      ? Math.min(100, Math.max(0, (unrealizedPnl / pos.premiumCollected) * 100))
+      : 0;
+  const isItm = intrinsicPerShare > 0;
+  return { unrealizedPnl, pctMaxProfit, isItm, stockPrice };
+}
+
+export function PositionTable({ positions, livePrices, onRemove, onClose, onEdit, onAssign }: PositionTableProps) {
   if (!positions.length) {
     return (
       <div className="flex flex-col items-center justify-center py-16 gap-3">
@@ -63,6 +86,22 @@ export function PositionTable({ positions, onRemove, onClose, onEdit, onAssign }
                   <span className="text-xs" style={{ color: '#4a6a8a', fontFamily: 'JetBrains Mono, monospace' }}>
                     {pos.contracts}x
                   </span>
+                  {livePrices && (() => {
+                    const sp = livePrices.get(pos.ticker);
+                    if (!sp) return null;
+                    const { isItm } = computeLivePnl(pos, sp);
+                    return (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold"
+                        style={{
+                          color: isItm ? '#ff4d6d' : '#00d68f',
+                          background: isItm ? 'rgba(255,77,109,0.1)' : 'rgba(0,214,143,0.1)',
+                          border: `1px solid ${isItm ? 'rgba(255,77,109,0.2)' : 'rgba(0,214,143,0.2)'}`,
+                          fontFamily: 'JetBrains Mono, monospace',
+                        }}>
+                        {isItm ? 'ITM' : 'OTM'}
+                      </span>
+                    );
+                  })()}
                 </div>
                 {/* Mobile actions */}
                 <div className="flex items-center gap-1">
@@ -151,7 +190,11 @@ export function PositionTable({ positions, onRemove, onClose, onEdit, onAssign }
         <table className="w-full text-sm" style={{ fontFamily: 'DM Sans, sans-serif', borderCollapse: 'separate', borderSpacing: 0 }}>
           <thead>
             <tr>
-              {['Ticker', 'Strategy', 'Strike', 'Expiry', 'Premium', 'Return', 'DTE', ...(hasActions ? [''] : [])].map((h) => (
+              {[
+                'Ticker', 'Strategy', 'Strike', 'Expiry', 'Premium', 'Return', 'DTE',
+                ...(livePrices ? ['Stock $', 'Unreal P&L'] : []),
+                ...(hasActions ? [''] : []),
+              ].map((h) => (
                 <th
                   key={h}
                   className="text-left py-3 px-4 text-xs font-medium tracking-widest uppercase first:pl-0 last:pr-0"
@@ -242,6 +285,57 @@ export function PositionTable({ positions, onRemove, onClose, onEdit, onAssign }
                       )}
                     </div>
                   </td>
+
+                  {livePrices && (() => {
+                    const stockPrice = livePrices.get(pos.ticker);
+                    if (stockPrice == null) {
+                      return (
+                        <>
+                          <td className="py-3.5 px-4">
+                            <span style={{ color: '#4a6a8a', fontFamily: 'JetBrains Mono, monospace', fontSize: '12px' }}>—</span>
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <span style={{ color: '#4a6a8a', fontFamily: 'JetBrains Mono, monospace', fontSize: '12px' }}>—</span>
+                          </td>
+                        </>
+                      );
+                    }
+                    const { unrealizedPnl, pctMaxProfit, isItm } = computeLivePnl(pos, stockPrice);
+                    const pnlColor = unrealizedPnl >= 0 ? '#00d68f' : '#ff4d6d';
+                    return (
+                      <>
+                        <td className="py-3.5 px-4">
+                          <div className="flex flex-col gap-0.5">
+                            <span style={{ color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace', fontSize: '12px' }}>
+                              ${stockPrice.toFixed(2)}
+                            </span>
+                            <span className="text-[10px]" style={{ color: isItm ? '#ff4d6d' : '#00d68f', fontFamily: 'JetBrains Mono, monospace' }}>
+                              {isItm ? 'ITM' : 'OTM'}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <div className="flex flex-col gap-1.5">
+                            <span className="font-medium tabular-nums" style={{ color: pnlColor, fontFamily: 'JetBrains Mono, monospace', fontSize: '12px' }}>
+                              {unrealizedPnl >= 0 ? '+' : ''}${unrealizedPnl.toFixed(0)}
+                            </span>
+                            <div className="w-16 h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                              <div
+                                className="h-full rounded-full transition-all duration-500"
+                                style={{
+                                  width: `${pctMaxProfit}%`,
+                                  background: pctMaxProfit >= 75 ? '#00d68f' : pctMaxProfit >= 40 ? '#f5c842' : '#ff4d6d',
+                                }}
+                              />
+                            </div>
+                            <span className="text-[10px]" style={{ color: '#4a6a8a', fontFamily: 'JetBrains Mono, monospace' }}>
+                              {pctMaxProfit.toFixed(0)}% max
+                            </span>
+                          </div>
+                        </td>
+                      </>
+                    );
+                  })()}
 
                   {hasActions && (
                     <td className="py-3.5 px-4 last:pr-0">

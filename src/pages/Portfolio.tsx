@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePaperMode } from '../context/PaperModeContext';
 import { PaperPortfolio } from './PaperPortfolio';
@@ -19,6 +19,8 @@ import { LeapsCalculator } from '../components/LeapsCalculator';
 import { blackScholes, yearsToExpiry, estimateVolatility } from '../lib/blackScholes';
 import { getQuote } from '../lib/finnhub';
 import type { PortfolioSnapshot, HoldingType } from '../types';
+import { useRealtimePrices } from '../hooks/useRealtimePrices';
+import { WebSocketStatus } from '../components/WebSocketStatus';
 
 type Currency = 'USD' | 'SGD';
 const SGD_FALLBACK_RATE = 1.275; // fallback if Finnhub fetch fails
@@ -984,15 +986,46 @@ function RealPortfolio() {
   const [editingHolding, setEditingHolding] = useState<HoldingWithPrice | null>(null);
   const [leapsCalcHolding, setLeapsCalcHolding] = useState<HoldingWithPrice | null>(null);
 
-  // Build a live price map for the add modal preview
-  const livePriceMap = useRef(new Map<string, number | null>());
-  useEffect(() => {
+  // Collect unique non-cash tickers for WebSocket subscription
+  const holdingTickers = useMemo(
+    () => [...new Set(
+      holdingsWithPrice
+        .filter((h) => h.holdingType !== 'cash')
+        .map((h) => h.ticker.toUpperCase())
+    )],
+    [holdingsWithPrice]
+  );
+  const { prices: wsPrices, wsStatus } = useRealtimePrices(holdingTickers);
+
+  // Merge REST prices with WebSocket prices (WS takes precedence)
+  const livePriceMap = useMemo(() => {
     const map = new Map<string, number | null>();
     for (const h of holdingsWithPrice) {
-      map.set(h.ticker, h.currentPrice);
+      map.set(h.ticker.toUpperCase(), h.currentPrice ?? null);
     }
-    livePriceMap.current = map;
-  }, [holdingsWithPrice]);
+    // Override with fresher WebSocket prices
+    wsPrices.forEach((price, ticker) => map.set(ticker, price));
+    return map;
+  }, [holdingsWithPrice, wsPrices]);
+
+  // Live total value using WebSocket prices where available
+  const liveTotalValue = useMemo(() => {
+    return holdingsWithPrice.reduce((acc, h) => {
+      if (h.holdingType === 'cash') return acc + h.quantity;
+      const livePrice = wsPrices.get(h.ticker.toUpperCase()) ?? h.currentPrice ?? 0;
+      return acc + livePrice * h.quantity;
+    }, 0);
+  }, [holdingsWithPrice, wsPrices]);
+
+  // Live unrealized P&L using WebSocket prices where available
+  const liveUnrealizedPnl = useMemo(() => {
+    return holdingsWithPrice.reduce((acc, h) => {
+      if (h.holdingType === 'cash') return acc;
+      const livePrice = wsPrices.get(h.ticker.toUpperCase()) ?? h.currentPrice ?? 0;
+      const costBasis = (h.avgCost ?? 0) * h.quantity;
+      return acc + (livePrice * h.quantity - costBasis);
+    }, 0);
+  }, [holdingsWithPrice, wsPrices]);
 
   const filteredSnapshots = filterSnapshotsByRange(snapshots, range);
 
@@ -1069,7 +1102,7 @@ function RealPortfolio() {
     {
       label: 'Total Portfolio Value',
       currency: currencyTag,
-      value: fmtCard(totalValue),
+      value: fmtCard(liveTotalValue),
       accent: '#00e5c4',
       sub: null,
     },
@@ -1083,10 +1116,10 @@ function RealPortfolio() {
     {
       label: 'Unrealized P&L',
       currency: currencyTag,
-      value: fmtCard(unrealizedPnl),
-      accent: unrealizedPnl >= 0 ? '#00d68f' : '#ff4d6d',
+      value: fmtCard(liveUnrealizedPnl),
+      accent: liveUnrealizedPnl >= 0 ? '#00d68f' : '#ff4d6d',
       sub: `${unrealizedPnlPct >= 0 ? '+' : ''}${unrealizedPnlPct.toFixed(2)}%`,
-      subColor: unrealizedPnl >= 0 ? '#00d68f' : '#ff4d6d',
+      subColor: liveUnrealizedPnl >= 0 ? '#00d68f' : '#ff4d6d',
     },
     {
       label: 'Realized P&L',
@@ -1110,18 +1143,21 @@ function RealPortfolio() {
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28 }}>
           <div>
-            <h1
-              style={{
-                color: '#e8f0fe',
-                fontFamily: 'Syne, sans-serif',
-                fontSize: 26,
-                fontWeight: 700,
-                margin: 0,
-                letterSpacing: '-0.02em',
-              }}
-            >
-              Portfolio
-            </h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <h1
+                style={{
+                  color: '#e8f0fe',
+                  fontFamily: 'Syne, sans-serif',
+                  fontSize: 26,
+                  fontWeight: 700,
+                  margin: 0,
+                  letterSpacing: '-0.02em',
+                }}
+              >
+                Portfolio
+              </h1>
+              <WebSocketStatus status={wsStatus} />
+            </div>
             <p style={{ color: '#9ab4d4', fontFamily: 'DM Sans, sans-serif', fontSize: 14, margin: '4px 0 0' }}>
               Track your holdings and performance over time
             </p>
@@ -1898,7 +1934,7 @@ function RealPortfolio() {
         <AddHoldingModal
           onClose={() => setShowAddModal(false)}
           onSubmit={handleAddHolding}
-          livePrices={livePriceMap.current}
+          livePrices={livePriceMap}
         />
       )}
 

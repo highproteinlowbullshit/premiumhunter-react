@@ -1,9 +1,11 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { PositionTable } from '../components/PositionTable';
 import { usePositions } from '../hooks/usePositions';
 import { usePaperMode } from '../context/PaperModeContext';
 import { PaperWheelTracker } from './PaperWheelTracker';
 import { getQuote } from '../lib/finnhub';
+import { useRealtimePrices } from '../hooks/useRealtimePrices';
+import { WebSocketStatus } from '../components/WebSocketStatus';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import type { WheelPosition, WheelStrategy } from '../types';
@@ -23,6 +25,13 @@ function RealWheelTracker() {
   const [cashBalance, setCashBalance] = useState<number | null>(null);
   const { user } = useAuth();
   const { positions, openPositions, monthlyPnL, addPosition, removePosition, closePosition, editPosition, assignPosition } = usePositions();
+
+  // Build stable ticker list from open positions for WebSocket subscription
+  const openTickers = useMemo(
+    () => [...new Set(openPositions.map((p) => p.ticker))],
+    [openPositions]
+  );
+  const { prices: livePrices, wsStatus } = useRealtimePrices(openTickers);
 
   // Fetch cash balance from portfolio_holdings (holding_type = 'cash')
   useEffect(() => {
@@ -127,13 +136,11 @@ function RealWheelTracker() {
             <h2 className="text-base font-semibold" style={{ fontFamily: 'Syne, sans-serif', color: '#e8f0fe' }}>
               Open Positions
             </h2>
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full animate-pulse-glow" style={{ background: '#00e5c4' }} />
-              <span className="text-xs" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>Live</span>
-            </div>
+            <WebSocketStatus status={wsStatus} />
           </div>
           <PositionTable
             positions={openPositions}
+            livePrices={livePrices}
             onRemove={removePosition}
             onClose={setClosingPosition}
             onEdit={setEditingPosition}
