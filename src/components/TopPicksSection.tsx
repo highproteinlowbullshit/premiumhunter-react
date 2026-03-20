@@ -1,5 +1,5 @@
 // src/components/TopPicksSection.tsx
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWatchlistContext } from '../context/WatchlistContext';
 import { getTopPicks, type TopPick } from '../lib/topPicksEngine';
