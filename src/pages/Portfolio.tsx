@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePaperMode } from '../context/PaperModeContext';
 import { PaperPortfolio } from './PaperPortfolio';
@@ -163,6 +163,11 @@ interface AddHoldingModalProps {
 }
 
 function AddHoldingModal({ onClose, onSubmit, livePrices }: AddHoldingModalProps) {
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [onClose]);
   const today = new Date().toISOString().split('T')[0];
   const [ticker, setTicker] = useState('');
   const [holdingType, setHoldingType] = useState<HoldingType>('shares');
@@ -485,6 +490,11 @@ interface EditHoldingModalProps {
 }
 
 function EditHoldingModal({ holding, onClose, onSubmit }: EditHoldingModalProps) {
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [onClose]);
   const [ticker, setTicker] = useState(holding.ticker.toUpperCase());
   const [holdingType, setHoldingType] = useState<HoldingType>(holding.holdingType);
   const [quantity, setQuantity] = useState(String(holding.quantity));
@@ -647,6 +657,11 @@ interface CloseHoldingModalProps {
 }
 
 function CloseHoldingModal({ holding, onClose, onSubmit }: CloseHoldingModalProps) {
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [onClose]);
   const today = new Date().toISOString().split('T')[0];
   const [closingPrice, setClosingPrice] = useState(
     holding.currentPrice != null ? String(holding.currentPrice.toFixed(2)) : ''

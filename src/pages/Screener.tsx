@@ -13,6 +13,7 @@ import { useScreenerStream } from '../hooks/useMarketData';
 import { usePaperMode } from '../context/PaperModeContext';
 import { usePaperActions } from '../hooks/usePaperTrading';
 import { PaperTradeModal } from '../components/PaperModals';
+import { TopPicksSection } from '../components/TopPicksSection';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -195,6 +196,9 @@ export function Screener() {
           mounted={mounted}
         />
       </div>
+
+      {/* ── Top Picks ────────────────────────────────────────────────────── */}
+      <TopPicksSection screenerData={stocks} isLoading={isLoading} />
 
       {/* ── Table ────────────────────────────────────────────────────────── */}
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 mt-4">

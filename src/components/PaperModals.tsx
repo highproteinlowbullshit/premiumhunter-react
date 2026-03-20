@@ -10,6 +10,11 @@ function ModalShell({ title, onClose, children, borderColor = 'rgba(245,200,66,0
   children: React.ReactNode;
   borderColor?: string;
 }) {
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [onClose]);
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4"
       style={{ background: 'rgba(2,8,19,0.85)', backdropFilter: 'blur(8px)' }}
