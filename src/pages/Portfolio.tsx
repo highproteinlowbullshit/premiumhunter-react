@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePaperMode } from '../context/PaperModeContext';
 import { PaperPortfolio } from './PaperPortfolio';
@@ -968,7 +968,6 @@ function RealPortfolio() {
     addHolding,
     closeHolding,
     editHolding,
-    totalValue,
     totalCost,
     unrealizedPnl,
     realizedPnl,
