@@ -22,6 +22,7 @@ function RealWheelTracker() {
   const [closingPosition, setClosingPosition] = useState<WheelPosition | null>(null);
   const [editingPosition, setEditingPosition] = useState<WheelPosition | null>(null);
   const [assigningPosition, setAssigningPosition] = useState<WheelPosition | null>(null);
+  const [deletingPosition, setDeletingPosition] = useState<WheelPosition | null>(null);
   const [cashBalance, setCashBalance] = useState<number | null>(null);
   const { user } = useAuth();
   const { positions, openPositions, monthlyPnL, addPosition, removePosition, closePosition, editPosition, assignPosition } = usePositions();
@@ -141,7 +142,7 @@ function RealWheelTracker() {
           <PositionTable
             positions={openPositions}
             livePrices={livePrices}
-            onRemove={removePosition}
+            onRemove={setDeletingPosition}
             onClose={setClosingPosition}
             onEdit={setEditingPosition}
             onAssign={setAssigningPosition}
@@ -182,6 +183,21 @@ function RealWheelTracker() {
           onSave={(data) => {
             editPosition(editingPosition.id, data);
             setEditingPosition(null);
+          }}
+        />
+      )}
+
+      {/* Delete Position Modal */}
+      {deletingPosition && (
+        <DeletePositionModal
+          position={deletingPosition}
+          onClose={() => setDeletingPosition(null)}
+          onConfirm={(shouldReverseCash) => {
+            removePosition(
+              deletingPosition.id,
+              shouldReverseCash ? deletingPosition.premiumCollected : undefined,
+            );
+            setDeletingPosition(null);
           }}
         />
       )}
@@ -599,6 +615,90 @@ function AssignPositionModal({ position, onClose, onConfirm }: {
             boxShadow: '0 4px 16px rgba(245,200,66,0.2)',
           }}>
           Confirm Assignment
+        </button>
+      </div>
+    </ModalShell>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Delete Position Modal
+// ─────────────────────────────────────────────────────────────────────────────
+function DeletePositionModal({ position, onClose, onConfirm }: {
+  position: WheelPosition;
+  onClose: () => void;
+  onConfirm: (shouldReverseCash: boolean) => void;
+}) {
+  const [reverseCash, setReverseCash] = useState(true);
+
+  return (
+    <ModalShell
+      title="Delete Position"
+      subtitle={`${position.ticker} ${position.strategy} · $${position.strike} strike · ${position.contracts}x`}
+      onClose={onClose}
+    >
+      {/* Position summary */}
+      <div className="rounded-xl p-4 mb-4"
+        style={{ background: 'rgba(255,77,109,0.05)', border: '1px solid rgba(255,77,109,0.15)' }}>
+        <div className="grid grid-cols-3 gap-3 text-center">
+          <div>
+            <p className="text-xs mb-1" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>Premium</p>
+            <p className="text-sm font-bold" style={{ color: '#00e5c4', fontFamily: 'JetBrains Mono, monospace' }}>
+              ${position.premiumCollected.toFixed(0)}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs mb-1" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>Contracts</p>
+            <p className="text-sm font-bold" style={{ color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace' }}>
+              {position.contracts}x
+            </p>
+          </div>
+          <div>
+            <p className="text-xs mb-1" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>Opened</p>
+            <p className="text-sm font-bold" style={{ color: '#9ab4d4', fontFamily: 'JetBrains Mono, monospace' }}>
+              {position.openedAt}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Cash reversal toggle */}
+      <div className="rounded-xl p-4 mb-5"
+        style={{ background: 'rgba(0,229,196,0.04)', border: '1px solid rgba(0,229,196,0.1)' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+          <input
+            type="checkbox"
+            id="reverse-cash"
+            checked={reverseCash}
+            onChange={(e) => setReverseCash(e.target.checked)}
+            style={{ accentColor: '#00e5c4', width: 14, height: 14, marginTop: 2, flexShrink: 0 }}
+          />
+          <label htmlFor="reverse-cash" style={{ cursor: 'pointer' }}>
+            <p style={{ color: '#e8f0fe', fontSize: 13, fontFamily: 'DM Sans, sans-serif', fontWeight: 600, marginBottom: 3 }}>
+              Reverse cash credit in Portfolio
+            </p>
+            <p style={{ color: '#6a8fb0', fontSize: 12, fontFamily: 'DM Sans, sans-serif' }}>
+              When this position was opened, <span style={{ color: '#00e5c4', fontFamily: 'JetBrains Mono, monospace' }}>${position.premiumCollected.toFixed(0)}</span> was credited to your cash balance. Uncheck to keep the cash as-is.
+            </p>
+          </label>
+        </div>
+      </div>
+
+      <div className="flex gap-3">
+        <button type="button" onClick={onClose}
+          className="flex-1 py-2.5 rounded-xl text-sm font-medium hover:bg-[rgba(255,255,255,0.05)] transition-colors"
+          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#6a8fb0', fontFamily: 'DM Sans, sans-serif' }}>
+          Cancel
+        </button>
+        <button type="button" onClick={() => onConfirm(reverseCash)}
+          className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 hover:opacity-90"
+          style={{
+            background: 'linear-gradient(135deg, #ff4d6d, #e03354)',
+            color: '#fff',
+            fontFamily: 'DM Sans, sans-serif',
+            boxShadow: '0 4px 16px rgba(255,77,109,0.2)',
+          }}>
+          Delete Position
         </button>
       </div>
     </ModalShell>

@@ -182,7 +182,7 @@ export function usePositions() {
 
   // ── Remove (delete) position ────────────────────────────────────────────────
   const removePosition = useCallback(
-    async (id: string) => {
+    async (id: string, cashReversalAmount?: number) => {
       setPositions((prev) => prev.filter((p) => p.id !== id)); // optimistic
 
       if (!user || id.startsWith('tmp-')) return;
@@ -196,7 +196,40 @@ export function usePositions() {
       if (error) {
         Sentry.captureException(error);
         showToast('Failed to remove position — refresh to sync', 'error');
+        return;
       }
+
+      if (cashReversalAmount && cashReversalAmount > 0) {
+        const { data: cashRow, error: fetchErr } = await supabase
+          .from('portfolio_holdings')
+          .select('id, quantity')
+          .eq('user_id', user.id)
+          .eq('holding_type', 'cash')
+          .eq('status', 'open')
+          .order('quantity', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (fetchErr) {
+          showToast('Position deleted — but failed to reverse cash credit. Update manually in Portfolio.', 'error');
+          return;
+        }
+
+        if (cashRow) {
+          const { error: cashErr } = await supabase
+            .from('portfolio_holdings')
+            .update({ quantity: Number(cashRow.quantity) - cashReversalAmount })
+            .eq('id', cashRow.id)
+            .eq('user_id', user.id);
+          if (cashErr) {
+            Sentry.captureException(cashErr);
+            showToast('Position deleted — but failed to reverse cash credit. Update manually in Portfolio.', 'error');
+            return;
+          }
+        }
+      }
+
+      showToast('Position deleted', 'success');
     },
     [user, showToast]
   );

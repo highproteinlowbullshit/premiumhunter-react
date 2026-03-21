@@ -3,7 +3,7 @@ import type { WheelPosition } from '../types';
 interface PositionTableProps {
   positions: WheelPosition[];
   livePrices?: Map<string, number>;
-  onRemove?: (id: string) => void;
+  onRemove?: (position: WheelPosition) => void;
   onClose?: (position: WheelPosition) => void;
   onEdit?: (position: WheelPosition) => void;
   onAssign?: (position: WheelPosition) => void;
@@ -104,37 +104,29 @@ export function PositionTable({ positions, livePrices, onRemove, onClose, onEdit
                   })()}
                 </div>
                 {/* Mobile actions */}
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 flex-wrap">
                   {onAssign && (
                     <button onClick={() => onAssign(pos)}
-                      className="w-7 h-7 rounded-lg flex items-center justify-center"
-                      style={{ color: '#f5c842', background: 'rgba(245,200,66,0.08)' }}
-                      title="Mark as assigned">
-                      <AssignIcon />
+                      style={{ background: 'rgba(245,200,66,0.08)', border: '1px solid rgba(245,200,66,0.2)', borderRadius: 5, color: '#f5c842', fontFamily: 'DM Sans, sans-serif', fontSize: 11, fontWeight: 600, padding: '4px 8px', cursor: 'pointer' }}>
+                      Assign
                     </button>
                   )}
                   {onEdit && (
                     <button onClick={() => onEdit(pos)}
-                      className="w-7 h-7 rounded-lg flex items-center justify-center"
-                      style={{ color: '#4a6a8a', background: 'rgba(255,255,255,0.04)' }}
-                      title="Edit position">
-                      <EditIcon />
+                      style={{ background: 'rgba(245,200,66,0.08)', border: '1px solid rgba(245,200,66,0.15)', borderRadius: 5, color: '#f5c842', fontFamily: 'DM Sans, sans-serif', fontSize: 11, fontWeight: 600, padding: '4px 8px', cursor: 'pointer' }}>
+                      Edit
                     </button>
                   )}
                   {onClose && (
                     <button onClick={() => onClose(pos)}
-                      className="w-7 h-7 rounded-lg flex items-center justify-center"
-                      style={{ color: '#00e5c4', background: 'rgba(0,229,196,0.08)' }}
-                      title="Close position">
-                      <ClosePositionIcon />
+                      style={{ background: 'rgba(0,229,196,0.08)', border: '1px solid rgba(0,229,196,0.15)', borderRadius: 5, color: '#00e5c4', fontFamily: 'DM Sans, sans-serif', fontSize: 11, fontWeight: 600, padding: '4px 8px', cursor: 'pointer' }}>
+                      Close
                     </button>
                   )}
                   {onRemove && (
-                    <button onClick={() => onRemove(pos.id)}
-                      className="w-7 h-7 rounded-lg flex items-center justify-center"
-                      style={{ color: '#4a6a8a' }}
-                      title="Delete">
-                      <TrashIcon />
+                    <button onClick={() => onRemove(pos)}
+                      style={{ background: 'rgba(255,77,109,0.08)', border: '1px solid rgba(255,77,109,0.15)', borderRadius: 5, color: '#ff4d6d', fontFamily: 'DM Sans, sans-serif', fontSize: 11, fontWeight: 600, padding: '4px 8px', cursor: 'pointer' }}>
+                      Delete
                     </button>
                   )}
                 </div>
@@ -339,45 +331,37 @@ export function PositionTable({ positions, livePrices, onRemove, onClose, onEdit
 
                   {hasActions && (
                     <td className="py-3.5 px-4 last:pr-0">
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         {onAssign && (
                           <button
                             onClick={() => onAssign(pos)}
-                            className="w-7 h-7 rounded-md flex items-center justify-center transition-all duration-150 hover:bg-[rgba(245,200,66,0.12)]"
-                            style={{ color: '#f5c842' }}
-                            title="Mark as assigned"
+                            style={{ background: 'rgba(245,200,66,0.08)', border: '1px solid rgba(245,200,66,0.2)', borderRadius: 5, color: '#f5c842', fontFamily: 'DM Sans, sans-serif', fontSize: 11, fontWeight: 600, padding: '4px 8px', cursor: 'pointer', whiteSpace: 'nowrap' }}
                           >
-                            <AssignIcon />
+                            Assign
                           </button>
                         )}
                         {onEdit && (
                           <button
                             onClick={() => onEdit(pos)}
-                            className="w-7 h-7 rounded-md flex items-center justify-center transition-all duration-150 hover:bg-[rgba(255,255,255,0.08)]"
-                            style={{ color: '#4a6a8a' }}
-                            title="Edit position"
+                            style={{ background: 'rgba(245,200,66,0.08)', border: '1px solid rgba(245,200,66,0.15)', borderRadius: 5, color: '#f5c842', fontFamily: 'DM Sans, sans-serif', fontSize: 11, fontWeight: 600, padding: '4px 8px', cursor: 'pointer', whiteSpace: 'nowrap' }}
                           >
-                            <EditIcon />
+                            Edit
                           </button>
                         )}
                         {onClose && (
                           <button
                             onClick={() => onClose(pos)}
-                            className="w-7 h-7 rounded-md flex items-center justify-center transition-all duration-150 hover:bg-[rgba(0,229,196,0.12)]"
-                            style={{ color: '#00e5c4' }}
-                            title="Close position early"
+                            style={{ background: 'rgba(0,229,196,0.08)', border: '1px solid rgba(0,229,196,0.15)', borderRadius: 5, color: '#00e5c4', fontFamily: 'DM Sans, sans-serif', fontSize: 11, fontWeight: 600, padding: '4px 8px', cursor: 'pointer', whiteSpace: 'nowrap' }}
                           >
-                            <ClosePositionIcon />
+                            Close
                           </button>
                         )}
                         {onRemove && (
                           <button
                             onClick={() => onRemove(pos.id)}
-                            className="w-7 h-7 rounded-md flex items-center justify-center transition-all duration-150 hover:bg-[rgba(255,77,109,0.12)]"
-                            style={{ color: '#4a6a8a' }}
-                            title="Delete position"
+                            style={{ background: 'rgba(255,77,109,0.08)', border: '1px solid rgba(255,77,109,0.15)', borderRadius: 5, color: '#ff4d6d', fontFamily: 'DM Sans, sans-serif', fontSize: 11, fontWeight: 600, padding: '4px 8px', cursor: 'pointer', whiteSpace: 'nowrap' }}
                           >
-                            <TrashIcon />
+                            Delete
                           </button>
                         )}
                       </div>
