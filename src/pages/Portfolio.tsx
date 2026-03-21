@@ -158,11 +158,12 @@ interface AddHoldingModalProps {
     expiry?: string;
     strike?: number;
     notes?: string;
-  }) => void;
+  }, shouldAdjustCash: boolean) => void;
   livePrices: Map<string, number | null>;
+  totalCashBalance: number;
 }
 
-function AddHoldingModal({ onClose, onSubmit, livePrices }: AddHoldingModalProps) {
+function AddHoldingModal({ onClose, onSubmit, livePrices, totalCashBalance }: AddHoldingModalProps) {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', handler);
@@ -184,6 +185,14 @@ function AddHoldingModal({ onClose, onSubmit, livePrices }: AddHoldingModalProps
   const qty = parseFloat(quantity) || 0;
   const cost = isCash ? 1 : (parseFloat(avgCost) || 0);
   const livePrice = !isCash ? (livePrices.get(ticker.toUpperCase()) ?? null) : null;
+
+  const [doAdjustCash, setDoAdjustCash] = useState(true);
+
+  const isEligible = holdingType === 'shares' || holdingType === 'leaps_call' || holdingType === 'leaps_put';
+  const multiplier = isLeaps ? 100 : 1;
+  const cashImpact = isEligible && qty > 0 && cost > 0 ? -(qty * cost * multiplier) : null;
+  const balanceAfter = cashImpact !== null ? totalCashBalance + cashImpact : null;
+  const wouldOverdraw = balanceAfter !== null && balanceAfter < 0;
   const estMV = !isCash && livePrice != null ? livePrice * qty : null;
   const estPnl = estMV != null ? estMV - cost * qty : null;
 
@@ -209,7 +218,7 @@ function AddHoldingModal({ onClose, onSubmit, livePrices }: AddHoldingModalProps
     e.preventDefault();
     if (isCash) {
       if (qty <= 0) return;
-      onSubmit({ ticker: 'CASH', holdingType: 'cash', quantity: qty, avgCost: 1, openedAt, notes: notes.trim() || undefined });
+      onSubmit({ ticker: 'CASH', holdingType: 'cash', quantity: qty, avgCost: 1, openedAt, notes: notes.trim() || undefined }, false);
       return;
     }
     if (!ticker.trim() || qty <= 0 || cost <= 0) return;
@@ -222,7 +231,7 @@ function AddHoldingModal({ onClose, onSubmit, livePrices }: AddHoldingModalProps
       expiry: isLeaps && expiry ? expiry : undefined,
       strike: isLeaps && strike ? parseFloat(strike) : undefined,
       notes: notes.trim() || undefined,
-    });
+    }, doAdjustCash && isEligible);
   };
 
   const inputStyle: React.CSSProperties = {
@@ -449,6 +458,60 @@ function AddHoldingModal({ onClose, onSubmit, livePrices }: AddHoldingModalProps
             </div>
           )}
 
+          {/* Cash Impact card */}
+          {cashImpact !== null && (
+            <div
+              style={{
+                background: wouldOverdraw ? 'rgba(245,200,66,0.06)' : 'rgba(0,229,196,0.04)',
+                border: `1px solid ${wouldOverdraw ? 'rgba(245,200,66,0.25)' : 'rgba(0,229,196,0.1)'}`,
+                borderRadius: 8,
+                padding: '12px 14px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 8,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: 14 }}>💵</span>
+                <span style={{ color: '#e8f0fe', fontSize: 13, fontFamily: 'DM Sans, sans-serif', fontWeight: 600 }}>
+                  Cash Impact
+                </span>
+              </div>
+              <p style={{ color: '#9ab4d4', fontSize: 12, fontFamily: 'DM Sans, sans-serif', margin: 0 }}>
+                Buying {qty} {ticker || '—'} @ ${cost.toFixed(2)}{isLeaps ? ' (×100/contract)' : ''} will cost{' '}
+                <span style={{ color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace' }}>
+                  {formatDollars(Math.abs(cashImpact))}
+                </span>.
+              </p>
+              <p style={{ color: '#9ab4d4', fontSize: 12, fontFamily: 'DM Sans, sans-serif', margin: 0 }}>
+                Balance:{' '}
+                <span style={{ fontFamily: 'JetBrains Mono, monospace', color: '#e8f0fe' }}>
+                  {formatDollars(totalCashBalance)}
+                </span>
+                {' → '}
+                <span style={{ fontFamily: 'JetBrains Mono, monospace', color: wouldOverdraw ? '#f5c842' : '#00d68f' }}>
+                  {balanceAfter !== null ? formatDollars(balanceAfter) : '—'}
+                </span>
+              </p>
+              {wouldOverdraw && (
+                <p style={{ color: '#f5c842', fontSize: 11, fontFamily: 'DM Sans, sans-serif', margin: 0 }}>
+                  ⚠ This would overdraw your cash balance.
+                </p>
+              )}
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={doAdjustCash}
+                  onChange={(e) => setDoAdjustCash(e.target.checked)}
+                  style={{ accentColor: '#00e5c4', width: 14, height: 14 }}
+                />
+                <span style={{ color: '#9ab4d4', fontSize: 12, fontFamily: 'DM Sans, sans-serif' }}>
+                  Deduct {formatDollars(Math.abs(cashImpact))} from cash position
+                </span>
+              </label>
+            </div>
+          )}
+
           <button
             type="submit"
             style={{
@@ -486,10 +549,11 @@ interface EditHoldingModalProps {
     expiry?: string;
     strike?: number;
     notes?: string;
-  }) => void;
+  }, shouldAdjustCash: boolean) => void;
+  totalCashBalance?: number;
 }
 
-function EditHoldingModal({ holding, onClose, onSubmit }: EditHoldingModalProps) {
+function EditHoldingModal({ holding, onClose, onSubmit, totalCashBalance = 0 }: EditHoldingModalProps) {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', handler);
@@ -503,16 +567,31 @@ function EditHoldingModal({ holding, onClose, onSubmit }: EditHoldingModalProps)
   const [expiry, setExpiry] = useState(holding.expiry ?? '');
   const [strike, setStrike] = useState(holding.strike != null ? String(holding.strike) : '');
   const [notes, setNotes] = useState(holding.notes ?? '');
+  const [doAdjustCash, setDoAdjustCash] = useState(true);
 
   const isCash = holdingType === 'cash';
   const isLeaps = holdingType === 'leaps_call' || holdingType === 'leaps_put';
+
+  const isEligible = holdingType === 'shares' || holdingType === 'leaps_call' || holdingType === 'leaps_put';
+  const multiplier = isLeaps ? 100 : 1;
+  const origMultiplier = (holding.holdingType === 'leaps_call' || holding.holdingType === 'leaps_put') ? 100 : 1;
+
+  const newQty = parseFloat(quantity) || 0;
+  const newCost = parseFloat(avgCost) || 0;
+  const oldCostBasis = holding.quantity * holding.avgCost * origMultiplier;
+  const newCostBasis = newQty * newCost * multiplier;
+  const cashDelta = isEligible ? -(newCostBasis - oldCostBasis) : null;
+  const balanceAfter = cashDelta !== null && cashDelta !== 0 ? totalCashBalance + cashDelta : null;
+  const wouldOverdraw = balanceAfter !== null && balanceAfter < 0;
+  const noCashHolding = totalCashBalance === 0;
+  const showCard = cashDelta !== null && cashDelta !== 0;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const qty = parseFloat(quantity);
     if (!qty) return;
     if (isCash) {
-      onSubmit(holding.id, { ticker: 'CASH', holdingType: 'cash', quantity: qty, avgCost: 1, openedAt, notes: notes.trim() || undefined });
+      onSubmit(holding.id, { ticker: 'CASH', holdingType: 'cash', quantity: qty, avgCost: 1, openedAt, notes: notes.trim() || undefined }, false);
       return;
     }
     const cost = parseFloat(avgCost);
@@ -526,7 +605,7 @@ function EditHoldingModal({ holding, onClose, onSubmit }: EditHoldingModalProps)
       expiry: isLeaps && expiry ? expiry : undefined,
       strike: isLeaps && strike ? parseFloat(strike) : undefined,
       notes: notes.trim() || undefined,
-    });
+    }, doAdjustCash && isEligible && cashDelta !== 0);
   };
 
   const inputStyle: React.CSSProperties = {
@@ -634,6 +713,69 @@ function EditHoldingModal({ holding, onClose, onSubmit }: EditHoldingModalProps)
             <input type="text" value={notes} onChange={(e) => setNotes(e.target.value)} style={inputStyle} placeholder="e.g. core position" />
           </div>
 
+          {/* Cash Impact card */}
+          {showCard && cashDelta !== null && (
+            <div
+              style={{
+                background: wouldOverdraw ? 'rgba(245,200,66,0.06)' : 'rgba(0,229,196,0.04)',
+                border: `1px solid ${wouldOverdraw ? 'rgba(245,200,66,0.25)' : 'rgba(0,229,196,0.1)'}`,
+                borderRadius: 8,
+                padding: '12px 14px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 8,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: 14 }}>💵</span>
+                <span style={{ color: '#e8f0fe', fontSize: 13, fontFamily: 'DM Sans, sans-serif', fontWeight: 600 }}>
+                  Cash Impact
+                </span>
+              </div>
+              <p style={{ color: '#9ab4d4', fontSize: 12, fontFamily: 'DM Sans, sans-serif', margin: 0 }}>
+                {cashDelta < 0
+                  ? `Increasing your ${ticker} position will cost an additional `
+                  : `Reducing your ${ticker} position will return `}
+                <span style={{ color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace' }}>
+                  {formatDollars(Math.abs(cashDelta))}
+                </span>.
+              </p>
+              <p style={{ color: '#9ab4d4', fontSize: 12, fontFamily: 'DM Sans, sans-serif', margin: 0 }}>
+                Balance:{' '}
+                <span style={{ fontFamily: 'JetBrains Mono, monospace', color: '#e8f0fe' }}>
+                  {formatDollars(totalCashBalance)}
+                </span>
+                {' → '}
+                <span style={{ fontFamily: 'JetBrains Mono, monospace', color: wouldOverdraw ? '#f5c842' : (cashDelta > 0 ? '#00d68f' : '#e8f0fe') }}>
+                  {balanceAfter !== null ? formatDollars(balanceAfter) : '—'}
+                </span>
+              </p>
+              {wouldOverdraw && (
+                <p style={{ color: '#f5c842', fontSize: 11, fontFamily: 'DM Sans, sans-serif', margin: 0 }}>
+                  ⚠ This would overdraw your cash balance.
+                </p>
+              )}
+              {noCashHolding && doAdjustCash && cashDelta > 0 && (
+                <p style={{ color: '#9ab4d4', fontSize: 11, fontFamily: 'DM Sans, sans-serif', margin: 0 }}>
+                  A cash holding will be created automatically.
+                </p>
+              )}
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={doAdjustCash}
+                  onChange={(e) => setDoAdjustCash(e.target.checked)}
+                  style={{ accentColor: '#00e5c4', width: 14, height: 14 }}
+                />
+                <span style={{ color: '#9ab4d4', fontSize: 12, fontFamily: 'DM Sans, sans-serif' }}>
+                  {cashDelta < 0
+                    ? `Deduct ${formatDollars(Math.abs(cashDelta))} from cash position`
+                    : `Add ${formatDollars(Math.abs(cashDelta))} to cash position`}
+                </span>
+              </label>
+            </div>
+          )}
+
           <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
             <button type="button" onClick={onClose} style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: '#9ab4d4', fontFamily: 'DM Sans, sans-serif', fontSize: 14, fontWeight: 600, padding: '10px 0', cursor: 'pointer' }}>
               Cancel
@@ -653,10 +795,11 @@ function EditHoldingModal({ holding, onClose, onSubmit }: EditHoldingModalProps)
 interface CloseHoldingModalProps {
   holding: HoldingWithPrice;
   onClose: () => void;
-  onSubmit: (id: string, closingPrice: number) => void;
+  onSubmit: (id: string, closingPrice: number, shouldAdjustCash: boolean) => void;
+  totalCashBalance?: number;
 }
 
-function CloseHoldingModal({ holding, onClose, onSubmit }: CloseHoldingModalProps) {
+function CloseHoldingModal({ holding, onClose, onSubmit, totalCashBalance = 0 }: CloseHoldingModalProps) {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', handler);
@@ -667,14 +810,21 @@ function CloseHoldingModal({ holding, onClose, onSubmit }: CloseHoldingModalProp
     holding.currentPrice != null ? String(holding.currentPrice.toFixed(2)) : ''
   );
   const [closeDate, setCloseDate] = useState(today);
+  const [doAdjustCash, setDoAdjustCash] = useState(true);
 
   const price = parseFloat(closingPrice) || 0;
   const pnl = (price - holding.avgCost) * holding.quantity;
 
+  const isEligible = holding.holdingType === 'shares' || holding.holdingType === 'leaps_call' || holding.holdingType === 'leaps_put';
+  const multiplier = (holding.holdingType === 'leaps_call' || holding.holdingType === 'leaps_put') ? 100 : 1;
+  const cashProceeds = isEligible && price > 0 ? holding.quantity * price * multiplier : null;
+  const balanceAfter = cashProceeds !== null ? totalCashBalance + cashProceeds : null;
+  const noCashHolding = totalCashBalance === 0;
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (price <= 0) return;
-    onSubmit(holding.id, price);
+    onSubmit(holding.id, price, doAdjustCash && isEligible);
   };
 
   const inputStyle: React.CSSProperties = {
@@ -788,6 +938,60 @@ function CloseHoldingModal({ holding, onClose, onSubmit }: CloseHoldingModalProp
               >
                 {pnl >= 0 ? '+' : ''}{formatDollars(pnl)}
               </div>
+            </div>
+          )}
+
+          {/* Cash Impact card */}
+          {cashProceeds !== null && (
+            <div
+              style={{
+                background: 'rgba(0,214,143,0.05)',
+                border: '1px solid rgba(0,214,143,0.15)',
+                borderRadius: 8,
+                padding: '12px 14px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 8,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: 14 }}>💵</span>
+                <span style={{ color: '#e8f0fe', fontSize: 13, fontFamily: 'DM Sans, sans-serif', fontWeight: 600 }}>
+                  Cash Impact
+                </span>
+              </div>
+              <p style={{ color: '#9ab4d4', fontSize: 12, fontFamily: 'DM Sans, sans-serif', margin: 0 }}>
+                Selling {holding.quantity} {holding.ticker} @ ${price.toFixed(2)}{isEligible && multiplier === 100 ? ' (×100/contract)' : ''} will return{' '}
+                <span style={{ color: '#00d68f', fontFamily: 'JetBrains Mono, monospace' }}>
+                  {formatDollars(cashProceeds)}
+                </span>.
+              </p>
+              <p style={{ color: '#9ab4d4', fontSize: 12, fontFamily: 'DM Sans, sans-serif', margin: 0 }}>
+                Balance:{' '}
+                <span style={{ fontFamily: 'JetBrains Mono, monospace', color: '#e8f0fe' }}>
+                  {formatDollars(totalCashBalance)}
+                </span>
+                {' → '}
+                <span style={{ fontFamily: 'JetBrains Mono, monospace', color: '#00d68f' }}>
+                  {balanceAfter !== null ? formatDollars(balanceAfter) : '—'}
+                </span>
+              </p>
+              {noCashHolding && doAdjustCash && (
+                <p style={{ color: '#9ab4d4', fontSize: 11, fontFamily: 'DM Sans, sans-serif', margin: 0 }}>
+                  A cash holding will be created automatically.
+                </p>
+              )}
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={doAdjustCash}
+                  onChange={(e) => setDoAdjustCash(e.target.checked)}
+                  style={{ accentColor: '#00e5c4', width: 14, height: 14 }}
+                />
+                <span style={{ color: '#9ab4d4', fontSize: 12, fontFamily: 'DM Sans, sans-serif' }}>
+                  Add {formatDollars(cashProceeds)} to cash position
+                </span>
+              </label>
             </div>
           )}
 
@@ -983,6 +1187,7 @@ function RealPortfolio() {
     addHolding,
     closeHolding,
     editHolding,
+    adjustCash,
     totalCost,
     unrealizedPnl,
     realizedPnl,
@@ -1067,18 +1272,47 @@ function RealPortfolio() {
   const showCspPanel = totalCashBalance > 0 || openCSPs.length > 0;
   const cspUsedPct = totalCashBalance > 0 ? Math.min((cspObligation / totalCashBalance) * 100, 999) : (cspObligation > 0 ? Infinity : 0);
 
-  const handleAddHolding = async (data: Parameters<typeof addHolding>[0]) => {
-    await addHolding(data);
+  const handleAddHolding = async (
+    data: Parameters<typeof addHolding>[0],
+    shouldAdjustCash: boolean,
+  ) => {
+    const success = await addHolding(data);
+    if (success && shouldAdjustCash) {
+      const multiplier = data.holdingType === 'leaps_call' || data.holdingType === 'leaps_put' ? 100 : 1;
+      await adjustCash(-(data.quantity * data.avgCost * multiplier));
+    }
     setShowAddModal(false);
   };
 
-  const handleCloseHolding = async (id: string, price: number) => {
-    await closeHolding(id, price);
+  const handleCloseHolding = async (
+    id: string,
+    price: number,
+    shouldAdjustCash: boolean,
+  ) => {
+    const holding = closingHolding;
+    const success = await closeHolding(id, price);
+    if (success && shouldAdjustCash && holding) {
+      const multiplier = holding.holdingType === 'leaps_call' || holding.holdingType === 'leaps_put' ? 100 : 1;
+      await adjustCash(holding.quantity * price * multiplier);
+    }
     setClosingHolding(null);
   };
 
-  const handleEditHolding = async (id: string, data: Parameters<typeof editHolding>[1]) => {
-    await editHolding(id, data);
+  const handleEditHolding = async (
+    id: string,
+    data: Parameters<typeof editHolding>[1],
+    shouldAdjustCash: boolean,
+  ) => {
+    const original = editingHolding;
+    const success = await editHolding(id, data);
+    if (success && shouldAdjustCash && original && data.quantity != null && data.avgCost != null) {
+      const origMultiplier = original.holdingType === 'leaps_call' || original.holdingType === 'leaps_put' ? 100 : 1;
+      const newMultiplier = (data.holdingType ?? original.holdingType) === 'leaps_call' || (data.holdingType ?? original.holdingType) === 'leaps_put' ? 100 : 1;
+      const oldBasis = original.quantity * original.avgCost * origMultiplier;
+      const newBasis = data.quantity * data.avgCost * newMultiplier;
+      const delta = -(newBasis - oldBasis);
+      if (delta !== 0) await adjustCash(delta);
+    }
     setEditingHolding(null);
   };
 
@@ -1946,15 +2180,17 @@ function RealPortfolio() {
       {/* Modals */}
       {showAddModal && (
         <AddHoldingModal
+          livePrices={livePriceMap}
+          totalCashBalance={totalCashBalance}
           onClose={() => setShowAddModal(false)}
           onSubmit={handleAddHolding}
-          livePrices={livePriceMap}
         />
       )}
 
       {editingHolding && (
         <EditHoldingModal
           holding={editingHolding}
+          totalCashBalance={totalCashBalance}
           onClose={() => setEditingHolding(null)}
           onSubmit={handleEditHolding}
         />
@@ -1963,6 +2199,7 @@ function RealPortfolio() {
       {closingHolding && (
         <CloseHoldingModal
           holding={closingHolding}
+          totalCashBalance={totalCashBalance}
           onClose={() => setClosingHolding(null)}
           onSubmit={handleCloseHolding}
         />

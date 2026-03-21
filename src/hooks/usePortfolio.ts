@@ -327,8 +327,8 @@ export function usePortfolio() {
   }, [loadData]);
 
   const addHolding = useCallback(
-    async (data: AddHoldingData) => {
-      if (!user) return;
+    async (data: AddHoldingData): Promise<boolean> => {
+      if (!user) return false;
 
       const { error } = await supabase.from('portfolio_holdings').insert({
         user_id: user.id,
@@ -345,17 +345,18 @@ export function usePortfolio() {
 
       if (error) {
         showToast(`Failed to add holding: ${error.message}`, 'error');
-      } else {
-        showToast('Holding added', 'success');
-        await loadData();
+        return false;
       }
+      showToast('Holding added', 'success');
+      await loadData();
+      return true;
     },
     [user, showToast, loadData]
   );
 
   const closeHolding = useCallback(
-    async (id: string, closingPrice: number) => {
-      if (!user) return;
+    async (id: string, closingPrice: number): Promise<boolean> => {
+      if (!user) return false;
 
       const today = new Date().toISOString().split('T')[0];
       const { error } = await supabase
@@ -370,17 +371,18 @@ export function usePortfolio() {
 
       if (error) {
         showToast(`Failed to close holding: ${error.message}`, 'error');
-      } else {
-        showToast('Holding closed', 'success');
-        await loadData();
+        return false;
       }
+      showToast('Holding closed', 'success');
+      await loadData();
+      return true;
     },
     [user, showToast, loadData]
   );
 
   const editHolding = useCallback(
-    async (id: string, data: Partial<Pick<AddHoldingData, 'ticker' | 'quantity' | 'avgCost' | 'holdingType' | 'openedAt' | 'expiry' | 'strike' | 'notes'>>) => {
-      if (!user) return;
+    async (id: string, data: Partial<Pick<AddHoldingData, 'ticker' | 'quantity' | 'avgCost' | 'holdingType' | 'openedAt' | 'expiry' | 'strike' | 'notes'>>): Promise<boolean> => {
+      if (!user) return false;
 
       const updates: Record<string, unknown> = {};
       if (data.ticker !== undefined) updates.ticker = data.ticker.toUpperCase();
@@ -400,12 +402,71 @@ export function usePortfolio() {
 
       if (error) {
         showToast(`Failed to update holding: ${error.message}`, 'error');
-      } else {
-        showToast('Holding updated', 'success');
-        await loadData();
+        return false;
       }
+      showToast('Holding updated', 'success');
+      await loadData();
+      return true;
     },
     [user, showToast, loadData]
+  );
+
+  const adjustCash = useCallback(
+    async (delta: number) => {
+      if (!user) {
+        showToast('Holding saved — but failed to adjust cash position. Update manually.', 'error');
+        return;
+      }
+
+      const { data: cashRow, error: fetchError } = await supabase
+        .from('portfolio_holdings')
+        .select('id, quantity')
+        .eq('user_id', user.id)
+        .eq('holding_type', 'cash')
+        .eq('status', 'open')
+        .order('quantity', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (fetchError) {
+        showToast('Holding saved — but failed to adjust cash position. Update manually.', 'error');
+        return;
+      }
+
+      if (cashRow) {
+        const newQty = Number(cashRow.quantity) + delta;
+        if (isNaN(newQty)) {
+          showToast('Holding saved — but failed to adjust cash position. Update manually.', 'error');
+          return;
+        }
+        // Negative newQty is intentional — spec allows overdraft; modal warns user before submit
+        const { error } = await supabase
+          .from('portfolio_holdings')
+          .update({ quantity: newQty })
+          .eq('id', cashRow.id)
+          .eq('user_id', user.id);
+        if (error) {
+          showToast('Holding saved — but failed to adjust cash position. Update manually.', 'error');
+        }
+      } else {
+        if (delta <= 0) return; // Don't create a negative cash holding
+        const { error } = await supabase
+          .from('portfolio_holdings')
+          .insert({
+            user_id: user.id,
+            holding_type: 'cash',
+            ticker: 'USD',
+            quantity: delta,
+            avg_cost: 1,
+            status: 'open',
+            opened_at: new Date().toISOString().split('T')[0],
+          });
+        if (error) {
+          showToast('Holding saved — but failed to adjust cash position. Update manually.', 'error');
+        }
+      }
+    },
+    [user, showToast]
   );
 
   return {
@@ -416,6 +477,7 @@ export function usePortfolio() {
     addHolding,
     closeHolding,
     editHolding,
+    adjustCash,
     totalValue,
     totalCost,
     unrealizedPnl,
