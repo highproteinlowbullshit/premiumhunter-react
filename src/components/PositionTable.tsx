@@ -68,69 +68,40 @@ export function PositionTable({ positions, livePrices, onRemove, onClose, onEdit
             <div key={pos.id} className="rounded-xl p-4"
               style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(0,229,196,0.08)' }}>
               {/* Row 1: ticker + strategy + badge */}
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-base font-bold"
-                    style={{ fontFamily: 'Syne, sans-serif', color: '#e8f0fe' }}>
-                    {pos.ticker}
-                  </span>
-                  <span className="text-xs px-2 py-0.5 rounded font-semibold"
-                    style={{
-                      color: pos.strategy === 'CSP' ? '#00c6f5' : '#00e5c4',
-                      background: pos.strategy === 'CSP' ? 'rgba(0,198,245,0.1)' : 'rgba(0,229,196,0.1)',
-                      border: `1px solid ${pos.strategy === 'CSP' ? 'rgba(0,198,245,0.2)' : 'rgba(0,229,196,0.2)'}`,
-                      fontFamily: 'JetBrains Mono, monospace',
-                    }}>
-                    {pos.strategy}
-                  </span>
-                  <span className="text-xs font-semibold"
-                    style={{ color: '#c8daf0', fontFamily: 'JetBrains Mono, monospace' }}>
-                    {pos.contracts}×
-                  </span>
-                  {livePrices && (() => {
-                    const sp = livePrices.get(pos.ticker);
-                    if (!sp) return null;
-                    const { isItm } = computeLivePnl(pos, sp);
-                    return (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold"
-                        style={{
-                          color: isItm ? '#ff4d6d' : '#00d68f',
-                          background: isItm ? 'rgba(255,77,109,0.1)' : 'rgba(0,214,143,0.1)',
-                          border: `1px solid ${isItm ? 'rgba(255,77,109,0.2)' : 'rgba(0,214,143,0.2)'}`,
-                          fontFamily: 'JetBrains Mono, monospace',
-                        }}>
-                        {isItm ? 'ITM' : 'OTM'}
-                      </span>
-                    );
-                  })()}
-                </div>
-                {/* Mobile actions */}
-                <div className="flex items-center gap-1 flex-wrap">
-                  {onAssign && (
-                    <button onClick={() => onAssign(pos)}
-                      style={{ background: 'rgba(245,200,66,0.08)', border: '1px solid rgba(245,200,66,0.2)', borderRadius: 5, color: '#f5c842', fontFamily: 'DM Sans, sans-serif', fontSize: 11, fontWeight: 600, padding: '4px 8px', cursor: 'pointer' }}>
-                      Assign
-                    </button>
-                  )}
-                  {onEdit && (
-                    <button onClick={() => onEdit(pos)}
-                      style={{ background: 'rgba(245,200,66,0.08)', border: '1px solid rgba(245,200,66,0.15)', borderRadius: 5, color: '#f5c842', fontFamily: 'DM Sans, sans-serif', fontSize: 11, fontWeight: 600, padding: '4px 8px', cursor: 'pointer' }}>
-                      Edit
-                    </button>
-                  )}
-                  {onClose && (
-                    <button onClick={() => onClose(pos)}
-                      style={{ background: 'rgba(0,229,196,0.08)', border: '1px solid rgba(0,229,196,0.15)', borderRadius: 5, color: '#00e5c4', fontFamily: 'DM Sans, sans-serif', fontSize: 11, fontWeight: 600, padding: '4px 8px', cursor: 'pointer' }}>
-                      Close
-                    </button>
-                  )}
-                  {onRemove && (
-                    <button onClick={() => onRemove(pos)}
-                      style={{ background: 'rgba(255,77,109,0.08)', border: '1px solid rgba(255,77,109,0.15)', borderRadius: 5, color: '#ff4d6d', fontFamily: 'DM Sans, sans-serif', fontSize: 11, fontWeight: 600, padding: '4px 8px', cursor: 'pointer' }}>
-                      Delete
-                    </button>
-                  )}
-                </div>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-base font-bold"
+                  style={{ fontFamily: 'Syne, sans-serif', color: '#e8f0fe' }}>
+                  {pos.ticker}
+                </span>
+                <span className="text-xs px-2 py-0.5 rounded font-semibold"
+                  style={{
+                    color: pos.strategy === 'CSP' ? '#00c6f5' : '#00e5c4',
+                    background: pos.strategy === 'CSP' ? 'rgba(0,198,245,0.1)' : 'rgba(0,229,196,0.1)',
+                    border: `1px solid ${pos.strategy === 'CSP' ? 'rgba(0,198,245,0.2)' : 'rgba(0,229,196,0.2)'}`,
+                    fontFamily: 'JetBrains Mono, monospace',
+                  }}>
+                  {pos.strategy}
+                </span>
+                <span className="text-xs font-semibold"
+                  style={{ color: '#c8daf0', fontFamily: 'JetBrains Mono, monospace' }}>
+                  {pos.contracts}×
+                </span>
+                {livePrices && (() => {
+                  const sp = livePrices.get(pos.ticker);
+                  if (!sp) return null;
+                  const { isItm } = computeLivePnl(pos, sp);
+                  return (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold"
+                      style={{
+                        color: isItm ? '#ff4d6d' : '#00d68f',
+                        background: isItm ? 'rgba(255,77,109,0.1)' : 'rgba(0,214,143,0.1)',
+                        border: `1px solid ${isItm ? 'rgba(255,77,109,0.2)' : 'rgba(0,214,143,0.2)'}`,
+                        fontFamily: 'JetBrains Mono, monospace',
+                      }}>
+                      {isItm ? 'ITM' : 'OTM'}
+                    </span>
+                  );
+                })()}
               </div>
 
               {/* Row 2: metrics grid */}
@@ -173,6 +144,36 @@ export function PositionTable({ positions, livePrices, onRemove, onClose, onEdit
               <p className="text-xs mt-2" style={{ color: '#4a6a8a', fontFamily: 'JetBrains Mono, monospace' }}>
                 Expires {pos.expiry}
               </p>
+
+              {/* Row 4: actions */}
+              {(onAssign || onEdit || onClose || onRemove) && (
+                <div className="flex items-center gap-2 mt-3 pt-3" style={{ borderTop: '1px solid rgba(0,229,196,0.07)' }}>
+                  {onAssign && (
+                    <button onClick={() => onAssign(pos)}
+                      style={{ flex: 1, background: 'rgba(245,200,66,0.08)', border: '1px solid rgba(245,200,66,0.2)', borderRadius: 7, color: '#f5c842', fontFamily: 'DM Sans, sans-serif', fontSize: 12, fontWeight: 600, padding: '8px 0', cursor: 'pointer' }}>
+                      Assign
+                    </button>
+                  )}
+                  {onEdit && (
+                    <button onClick={() => onEdit(pos)}
+                      style={{ flex: 1, background: 'rgba(245,200,66,0.08)', border: '1px solid rgba(245,200,66,0.15)', borderRadius: 7, color: '#f5c842', fontFamily: 'DM Sans, sans-serif', fontSize: 12, fontWeight: 600, padding: '8px 0', cursor: 'pointer' }}>
+                      Edit
+                    </button>
+                  )}
+                  {onClose && (
+                    <button onClick={() => onClose(pos)}
+                      style={{ flex: 1, background: 'rgba(0,229,196,0.08)', border: '1px solid rgba(0,229,196,0.15)', borderRadius: 7, color: '#00e5c4', fontFamily: 'DM Sans, sans-serif', fontSize: 12, fontWeight: 600, padding: '8px 0', cursor: 'pointer' }}>
+                      Close
+                    </button>
+                  )}
+                  {onRemove && (
+                    <button onClick={() => onRemove(pos)}
+                      style={{ flex: 1, background: 'rgba(255,77,109,0.08)', border: '1px solid rgba(255,77,109,0.15)', borderRadius: 7, color: '#ff4d6d', fontFamily: 'DM Sans, sans-serif', fontSize: 12, fontWeight: 600, padding: '8px 0', cursor: 'pointer' }}>
+                      Delete
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           );
         })}
