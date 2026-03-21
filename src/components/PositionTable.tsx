@@ -339,7 +339,7 @@ export function PositionTable({ positions, livePrices, onRemove, onClose, onEdit
 
                   {hasActions && (
                     <td className="py-3.5 px-4 last:pr-0">
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                      <div className="flex items-center gap-1">
                         {onAssign && (
                           <button
                             onClick={() => onAssign(pos)}
