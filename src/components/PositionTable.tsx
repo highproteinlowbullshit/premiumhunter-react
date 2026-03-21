@@ -83,8 +83,9 @@ export function PositionTable({ positions, livePrices, onRemove, onClose, onEdit
                     }}>
                     {pos.strategy}
                   </span>
-                  <span className="text-xs" style={{ color: '#4a6a8a', fontFamily: 'JetBrains Mono, monospace' }}>
-                    {pos.contracts}x
+                  <span className="text-xs font-semibold"
+                    style={{ color: '#c8daf0', fontFamily: 'JetBrains Mono, monospace' }}>
+                    {pos.contracts}×
                   </span>
                   {livePrices && (() => {
                     const sp = livePrices.get(pos.ticker);

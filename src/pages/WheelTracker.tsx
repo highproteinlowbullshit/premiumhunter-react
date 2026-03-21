@@ -56,9 +56,9 @@ function RealWheelTracker() {
   }, []);
 
   const totalPremium = openPositions.reduce((acc, p) => acc + p.premiumCollected, 0);
-  const lockedCollateral = openPositions
-    .filter((p) => p.strategy === 'CSP')
-    .reduce((acc, p) => acc + p.strike * p.contracts * 100, 0);
+  const openCSPs = openPositions.filter((p) => p.strategy === 'CSP');
+  const openCCs = openPositions.filter((p) => p.strategy === 'CC');
+  const lockedCollateral = openCSPs.reduce((acc, p) => acc + p.strike * p.contracts * 100, 0);
 
   const closedPositions = positions.filter((p) => p.status === 'closed');
   const wins = closedPositions.filter((p) => p.premiumCollected > p.currentPrice * p.contracts);
@@ -85,8 +85,12 @@ function RealWheelTracker() {
                 style={{ fontFamily: 'Syne, sans-serif', color: '#e8f0fe', letterSpacing: '-0.02em' }}>
                 Wheel Tracker
               </h1>
-              <p className="text-sm mt-1" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
-                {openPositions.length} open positions · {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+              <p className="text-sm mt-1" style={{ color: '#9ab4d4', fontFamily: 'DM Sans, sans-serif' }}>
+                <span style={{ color: '#00c6f5', fontWeight: 600 }}>{openCSPs.length} CSP{openCSPs.length !== 1 ? 's' : ''}</span>
+                <span style={{ color: '#6a8aaa' }}> · </span>
+                <span style={{ color: '#00e5c4', fontWeight: 600 }}>{openCCs.length} CC{openCCs.length !== 1 ? 's' : ''}</span>
+                <span style={{ color: '#6a8aaa' }}> · </span>
+                {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
               </p>
             </div>
             <button
