@@ -372,26 +372,71 @@ export function usePositions() {
         // CSP assignment: buy shares at effective cost basis (strike − premium per share)
         const premiumPerShare = (data.premiumCollected / data.contracts) / 100;
         const effectiveBasis = Math.max(0, data.strike - premiumPerShare);
+        const newQty = data.contracts * 100;
         const today = new Date().toISOString().split('T')[0];
 
-        const { error: holdingErr } = await supabase
+        // Check for an existing open shares holding for this ticker
+        const { data: existing, error: fetchErr } = await supabase
           .from('portfolio_holdings')
-          .insert({
-            user_id: user.id,
-            ticker: data.ticker,
-            holding_type: 'shares',
-            quantity: data.contracts * 100,
-            avg_cost: Number(effectiveBasis.toFixed(4)),
-            opened_at: today,
-            status: 'open',
-            notes: `Assigned from CSP — $${data.strike} strike`,
-          });
+          .select('id, quantity, avg_cost')
+          .eq('user_id', user.id)
+          .eq('ticker', data.ticker)
+          .eq('holding_type', 'shares')
+          .eq('status', 'open')
+          .maybeSingle();
+
+        if (fetchErr) {
+          Sentry.captureException(fetchErr);
+        }
+
+        let holdingErr;
+
+        if (existing) {
+          // Merge: weighted-average cost basis across existing + newly assigned shares
+          const existingQty = Number(existing.quantity);
+          const existingAvg = Number(existing.avg_cost);
+          const mergedQty = existingQty + newQty;
+          const mergedAvg = (existingQty * existingAvg + newQty * effectiveBasis) / mergedQty;
+
+          ({ error: holdingErr } = await supabase
+            .from('portfolio_holdings')
+            .update({
+              quantity: mergedQty,
+              avg_cost: Number(mergedAvg.toFixed(4)),
+              notes: `${existing.notes ?? ''} · +${newQty} assigned from CSP $${data.strike} strike`.trim(),
+            })
+            .eq('id', existing.id)
+            .eq('user_id', user.id));
+
+          if (!holdingErr) {
+            showToast(
+              `Assigned! Merged ${newQty} ${data.ticker} shares — new avg $${mergedAvg.toFixed(2)}/share (${mergedQty} total)`,
+              'success',
+            );
+          }
+        } else {
+          // No existing holding — insert a fresh row
+          ({ error: holdingErr } = await supabase
+            .from('portfolio_holdings')
+            .insert({
+              user_id: user.id,
+              ticker: data.ticker,
+              holding_type: 'shares',
+              quantity: newQty,
+              avg_cost: Number(effectiveBasis.toFixed(4)),
+              opened_at: today,
+              status: 'open',
+              notes: `Assigned from CSP — $${data.strike} strike`,
+            }));
+
+          if (!holdingErr) {
+            showToast(`Assigned! Added ${newQty} ${data.ticker} shares at $${effectiveBasis.toFixed(2)}/share`, 'success');
+          }
+        }
 
         if (holdingErr) {
           Sentry.captureException(holdingErr);
-          showToast('Assigned — but failed to create shares holding. Add manually in Portfolio.', 'error');
-        } else {
-          showToast(`Assigned! Added ${data.contracts * 100} ${data.ticker} shares at $${effectiveBasis.toFixed(2)}/share`, 'success');
+          showToast('Assigned — but failed to update shares holding. Add manually in Portfolio.', 'error');
         }
       } else {
         // CC assignment: shares called away — user closes shares in Portfolio manually
