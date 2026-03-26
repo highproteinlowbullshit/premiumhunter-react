@@ -34,11 +34,12 @@ export function useTradeChecklist(
     accountBalance: 0,
     maxRiskPercent: 5,
   });
+  const [prefsFetched, setPrefsFetched] = useState(false);
   const [fetchingTicker, setFetchingTicker] = useState<string | null>(null);
 
   // Fetch user preferences once on mount
   useEffect(() => {
-    if (!user) return;
+    if (!user) { setPrefsFetched(true); return; }
     supabase
       .from('user_preferences')
       .select('max_risk_percent, account_balance')
@@ -52,6 +53,7 @@ export function useTradeChecklist(
             accountBalance: Number(data.account_balance) || 0,
           }));
         }
+        setPrefsFetched(true);
       });
   }, [user?.id]);
 
@@ -189,5 +191,6 @@ export function useTradeChecklist(
     toggleOverride,
     resetOverrides,
     supplemental,
+    prefsFetched,
   };
 }

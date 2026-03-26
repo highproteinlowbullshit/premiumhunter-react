@@ -795,7 +795,7 @@ function AddPositionModal({ cashBalance, lockedCollateral, openPositions, onClos
   const premiumPerShare = Number(form.premium) / 100;
   const freeCashForChecklist = cashBalance !== null ? Math.max(0, cashBalance - lockedCollateral) : 0;
 
-  const { result: checklistResult, isRunning, overriddenChecks, toggleOverride, resetOverrides, supplemental } =
+  const { result: checklistResult, isRunning, overriddenChecks, toggleOverride, resetOverrides, supplemental, prefsFetched } =
     useTradeChecklist(
       {
         ticker: form.ticker,
@@ -1136,7 +1136,7 @@ function AddPositionModal({ cashBalance, lockedCollateral, openPositions, onClos
           </div>
 
           {/* Account balance prompt */}
-          {supplemental.accountBalance === 0 && (
+          {prefsFetched && supplemental.accountBalance === 0 && (
             <div className="rounded-lg px-3 py-2.5 text-xs flex items-center gap-2"
               style={{ background: 'rgba(0,198,245,0.06)', border: '1px solid rgba(0,198,245,0.12)' }}>
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
