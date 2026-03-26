@@ -247,9 +247,11 @@ function ModalShell({ title, subtitle, onClose, children, wide = false }: {
     return () => document.removeEventListener('keydown', handler);
   }, [onClose]);
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+    <div className="fixed inset-0 z-50 overflow-y-auto"
       style={{ background: 'rgba(2, 8, 19, 0.85)', backdropFilter: 'blur(8px)' }}
       onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="min-h-full flex items-center justify-center p-4"
+        onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className={`w-full ${wide ? 'max-w-4xl' : 'max-w-md'} rounded-2xl p-6`}
         style={{
           background: 'rgba(10, 22, 40, 0.98)',
@@ -269,6 +271,7 @@ function ModalShell({ title, subtitle, onClose, children, wide = false }: {
           </button>
         </div>
         {children}
+      </div>
       </div>
     </div>
   );
@@ -804,6 +807,7 @@ function AddPositionModal({ cashBalance, lockedCollateral, openPositions, onClos
         currentPrice: spotPrice ?? 0,
         buyingPower: freeCashForChecklist,
         sectorExposure: new Map(),
+        sharesHeld: sharesHeld ?? 0,
       },
       openPositions,
     );
@@ -985,30 +989,46 @@ function AddPositionModal({ cashBalance, lockedCollateral, openPositions, onClos
             }}>
             {fetchingShares ? (
               <p style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>Checking share holdings…</p>
-            ) : sharesHeld !== null ? (
-              <>
-                <div className="flex justify-between items-center mb-1">
-                  <span style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>{form.ticker} shares held</span>
-                  <span style={{ color: '#9ab4d4', fontFamily: 'JetBrains Mono, monospace', fontWeight: 600 }}>{sharesHeld.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between items-center pt-1.5"
-                  style={{ borderTop: '1px solid rgba(255,255,255,0.06)', marginTop: 2 }}>
-                  <span style={{ color: '#6a8fb0', fontFamily: 'DM Sans, sans-serif', fontWeight: 600 }}>Max CCs you can sell</span>
-                  <span style={{
-                    color: sharesHeld === 0 ? '#ff4d6d' : contracts > Math.floor(sharesHeld / 100) ? '#ff4d6d' : '#00e5c4',
-                    fontFamily: 'JetBrains Mono, monospace', fontWeight: 700,
-                  }}>
-                    {Math.floor(sharesHeld / 100)}
-                    {contracts > Math.floor(sharesHeld / 100) && sharesHeld > 0 && (
-                      <span style={{ marginLeft: 6, fontWeight: 400, fontSize: 10 }}>(exceeds holdings)</span>
-                    )}
-                    {sharesHeld === 0 && (
-                      <span style={{ marginLeft: 6, fontWeight: 400, fontSize: 10 }}>(no shares held)</span>
-                    )}
-                  </span>
-                </div>
-              </>
-            ) : (
+            ) : sharesHeld !== null ? (() => {
+              const committedContracts = openPositions
+                .filter((p) => p.strategy === 'CC' && p.ticker === form.ticker.toUpperCase())
+                .reduce((acc, p) => acc + p.contracts, 0);
+              const maxTotal = Math.floor(sharesHeld / 100);
+              const available = Math.max(0, maxTotal - committedContracts);
+              return (
+                <>
+                  <div className="flex justify-between items-center mb-1">
+                    <span style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>{form.ticker} shares held</span>
+                    <span style={{ color: '#9ab4d4', fontFamily: 'JetBrains Mono, monospace', fontWeight: 600 }}>{sharesHeld.toLocaleString()}</span>
+                  </div>
+                  {committedContracts > 0 && (
+                    <div className="flex justify-between items-center mb-1">
+                      <span style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>Used by open CCs</span>
+                      <span style={{ color: '#ff9f43', fontFamily: 'JetBrains Mono, monospace', fontWeight: 600 }}>−{committedContracts} contract{committedContracts !== 1 ? 's' : ''}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center pt-1.5"
+                    style={{ borderTop: '1px solid rgba(255,255,255,0.06)', marginTop: 2 }}>
+                    <span style={{ color: '#6a8fb0', fontFamily: 'DM Sans, sans-serif', fontWeight: 600 }}>Available to sell</span>
+                    <span style={{
+                      color: sharesHeld === 0 ? '#ff4d6d' : contracts > available ? '#ff4d6d' : '#00e5c4',
+                      fontFamily: 'JetBrains Mono, monospace', fontWeight: 700,
+                    }}>
+                      {available}
+                      {contracts > available && available > 0 && (
+                        <span style={{ marginLeft: 6, fontWeight: 400, fontSize: 10 }}>(exceeds available)</span>
+                      )}
+                      {available === 0 && sharesHeld > 0 && committedContracts > 0 && (
+                        <span style={{ marginLeft: 6, fontWeight: 400, fontSize: 10 }}>(all shares committed)</span>
+                      )}
+                      {sharesHeld === 0 && (
+                        <span style={{ marginLeft: 6, fontWeight: 400, fontSize: 10 }}>(no shares held)</span>
+                      )}
+                    </span>
+                  </div>
+                </>
+              );
+            })() : (
               <p style={{ color: '#2a4060', fontFamily: 'DM Sans, sans-serif' }}>
                 Enter ticker to check share holdings
               </p>

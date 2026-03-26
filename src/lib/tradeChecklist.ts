@@ -41,6 +41,7 @@ export interface TradeChecklistInput {
   support52wkLow: number;
   openPositions: Array<{ ticker: string; strategy: string; strike: number; contracts: number }>;
   sectorExposure: Map<string, string>;
+  sharesHeld?: number;          // shares of ticker held in portfolio (for CC coverage checks)
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -152,7 +153,31 @@ export function checkEarningsSafety(input: TradeChecklistInput): CheckResult {
 // ── Check 3: Buying Power ─────────────────────────────────────────────────────
 
 export function checkBuyingPower(input: TradeChecklistInput): CheckResult {
-  const { strategy, strike, contracts, currentPrice, buyingPower } = input;
+  const { strategy, strike, contracts, currentPrice, buyingPower, ticker, openPositions, sharesHeld } = input;
+
+  // For CCs, check if existing shares (minus those already committed to open CCs) cover this position.
+  if (strategy === 'CC') {
+    const committedContracts = openPositions
+      .filter((p) => p.strategy === 'CC' && p.ticker === ticker)
+      .reduce((acc, p) => acc + p.contracts, 0);
+    const availableShares = (sharesHeld ?? 0) - committedContracts * 100;
+    const sharesNeeded = contracts * 100;
+
+    if (availableShares >= sharesNeeded) {
+      return {
+        id: 'buying-power',
+        label: 'Buying Power',
+        description: 'Capital required vs available buying power',
+        status: 'pass',
+        value: `${availableShares.toLocaleString()} shares available`,
+        threshold: 'Must have shares to cover or sufficient buying power',
+        reasoning: 'Covered by existing share holdings — no cash buying power required.',
+        isCritical: false,
+        canOverride: false,
+      };
+    }
+  }
+
   const requiredCapital =
     strategy === 'CSP'
       ? strike * contracts * 100
@@ -177,7 +202,7 @@ export function checkBuyingPower(input: TradeChecklistInput): CheckResult {
     reasoning = `This uses ${buyingPowerUsedPct.toFixed(0)}% of buying power.`;
   } else {
     status = 'pass';
-    reasoning = `${buyingPowerUsedPct.toFixed(0)}% of buying power used — ${strategy === 'CSP' ? 'collateral' : 'share cost'} within safe limits.`;
+    reasoning = `${buyingPowerUsedPct.toFixed(0)}% of buying power used — collateral within safe limits.`;
   }
 
   const remaining = Math.max(0, buyingPowerAfter);
@@ -188,7 +213,7 @@ export function checkBuyingPower(input: TradeChecklistInput): CheckResult {
     description: 'Capital required vs available buying power',
     status,
     value: `Requires $${requiredCapital.toLocaleString()} — $${remaining.toLocaleString()} remaining`,
-    threshold: 'Must have sufficient buying power',
+    threshold: 'Must have shares to cover or sufficient buying power',
     reasoning,
     isCritical,
     canOverride: buyingPowerAfter > 0,
@@ -198,7 +223,32 @@ export function checkBuyingPower(input: TradeChecklistInput): CheckResult {
 // ── Check 4: Position Size vs Risk Tolerance ──────────────────────────────────
 
 export function checkPositionSize(input: TradeChecklistInput): CheckResult {
-  const { accountBalance, maxRiskPercent, strike, contracts } = input;
+  const { strategy, accountBalance, maxRiskPercent, strike, contracts, ticker, openPositions, sharesHeld } = input;
+
+  // For CCs, if shares cover the position the risk is already in the portfolio (shares you hold).
+  // Additional capital is not being deployed, so the position-size % check doesn't apply.
+  if (strategy === 'CC') {
+    const committedContracts = openPositions
+      .filter((p) => p.strategy === 'CC' && p.ticker === ticker)
+      .reduce((acc, p) => acc + p.contracts, 0);
+    const availableShares = (sharesHeld ?? 0) - committedContracts * 100;
+    const sharesNeeded = contracts * 100;
+
+    if (availableShares >= sharesNeeded) {
+      return {
+        id: 'position-size',
+        label: 'Position Size',
+        description: 'Position risk as % of total account',
+        status: 'skip',
+        value: null,
+        threshold: `Max ${maxRiskPercent}% of account per position`,
+        reasoning: 'Covered call — shares are already held; no additional capital at risk.',
+        isCritical: false,
+        canOverride: false,
+      };
+    }
+  }
+
   const positionRisk = strike * contracts * 100;
   const actualRiskPct = accountBalance > 0 ? (positionRisk / accountBalance) * 100 : 0;
   const maxRiskDollar = accountBalance * (maxRiskPercent / 100);

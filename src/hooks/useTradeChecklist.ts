@@ -127,6 +127,7 @@ export function useTradeChecklist(
       currentPrice: formValues.currentPrice ?? 0,
       buyingPower: formValues.buyingPower ?? 0,
       sectorExposure: formValues.sectorExposure ?? new Map(),
+      sharesHeld: formValues.sharesHeld ?? 0,
       openPositions,
       ...supplemental,
     };
