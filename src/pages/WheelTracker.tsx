@@ -953,7 +953,7 @@ function AddPositionModal({ cashBalance, lockedCollateral, openPositions, onClos
         </div>
 
         {/* Strike + Contracts */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3 items-end">
           <div>
             <label className="block text-xs mb-1.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>Strike Price</label>
             <div className="relative">
