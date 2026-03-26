@@ -51,3 +51,15 @@ export async function getNextEarnings(ticker: string): Promise<string | null> {
   );
   return data.earningsCalendar?.[0]?.date ?? null;
 }
+
+export interface FhBasicFinancials {
+  metric: {
+    '52WeekLow': number | null | undefined;
+    '52WeekHigh': number | null | undefined;
+    [key: string]: unknown;
+  };
+}
+
+export async function getStockBasicFinancials(ticker: string): Promise<FhBasicFinancials> {
+  return get<FhBasicFinancials>(`/stock/metric?symbol=${ticker}&metric=all`);
+}

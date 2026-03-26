@@ -52,6 +52,7 @@ type AddPositionData = {
   expiry: string;
   premiumCollected: number;  // per-contract
   contracts: number;
+  checklistSnapshot?: object;  // serialised ChecklistResult
 };
 
 // ── Hook ──────────────────────────────────────────────────────────────────────
@@ -117,6 +118,7 @@ export function usePositions() {
           premium_collected: data.premiumCollected,
           contracts: data.contracts,
           status: 'open',
+          ...(data.checklistSnapshot ? { checklist_snapshot: data.checklistSnapshot } : {}),
         })
         .select('*')
         .single();
@@ -378,7 +380,7 @@ export function usePositions() {
         // Check for an existing open shares holding for this ticker
         const { data: existing, error: fetchErr } = await supabase
           .from('portfolio_holdings')
-          .select('id, quantity, avg_cost')
+          .select('id, quantity, avg_cost, notes')
           .eq('user_id', user.id)
           .eq('ticker', data.ticker)
           .eq('holding_type', 'shares')

@@ -9,6 +9,9 @@ import { WebSocketStatus } from '../components/WebSocketStatus';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import type { WheelPosition, WheelStrategy } from '../types';
+import { useTradeChecklist } from '../hooks/useTradeChecklist';
+import { TradeChecklist } from '../components/TradeChecklist';
+import type { ChecklistResult } from '../lib/tradeChecklist';
 
 export function WheelTracker() {
   const { isPaperMode } = usePaperMode();
@@ -159,6 +162,7 @@ function RealWheelTracker() {
         <AddPositionModal
           cashBalance={cashBalance}
           lockedCollateral={lockedCollateral}
+          openPositions={openPositions}
           onClose={() => setShowAddModal(false)}
           onAdd={(data) => {
             addPosition(data);
@@ -230,11 +234,12 @@ function RealWheelTracker() {
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared modal shell
 // ─────────────────────────────────────────────────────────────────────────────
-function ModalShell({ title, subtitle, onClose, children }: {
+function ModalShell({ title, subtitle, onClose, children, wide = false }: {
   title: string;
   subtitle: string;
   onClose: () => void;
   children: React.ReactNode;
+  wide?: boolean;
 }) {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -245,7 +250,7 @@ function ModalShell({ title, subtitle, onClose, children }: {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: 'rgba(2, 8, 19, 0.85)', backdropFilter: 'blur(8px)' }}
       onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="w-full max-w-md rounded-2xl p-6"
+      <div className={`w-full ${wide ? 'max-w-4xl' : 'max-w-md'} rounded-2xl p-6`}
         style={{
           background: 'rgba(10, 22, 40, 0.98)',
           border: '1px solid rgba(0,229,196,0.2)',
@@ -710,12 +715,47 @@ function DeletePositionModal({ position, onClose, onConfirm }: {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Submit button for Add Position Modal
+// ─────────────────────────────────────────────────────────────────────────────
+function SubmitButton({ result }: { result: ChecklistResult | null }) {
+  const status = result?.overallStatus;
+  const canProceed = result?.canProceed ?? true;
+
+  if (!result || status === 'clear') {
+    return (
+      <button type="submit" className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 hover:opacity-90"
+        style={{ background: 'linear-gradient(135deg, #00e5c4, #00b4d8)', color: '#050d1a', fontFamily: 'DM Sans, sans-serif', boxShadow: '0 4px 16px rgba(0,229,196,0.2)' }}>
+        Add Position
+      </button>
+    );
+  }
+  if (status === 'warnings') {
+    return (
+      <button type="submit" className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 hover:opacity-90"
+        style={{ background: 'transparent', border: '1px solid rgba(245,200,66,0.4)', color: '#f5c842', fontFamily: 'DM Sans, sans-serif' }}>
+        Add Position Anyway
+        <span className="block text-[10px] font-normal opacity-70">{result.warnCount + result.failCount} warning(s)</span>
+      </button>
+    );
+  }
+  // blocked
+  return (
+    <button type="submit" disabled={!canProceed} className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
+      style={{ background: canProceed ? 'transparent' : 'rgba(255,77,109,0.08)', border: '1px solid rgba(255,77,109,0.3)', color: '#ff4d6d', fontFamily: 'DM Sans, sans-serif', cursor: canProceed ? 'pointer' : 'not-allowed', opacity: canProceed ? 1 : 0.7 }}
+      title={canProceed ? undefined : 'Fix critical issues above to enable this trade'}>
+      {canProceed ? 'Add Position Anyway' : 'Blocked — Resolve Issues'}
+    </button>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Add Position Modal (unchanged from before)
 // ─────────────────────────────────────────────────────────────────────────────
 interface AddPositionModalProps {
   cashBalance: number | null;
   lockedCollateral: number;
   onClose: () => void;
+  openPositions: Array<{ ticker: string; strategy: string; strike: number; contracts: number }>;
   onAdd: (data: {
     ticker: string;
     strategy: WheelStrategy;
@@ -723,10 +763,11 @@ interface AddPositionModalProps {
     expiry: string;
     premiumCollected: number;
     contracts: number;
+    checklistSnapshot?: object;
   }) => void;
 }
 
-function AddPositionModal({ cashBalance, lockedCollateral, onClose, onAdd }: AddPositionModalProps) {
+function AddPositionModal({ cashBalance, lockedCollateral, openPositions, onClose, onAdd }: AddPositionModalProps) {
   const { user } = useAuth();
   const [form, setForm] = useState({
     ticker: '',
@@ -746,6 +787,40 @@ function AddPositionModal({ cashBalance, lockedCollateral, onClose, onAdd }: Add
   const strike = Number(form.strike) || 0;
   const collateral = form.strategy === 'CSP' && strike > 0 ? strike * contracts * 100 : 0;
   const freeCash = cashBalance !== null ? Math.max(0, cashBalance - lockedCollateral) : null;
+
+  // Checklist integration
+  const premiumPerShare = Number(form.premium) / 100;
+  const freeCashForChecklist = cashBalance !== null ? Math.max(0, cashBalance - lockedCollateral) : 0;
+
+  const { result: checklistResult, isRunning, overriddenChecks, toggleOverride, resetOverrides, supplemental } =
+    useTradeChecklist(
+      {
+        ticker: form.ticker,
+        strategy: form.strategy,
+        strike: Number(form.strike) || 0,
+        expiry: form.expiry,
+        contracts: contracts,
+        premium: premiumPerShare,
+        currentPrice: spotPrice ?? 0,
+        buyingPower: freeCashForChecklist,
+        sectorExposure: new Map(),
+      },
+      openPositions,
+    );
+
+  const saveAccountBalance = useCallback(async (amount: number) => {
+    if (!user) return;
+    await supabase
+      .from('user_preferences')
+      .upsert(
+        { user_id: user.id, account_balance: amount },
+        { onConflict: 'user_id' }
+      );
+  }, [user]);
+
+  useEffect(() => {
+    resetOverrides();
+  }, [form.ticker, resetOverrides]);
   const insufficient = form.strategy === 'CSP' && collateral > 0 && freeCash !== null && collateral > freeCash;
 
   const fetchSpot = useCallback(async (ticker: string) => {
@@ -801,7 +876,20 @@ function AddPositionModal({ cashBalance, lockedCollateral, onClose, onAdd }: Add
       expiry: form.expiry,
       premiumCollected: Number(form.premium),
       contracts: Number(form.contracts),
+      checklistSnapshot: checklistResult ?? undefined,
     });
+    // Fire-and-forget analytics (no await, no error surfacing to user)
+    if (checklistResult) {
+      void supabase.from('checklist_analytics').insert({
+        ticker: form.ticker.toUpperCase(),
+        strategy: form.strategy,
+        checks_passed: checklistResult.passCount,
+        checks_warned: checklistResult.warnCount,
+        checks_failed: checklistResult.failCount,
+        checks_overridden: overriddenChecks.size,
+        submitted_anyway: checklistResult.overallStatus !== 'clear',
+      });
+    }
   };
 
   const inputStyle = (field: string) => ({
@@ -814,8 +902,10 @@ function AddPositionModal({ cashBalance, lockedCollateral, onClose, onAdd }: Add
   });
 
   return (
-    <ModalShell title="Add Position" subtitle="Log a new wheel trade" onClose={onClose}>
-      <form onSubmit={handleSubmit} className="space-y-4">
+    <ModalShell title="Add Position" subtitle="Log a new wheel trade" onClose={onClose} wide>
+      <div className="flex flex-col lg:flex-row gap-6">
+        {/* Left: form */}
+        <form onSubmit={handleSubmit} className="space-y-4 flex-1 min-w-0">
         {/* Ticker + Strategy */}
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -1014,24 +1104,63 @@ function AddPositionModal({ cashBalance, lockedCollateral, onClose, onAdd }: Add
           )}
         </div>
 
-        <div className="flex gap-3 pt-2">
-          <button type="button" onClick={onClose}
-            className="flex-1 py-2.5 rounded-xl text-sm font-medium hover:bg-[rgba(255,255,255,0.05)] transition-colors"
-            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#6a8fb0', fontFamily: 'DM Sans, sans-serif' }}>
-            Cancel
-          </button>
-          <button type="submit"
-            className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 hover:opacity-90"
-            style={{
-              background: 'linear-gradient(135deg, #00e5c4, #00b4d8)',
-              color: '#050d1a',
-              fontFamily: 'DM Sans, sans-serif',
-              boxShadow: '0 4px 16px rgba(0,229,196,0.2)',
-            }}>
-            Add Position
-          </button>
+          {/* Checklist on mobile */}
+          <div className="lg:hidden">
+            <TradeChecklist
+              result={checklistResult}
+              overriddenChecks={overriddenChecks}
+              onToggleOverride={toggleOverride}
+              isLoading={isRunning}
+              strategy={form.strategy}
+            />
+          </div>
+
+          {/* Account balance prompt */}
+          {supplemental.accountBalance === 0 && (
+            <div className="rounded-lg px-3 py-2.5 text-xs flex items-center gap-2"
+              style={{ background: 'rgba(0,198,245,0.06)', border: '1px solid rgba(0,198,245,0.12)' }}>
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                <circle cx="6" cy="6" r="5" stroke="#00c6f5" strokeWidth="1.2" />
+                <path d="M6 5v4M6 4v-.5" stroke="#00c6f5" strokeWidth="1.2" strokeLinecap="round" />
+              </svg>
+              <span style={{ color: '#4a8ab0', fontFamily: 'DM Sans, sans-serif' }}>
+                Set account size for position-sizing checks:
+              </span>
+              <input
+                type="number"
+                placeholder="100000"
+                className="px-2 py-0.5 rounded text-xs ml-1"
+                style={{ background: 'rgba(0,198,245,0.08)', border: '1px solid rgba(0,198,245,0.2)', color: '#00c6f5', fontFamily: 'JetBrains Mono, monospace', width: 90, outline: 'none' }}
+                onBlur={(e) => {
+                  const v = Number(e.target.value);
+                  if (v > 0) void saveAccountBalance(v);
+                }}
+              />
+            </div>
+          )}
+
+          {/* Submit row */}
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={onClose}
+              className="flex-1 py-2.5 rounded-xl text-sm font-medium hover:bg-[rgba(255,255,255,0.05)] transition-colors"
+              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#6a8fb0', fontFamily: 'DM Sans, sans-serif' }}>
+              Cancel
+            </button>
+            <SubmitButton result={checklistResult} />
+          </div>
+        </form>
+
+        {/* Right: checklist on desktop */}
+        <div className="hidden lg:block w-72 flex-shrink-0">
+          <TradeChecklist
+            result={checklistResult}
+            overriddenChecks={overriddenChecks}
+            onToggleOverride={toggleOverride}
+            isLoading={isRunning}
+            strategy={form.strategy}
+          />
         </div>
-      </form>
+      </div>
     </ModalShell>
   );
 }
