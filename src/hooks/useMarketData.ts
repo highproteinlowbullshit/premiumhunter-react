@@ -12,13 +12,13 @@ import type { ScreenerStock } from '../lib/screenerData';
 
 const SCREENER_BATCH = 20;         // tickers per batch
 const SCREENER_BATCH_DELAY_MS = 50; // ms between batches
-// 6 hours — matches the per-ticker Polygon localStorage TTL so both expire together
-const SCREENER_CACHE_TTL = 6 * 60 * 60 * 1000;
-const SCREENER_LS_KEY = 'ph_screener_v1';
+// 12 hours — cron pre-calculates IV nightly, so cached data is valid all day
+const SCREENER_CACHE_TTL = 12 * 60 * 60 * 1000;
+const SCREENER_LS_KEY = 'ph_screener_v2';
 
 // ── Module-level session cache ─────────────────────────────────────────────
 // In-memory: survives navigation within a session.
-// localStorage: survives page refreshes and tab closes (same 6h TTL).
+// localStorage: survives page refreshes and tab closes (same 12h TTL).
 interface ScreenerSessionCache {
   stocks: ScreenerStock[];
   loadedAt: number;
