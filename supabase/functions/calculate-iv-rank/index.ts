@@ -144,7 +144,7 @@ function computeIVRank(
   const weeklyHistory: IVDataPoint[] = []
   const totalPoints = Math.min(52, hvSeries.length)
   for (let p = 0; p < totalPoints; p++) {
-    const i = Math.round(p * (hvSeries.length - 1) / Math.max(totalPoints - 1, 1))
+    const i = Math.round(p * (hvSeries.length - 1) / (totalPoints - 1))
     const tsIndex = 31 + i
     const ts = timestamps[tsIndex] ?? Date.now()
     const weekHV = hvSeries[i]
