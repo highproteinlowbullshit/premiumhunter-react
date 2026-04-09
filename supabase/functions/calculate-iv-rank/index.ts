@@ -42,13 +42,13 @@ interface IVSnapshot {
 // ── Helpers ───────────────────────────────────────────────────────────────
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
-async function fetchWithRetry(url: string, maxRetries = 3, timeoutMs = 15000): Promise<Response> {
+async function fetchWithRetry(url: string, headers: Record<string, string> = {}, maxRetries = 3, timeoutMs = 15000): Promise<Response> {
   let lastError: Error = new Error('Unknown error')
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       const controller = new AbortController()
       const timeout = setTimeout(() => controller.abort(), timeoutMs)
-      const response = await fetch(url, { signal: controller.signal })
+      const response = await fetch(url, { signal: controller.signal, headers })
       clearTimeout(timeout)
       if (response.status === 429) {
         const retryAfter = parseInt(response.headers.get('Retry-After') ?? '10')
@@ -97,9 +97,9 @@ async function fetchOHLCV(
 
   const url =
     `https://api.polygon.io/v2/aggs/ticker/${ticker}/range/1/day/${fromStr}/${toStr}` +
-    `?adjusted=true&sort=asc&limit=500&apiKey=${polygonKey}`
+    `?adjusted=true&sort=asc&limit=500`
 
-  const res = await fetchWithRetry(url)
+  const res = await fetchWithRetry(url, { Authorization: `Bearer ${polygonKey}` })
   if (!res.ok) throw new Error(`Polygon ${ticker}: HTTP ${res.status}`)
 
   const json = await res.json()
@@ -125,6 +125,11 @@ function computeIVRank(
     hvSeries.push(calcHV(closes.slice(i - 31, i), 30))
   }
 
+  // Guard: should not happen after 83-bar minimum, but protects DB from sentinel values
+  if (hvSeries.length === 0) {
+    return { iv_rank: 50, iv_percentile: 50, current_hv: 0, hv_30: 0, hv_52wk_high: 0, hv_52wk_low: 0, iv_hv_ratio: 1.0, weekly_history: [] }
+  }
+
   const currentHV = hvSeries[hvSeries.length - 1] ?? 0
   const hv52wkHigh = hvSeries.reduce((a, b) => Math.max(a, b), -Infinity)
   const hv52wkLow = hvSeries.reduce((a, b) => Math.min(a, b), Infinity)
@@ -143,7 +148,6 @@ function computeIVRank(
   // 52 weekly data points for chart (used by Watchlist + Stock Detail pages)
   const weeklyHistory: IVDataPoint[] = []
   const totalPoints = Math.min(52, hvSeries.length)
-  if (totalPoints === 0) return { iv_rank: 50, iv_percentile: 50, current_hv: 0, hv_30: 0, hv_52wk_high: 0, hv_52wk_low: 0, iv_hv_ratio: 1.0, weekly_history: [] }
   for (let p = 0; p < totalPoints; p++) {
     const i = totalPoints === 1 ? 0 : Math.round(p * (hvSeries.length - 1) / (totalPoints - 1))
     const tsIndex = 31 + i
@@ -218,11 +222,10 @@ serve(async (req) => {
 
   const polygonKey = Deno.env.get('POLYGON_API_KEY')
   const supabaseUrl = Deno.env.get('SUPABASE_URL')
-  const supabaseServiceKey = serviceKey
 
-  if (!polygonKey || !supabaseUrl || serviceKey === '') {
+  if (!polygonKey || !supabaseUrl) {
     return new Response(
-      JSON.stringify({ error: 'Missing env vars: POLYGON_API_KEY, SUPABASE_URL, or SUPABASE_SERVICE_ROLE_KEY' }),
+      JSON.stringify({ error: 'Missing env vars: POLYGON_API_KEY or SUPABASE_URL' }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     )
   }
