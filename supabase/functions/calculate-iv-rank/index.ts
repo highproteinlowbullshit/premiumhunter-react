@@ -105,7 +105,7 @@ async function fetchOHLCV(
   const json = await res.json()
   const results: Array<{ c: number; t: number }> = json.results ?? []
 
-  if (results.length < 65) {
+  if (results.length < 83) {
     throw new Error(`Insufficient data for ${ticker}: only ${results.length} bars`)
   }
 
