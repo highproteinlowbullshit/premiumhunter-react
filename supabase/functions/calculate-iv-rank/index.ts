@@ -126,8 +126,8 @@ function computeIVRank(
   }
 
   const currentHV = hvSeries[hvSeries.length - 1] ?? 0
-  const hv52wkHigh = Math.max(...hvSeries)
-  const hv52wkLow = Math.min(...hvSeries)
+  const hv52wkHigh = hvSeries.reduce((a, b) => Math.max(a, b), -Infinity)
+  const hv52wkLow = hvSeries.reduce((a, b) => Math.min(a, b), Infinity)
 
   const ivRank =
     hv52wkHigh > hv52wkLow
@@ -143,8 +143,9 @@ function computeIVRank(
   // 52 weekly data points for chart (used by Watchlist + Stock Detail pages)
   const weeklyHistory: IVDataPoint[] = []
   const totalPoints = Math.min(52, hvSeries.length)
+  if (totalPoints === 0) return { iv_rank: 50, iv_percentile: 50, current_hv: 0, hv_30: 0, hv_52wk_high: 0, hv_52wk_low: 0, iv_hv_ratio: 1.0, weekly_history: [] }
   for (let p = 0; p < totalPoints; p++) {
-    const i = Math.round(p * (hvSeries.length - 1) / (totalPoints - 1))
+    const i = totalPoints === 1 ? 0 : Math.round(p * (hvSeries.length - 1) / (totalPoints - 1))
     const tsIndex = 31 + i
     const ts = timestamps[tsIndex] ?? Date.now()
     const weekHV = hvSeries[i]
@@ -207,7 +208,8 @@ serve(async (req) => {
   // Auth: Bearer token must be the service role key
   const authHeader = req.headers.get('Authorization') ?? ''
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-  if (!authHeader.includes(serviceKey) || serviceKey === '') {
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader
+  if (serviceKey === '' || token !== serviceKey) {
     return new Response(JSON.stringify({ error: 'Unauthorised' }), {
       status: 401,
       headers: { 'Content-Type': 'application/json' },
@@ -216,16 +218,16 @@ serve(async (req) => {
 
   const polygonKey = Deno.env.get('POLYGON_API_KEY')
   const supabaseUrl = Deno.env.get('SUPABASE_URL')
-  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+  const supabaseServiceKey = serviceKey
 
-  if (!polygonKey || !supabaseUrl || !supabaseServiceKey) {
+  if (!polygonKey || !supabaseUrl || serviceKey === '') {
     return new Response(
       JSON.stringify({ error: 'Missing env vars: POLYGON_API_KEY, SUPABASE_URL, or SUPABASE_SERVICE_ROLE_KEY' }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     )
   }
 
-  const supabase = createClient(supabaseUrl, supabaseServiceKey)
+  const supabase = createClient(supabaseUrl, serviceKey)
   const today = new Date().toISOString().split('T')[0]
   const startTime = Date.now()
 
@@ -281,17 +283,22 @@ serve(async (req) => {
   const successCount = results.filter(r => r.calculation_success).length
   const durationSeconds = (Date.now() - startTime) / 1000
 
-  // Fire-and-forget run log (non-fatal if it fails)
-  supabase.from('cron_run_logs').insert({
-    function_name: 'calculate-iv-rank',
-    started_at: new Date(startTime).toISOString(),
-    completed_at: new Date().toISOString(),
-    duration_seconds: durationSeconds,
-    stocks_processed: STOCK_TICKERS.length,
-    stocks_succeeded: successCount,
-    stocks_failed: results.length - successCount,
-    errors: errors.length > 0 ? errors : null,
-  }).then(({ error }) => { if (error) console.warn('cron_run_logs write failed:', error) })
+  // Awaited run log (non-fatal if it fails)
+  try {
+    const { error: logError } = await supabase.from('cron_run_logs').insert({
+      function_name: 'calculate-iv-rank',
+      started_at: new Date(startTime).toISOString(),
+      completed_at: new Date().toISOString(),
+      duration_seconds: durationSeconds,
+      stocks_processed: STOCK_TICKERS.length,
+      stocks_succeeded: successCount,
+      stocks_failed: results.length - successCount,
+      errors: errors.length > 0 ? errors : null,
+    })
+    if (logError) console.warn('cron_run_logs write failed:', logError)
+  } catch (err) {
+    console.warn('cron_run_logs write threw:', err)
+  }
 
   console.log(`Done in ${durationSeconds.toFixed(1)}s — ${successCount}/${STOCK_TICKERS.length} succeeded`)
 
