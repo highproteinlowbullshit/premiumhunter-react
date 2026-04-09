@@ -14,6 +14,76 @@ import { usePaperMode } from '../context/PaperModeContext';
 import { usePaperActions } from '../hooks/usePaperTrading';
 import { PaperTradeModal } from '../components/PaperModals';
 import { TopPicksSection } from '../components/TopPicksSection';
+import { supabase } from '../lib/supabase';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// IV data freshness
+// ─────────────────────────────────────────────────────────────────────────────
+interface CronRunLog {
+  completed_at: string;
+  stocks_succeeded: number;
+  stocks_failed: number;
+}
+
+function useIVFreshness() {
+  const [lastRun, setLastRun] = useState<CronRunLog | null>(null);
+
+  useEffect(() => {
+    supabase
+      .from('cron_run_logs')
+      .select('completed_at, stocks_succeeded, stocks_failed')
+      .eq('function_name', 'calculate-iv-rank')
+      .order('completed_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => { if (data) setLastRun(data as CronRunLog); });
+  }, []);
+
+  return lastRun;
+}
+
+function IVFreshnessBadge({ lastRun }: { lastRun: CronRunLog | null }) {
+  if (!lastRun) {
+    return (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#4a6a8a' }}>
+        <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#4a6a8a', flexShrink: 0 }} />
+        IV data pending — first calculation runs tonight
+      </span>
+    );
+  }
+
+  const completedAt = new Date(lastRun.completed_at);
+  const now = new Date();
+  const isToday =
+    completedAt.getDate() === now.getDate() &&
+    completedAt.getMonth() === now.getMonth() &&
+    completedAt.getFullYear() === now.getFullYear();
+  const isYesterday = !isToday && now.getTime() - completedAt.getTime() < 48 * 60 * 60 * 1000;
+  const timeStr = completedAt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+
+  if (isToday) {
+    return (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#9ab4d4' }}>
+        <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#00d68f', flexShrink: 0 }} />
+        IV data from today's close ({timeStr})
+      </span>
+    );
+  }
+  if (isYesterday) {
+    return (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#9ab4d4' }}>
+        <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#f5c842', flexShrink: 0 }} />
+        IV data from yesterday's close — updates tonight
+      </span>
+    );
+  }
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#4a6a8a' }}>
+      <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#4a6a8a', flexShrink: 0 }} />
+      IV data may be stale — check cron schedule
+    </span>
+  );
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -77,6 +147,7 @@ export function Screener() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const { stocks, loadedCount, total, isLoading } = useScreenerStream();
   const loading = isLoading && stocks.length === 0;
+  const lastRun = useIVFreshness();
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -155,9 +226,12 @@ export function Screener() {
               style={{ fontFamily: 'Syne, sans-serif', color: '#e8f0fe', letterSpacing: '-0.02em' }}>
               IV Rank Screener
             </h1>
-            <p className="text-sm mt-0.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
-              Find premium-selling opportunities by implied volatility rank
-            </p>
+            <div className="flex items-center gap-3 mt-0.5">
+              <p className="text-sm" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
+                Find premium-selling opportunities by implied volatility rank
+              </p>
+              <IVFreshnessBadge lastRun={lastRun} />
+            </div>
           </div>
           {/* Result count + live/loading indicator */}
           <div className="flex items-center gap-3">
