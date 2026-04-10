@@ -41,18 +41,25 @@ interface SupabaseIVRow {
   iv_hv_ratio: number;
 }
 
-/** Fetch today's cached IV rows from Supabase for all tickers in STOCK_LIST */
+/** Fetch today's cached IV rows from Supabase for all tickers in STOCK_LIST.
+ *  Queries all rows for today without a ticker filter (avoids URL length limits
+ *  with 488+ tickers in a .in() clause), then filters to known tickers client-side. */
 export async function getSupabaseCachedToday(): Promise<Map<string, SupabaseIVRow>> {
   const today = new Date().toISOString().split('T')[0];
+  const known = new Set(STOCK_LIST.map((s) => s.ticker));
   try {
     const { data, error } = await supabase
       .from('iv_snapshots')
       .select('ticker,iv_rank,iv_percentile,current_hv,hv_30,hv_52wk_high,hv_52wk_low,iv_hv_ratio')
       .eq('snapshot_date', today)
-      .in('ticker', STOCK_LIST.map((s) => s.ticker));
+      .eq('calculation_success', true);
 
     if (error || !data) return new Map();
-    return new Map(data.map((row) => [row.ticker, row as SupabaseIVRow]));
+    return new Map(
+      data
+        .filter((row) => known.has(row.ticker))
+        .map((row) => [row.ticker, row as SupabaseIVRow])
+    );
   } catch {
     return new Map();
   }
