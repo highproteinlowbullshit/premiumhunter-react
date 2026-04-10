@@ -240,7 +240,7 @@ serve(async (req) => {
   const results: IVSnapshot[] = []
   const errors: string[] = []
   const BATCH_SIZE = 5
-  const BATCH_DELAY_MS = 2500
+  const BATCH_DELAY_MS = 500
 
   for (let i = 0; i < STOCK_TICKERS.length; i += BATCH_SIZE) {
     const batch = STOCK_TICKERS.slice(i, i + BATCH_SIZE)
