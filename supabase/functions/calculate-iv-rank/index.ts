@@ -3,8 +3,9 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 // ── Stock list — must stay in sync with src/lib/stockList.ts ──────────────
-// Split into 5 weekday groups (15 each) for Polygon free plan (5 req/min).
-// Each night Mon–Fri processes one group: 5 concurrent calls, 60s pause, repeat.
+// 15 batches of 5 — all processed nightly via 15 separate pg_cron invocations
+// (one per minute, 11:00–11:14 PM UTC). Each invocation gets batchIndex 0–14.
+// Polygon free plan (5 req/min): each batch is one burst with no delay needed.
 const STOCK_TICKERS = [
   'GME','MARA','SOFI','RIVN','COIN','HOOD','AMC','PLTR','RBLX','SNAP',
   'UBER','LYFT','IONQ','SMCI','NVAX','TLRY','RIOT','CLSK','MSTR','WULF',
@@ -15,15 +16,6 @@ const STOCK_TICKERS = [
   'TLT','XLE','XLF','ARKK','SOXL','LCID','NKLA','CLOV','BBAI','SOUN',
   'AISP','RGTI','QBTS','KULR','HIMS',
 ]
-
-// Groups: Mon=1 … Fri=5. Each has 15 tickers (indices 0–14, 15–29, …)
-const TICKER_GROUPS: Record<number, string[]> = {
-  1: STOCK_TICKERS.slice(0, 15),
-  2: STOCK_TICKERS.slice(15, 30),
-  3: STOCK_TICKERS.slice(30, 45),
-  4: STOCK_TICKERS.slice(45, 60),
-  5: STOCK_TICKERS.slice(60, 75),
-}
 
 // ── Types ─────────────────────────────────────────────────────────────────
 interface IVDataPoint {
@@ -246,25 +238,25 @@ serve(async (req) => {
   const today = new Date().toISOString().split('T')[0]
   const startTime = Date.now()
 
-  // Pick ticker group by day of week (Mon=1…Fri=5), or use override from body
-  let requestedGroup: number | null = null
+  // batchIndex (0–14) selects which 5 tickers to process this invocation.
+  // Each pg_cron entry passes its own batchIndex; curl tests can pass any value.
+  let batchIndex = 0
   try {
     const body = await req.json().catch(() => ({}))
-    if (typeof body.group === 'number' && body.group >= 1 && body.group <= 5) {
-      requestedGroup = body.group
+    if (typeof body.batchIndex === 'number' && body.batchIndex >= 0 && body.batchIndex <= 14) {
+      batchIndex = body.batchIndex
     }
-  } catch { /* no body */ }
-  const dayOfWeek = requestedGroup ?? new Date().getDay() // 0=Sun … 6=Sat
-  const tickers = TICKER_GROUPS[dayOfWeek] ?? TICKER_GROUPS[1]
+  } catch { /* no body — default to 0 */ }
+  const tickers = STOCK_TICKERS.slice(batchIndex * 5, batchIndex * 5 + 5)
 
-  console.log(`IV rank calculation — group ${dayOfWeek} (${tickers.length} tickers) — ${new Date().toISOString()}`)
+  console.log(`IV rank — batch ${batchIndex} (${tickers.join(', ')}) — ${new Date().toISOString()}`)
 
   const results: IVSnapshot[] = []
   const errors: string[] = []
-  // Free plan: 5 req/min. Burst 5 concurrently, then wait 60s for the window to reset.
+  // 5 tickers per invocation = one Polygon burst, no delay needed
   const BATCH_SIZE = 5
-  const BATCH_DELAY_MS = 60000
-  const totalBatches = Math.ceil(tickers.length / BATCH_SIZE)
+  const BATCH_DELAY_MS = 0
+  const totalBatches = 1
 
   for (let i = 0; i < tickers.length; i += BATCH_SIZE) {
     const batch = tickers.slice(i, i + BATCH_SIZE)
