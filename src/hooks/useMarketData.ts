@@ -14,7 +14,7 @@ const SCREENER_BATCH = 20;         // tickers per batch
 const SCREENER_BATCH_DELAY_MS = 50; // ms between batches
 // 12 hours — cron pre-calculates IV nightly, so cached data is valid all day
 const SCREENER_CACHE_TTL = 12 * 60 * 60 * 1000;
-const SCREENER_LS_KEY = 'ph_screener_v2';
+const SCREENER_LS_KEY = 'ph_screener_v3'; // bumped: 75→488 ticker expansion
 
 // ── Module-level session cache ─────────────────────────────────────────────
 // In-memory: survives navigation within a session.
