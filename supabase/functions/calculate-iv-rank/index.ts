@@ -3,18 +3,81 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 // ── Stock list — must stay in sync with src/lib/stockList.ts ──────────────
-// 15 batches of 5 — all processed nightly via 15 separate pg_cron invocations
-// (one per minute, 11:00–11:14 PM UTC). Each invocation gets batchIndex 0–14.
+// 98 batches of 5 — all processed nightly via 98 separate pg_cron invocations
+// (one per minute, 11:00 PM – 12:37 AM UTC). Each invocation gets batchIndex 0–97.
 // Polygon free plan (5 req/min): each batch is one burst with no delay needed.
 const STOCK_TICKERS = [
+  // Meme / momentum (batches 0–3)
   'GME','MARA','SOFI','RIVN','COIN','HOOD','AMC','PLTR','RBLX','SNAP',
   'UBER','LYFT','IONQ','SMCI','NVAX','TLRY','RIOT','CLSK','MSTR','WULF',
+  // Growth tech (batches 4–7)
   'TSLA','NVDA','AMD','META','NFLX','SHOP','SQ','ROKU','NET','DDOG',
   'CRWD','SNOW','ZM','DOCN','MDB','BILL','AFRM','UPST','OPEN','ABNB',
+  // Large-cap blue chip (batches 8–10)
   'AAPL','MSFT','GOOGL','AMZN','JPM','BAC','GS','XOM','CVX','DIS',
-  'NKE','BA','F','GM','PFE','SPY','QQQ','IWM','GLD','SLV',
-  'TLT','XLE','XLF','ARKK','SOXL','LCID','NKLA','CLOV','BBAI','SOUN',
-  'AISP','RGTI','QBTS','KULR','HIMS',
+  'NKE','BA','F','GM','PFE',
+  // Core ETFs (batches 11–12)
+  'SPY','QQQ','IWM','GLD','SLV','TLT','XLE','XLF','ARKK','SOXL',
+  // Speculative / AI / quantum (batches 13–14)
+  'LCID','NKLA','CLOV','BBAI','SOUN','AISP','RGTI','QBTS','KULR','HIMS',
+  // Additional ETFs (batches 15–25)
+  'TQQQ','SQQQ','SPXL','SPXS','UVXY','VXX','SMH','SOXX','XLK','XLV',
+  'XLI','XLB','XLU','XLRE','XLC','XLY','XLP','GDX','GDXJ','USO',
+  'XOP','IBIT','EEM','EFA','VTI','VOO','KWEB','FXI','BITO','JETS',
+  'ARKW','ARKG','BOIL','LABU','LABD','FNGU','FNGD','HYG','LQD','IAU',
+  'DIA','VIXY','SOXS','TECL','TECS','CURE','DPST','NAIL','MSOS','BOTZ',
+  'ARKF',
+  // Mega-cap tech (batches 25–38)
+  'GOOG','ORCL','CRM','ADBE','INTC','QCOM','AVGO','CSCO','TXN','MU',
+  'ARM','MRVL','ON','KLAC','LRCX','AMAT','ASML','TSM','NOW','WDAY',
+  'PANW','ZS','FTNT','OKTA','TEAM','HUBS','VEEV','GTLB','CFLT','MNDY',
+  'APP','DUOL','TTD','ACN','IBM','DELL','HPQ','HPE','CDNS','SNPS',
+  'ANSS','MANH','EPAM','CELH','RBRK','CWAN','MGNI','MQ','SMAR','ESTC',
+  'SWKS','QRVO','MPWR','ONTO','FORM','ENTG','WOLF','AXON','KTOS','PSTG',
+  'STX','KEYS','AEHR','ACMR','NOVA',
+  // Financials (batches 38–48)
+  'V','MA','AXP','COF','SYF','DFS','MS','C','WFC','SCHW',
+  'BLK','AIG','MET','PRU','AFL','ALL','PGR','TRV','CB','MMC',
+  'AON','USB','PNC','TFC','KEY','RF','CFG','HBAN','FITB','ALLY',
+  'ICE','CME','CBOE','SPGI','MCO','LC','RJF','LNC','VOYA','EQH',
+  'FNF','ACGL','PYPL','NU','MELI','OPFI','IBKR','NDAQ','HIG','WEX',
+  // Healthcare & Biotech (batches 48–57)
+  'UNH','JNJ','LLY','ABBV','MRK','BMY','AMGN','GILD','BIIB','REGN',
+  'MRNA','VRTX','CVS','CI','HUM','MDT','BSX','EW','ISRG','SYK',
+  'ZBH','DXCM','PODD','HOLX','ALGN','IRTC','RMD','BDX','BAX','INCY',
+  'EXEL','JAZZ','ALNY','RARE','BMRN','ACAD','ARWR','TMO','DHR','ABT',
+  'ILMN','CRSP','EDIT','AXSM','NUVL','RXRX','VCEL','PTGX','GEHC','GKOS',
+  // Consumer / Retail / Restaurants (batches 58–66)
+  'WMT','COST','TGT','HD','LOW','SBUX','MCD','CMG','YUM','DPZ',
+  'LULU','ULTA','EL','TJX','ROST','BURL','ANF','AEO','PEP','KO',
+  'MDLZ','HSY','GIS','TSN','ETSY','W','CHWY','EBAY','DASH','WING',
+  'DRI','TXRH','SHAK','BROS','CAVA','PTON','BYND','DKNG','PENN','CZR',
+  'STZ','MNST','TAP','SE',
+  // Energy (batches 67–72)
+  'COP','EOG','SLB','HAL','MPC','VLO','PSX','OXY','DVN','HES',
+  'MRO','BKR','FANG','CTRA','SM','MTDR','ENPH','SEDG','RUN','PLUG',
+  'FCEL','CHPT','BLNK','FSLR','BE','WMB','KMI','OKE','LNG','VALE',
+  // Utilities (batches 73–74)
+  'NEE','DUK','SO','D','EXC','AEP','PCG','ED','ETR','PEG',
+  // Industrials (batches 75–81)
+  'GE','HON','MMM','ETN','EMR','ROK','PH','ITW','DOV','IR',
+  'TT','JCI','AME','ROP','CARR','OTIS','CAT','DE','PCAR','CMI',
+  'LMT','NOC','GD','RTX','LDOS','BAH','UPS','FDX','CHRW','XPO',
+  'SAIA','ODFL','JBHT','WM','RSG',
+  // Materials (batches 82–84)
+  'FCX','NEM','GOLD','AA','MP','X','CLF','STLD','NUE','CE',
+  'DOW','LYB','PPG','SHW','ALB',
+  // Real Estate (batches 85–86)
+  'AMT','PLD','EQIX','SPG','O','VICI','WPC','CBRE','WELL','IRM',
+  // Telecom & Media (batches 87–89)
+  'TMUS','VZ','T','CMCSA','WBD','SPOT','TTWO','EA','PARA','FOXA',
+  'NYT','IAC','RDDT','PINS','SIRI',
+  // Telecom/Media, Automotive, International ADRs (batches 90–95)
+  'LYV','BILI','TME','TM','STLA','LEA','BWA','APTV','BABA','JD',
+  'PDD','BIDU','FUTU','NIO','XPEV','LI','SAP','RIO','BHP','ITUB',
+  'BBD','GRAB','SONY','UBS','TD','RY','WIT','SAN','CPRT','KMX',
+  // Misc / additional (batches 96–97)
+  'CINF','WRB','ERIE','RLI','ALGM','LSCC','MTSI','CRUS',
 ]
 
 // ── Types ─────────────────────────────────────────────────────────────────
@@ -243,13 +306,13 @@ serve(async (req) => {
   let batchIndex = 0
   try {
     const body = await req.json().catch(() => ({}))
-    if (typeof body.batchIndex === 'number' && body.batchIndex >= 0 && body.batchIndex <= 14) {
+    if (typeof body.batchIndex === 'number' && body.batchIndex >= 0 && body.batchIndex <= 97) {
       batchIndex = body.batchIndex
     }
   } catch { /* no body — default to 0 */ }
   const tickers = STOCK_TICKERS.slice(batchIndex * 5, batchIndex * 5 + 5)
 
-  console.log(`IV rank — batch ${batchIndex} (${tickers.join(', ')}) — ${new Date().toISOString()}`)
+  console.log(`IV rank — batch ${batchIndex}/97 (${tickers.join(', ')}) — ${new Date().toISOString()}`)
 
   const results: IVSnapshot[] = []
   const errors: string[] = []
