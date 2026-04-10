@@ -209,11 +209,11 @@ async function processTicker(
 
 // ── Main handler ───────────────────────────────────────────────────────────
 serve(async (req) => {
-  // Auth: Bearer token must be the service role key
+  // Auth: Bearer token must match CRON_SECRET (a plain string, not a JWT)
   const authHeader = req.headers.get('Authorization') ?? ''
-  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  const cronSecret = Deno.env.get('CRON_SECRET') ?? ''
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader
-  if (serviceKey === '' || token !== serviceKey) {
+  if (cronSecret === '' || token !== cronSecret) {
     return new Response(JSON.stringify({ error: 'Unauthorised' }), {
       status: 401,
       headers: { 'Content-Type': 'application/json' },
