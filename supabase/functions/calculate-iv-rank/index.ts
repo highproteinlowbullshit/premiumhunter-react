@@ -3,6 +3,8 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 // ── Stock list — must stay in sync with src/lib/stockList.ts ──────────────
+// Split into 5 weekday groups (15 each) for Polygon free plan (5 req/min).
+// Each night Mon–Fri processes one group: 5 concurrent calls, 60s pause, repeat.
 const STOCK_TICKERS = [
   'GME','MARA','SOFI','RIVN','COIN','HOOD','AMC','PLTR','RBLX','SNAP',
   'UBER','LYFT','IONQ','SMCI','NVAX','TLRY','RIOT','CLSK','MSTR','WULF',
@@ -13,6 +15,15 @@ const STOCK_TICKERS = [
   'TLT','XLE','XLF','ARKK','SOXL','LCID','NKLA','CLOV','BBAI','SOUN',
   'AISP','RGTI','QBTS','KULR','HIMS',
 ]
+
+// Groups: Mon=1 … Fri=5. Each has 15 tickers (indices 0–14, 15–29, …)
+const TICKER_GROUPS: Record<number, string[]> = {
+  1: STOCK_TICKERS.slice(0, 15),
+  2: STOCK_TICKERS.slice(15, 30),
+  3: STOCK_TICKERS.slice(30, 45),
+  4: STOCK_TICKERS.slice(45, 60),
+  5: STOCK_TICKERS.slice(60, 75),
+}
 
 // ── Types ─────────────────────────────────────────────────────────────────
 interface IVDataPoint {
@@ -235,17 +246,29 @@ serve(async (req) => {
   const today = new Date().toISOString().split('T')[0]
   const startTime = Date.now()
 
-  console.log(`IV rank calculation — ${STOCK_TICKERS.length} tickers — ${new Date().toISOString()}`)
+  // Pick ticker group by day of week (Mon=1…Fri=5), or use override from body
+  let requestedGroup: number | null = null
+  try {
+    const body = await req.json().catch(() => ({}))
+    if (typeof body.group === 'number' && body.group >= 1 && body.group <= 5) {
+      requestedGroup = body.group
+    }
+  } catch { /* no body */ }
+  const dayOfWeek = requestedGroup ?? new Date().getDay() // 0=Sun … 6=Sat
+  const tickers = TICKER_GROUPS[dayOfWeek] ?? TICKER_GROUPS[1]
+
+  console.log(`IV rank calculation — group ${dayOfWeek} (${tickers.length} tickers) — ${new Date().toISOString()}`)
 
   const results: IVSnapshot[] = []
   const errors: string[] = []
+  // Free plan: 5 req/min. Burst 5 concurrently, then wait 60s for the window to reset.
   const BATCH_SIZE = 5
-  const BATCH_DELAY_MS = 500
+  const BATCH_DELAY_MS = 60000
+  const totalBatches = Math.ceil(tickers.length / BATCH_SIZE)
 
-  for (let i = 0; i < STOCK_TICKERS.length; i += BATCH_SIZE) {
-    const batch = STOCK_TICKERS.slice(i, i + BATCH_SIZE)
+  for (let i = 0; i < tickers.length; i += BATCH_SIZE) {
+    const batch = tickers.slice(i, i + BATCH_SIZE)
     const batchNum = Math.floor(i / BATCH_SIZE) + 1
-    const totalBatches = Math.ceil(STOCK_TICKERS.length / BATCH_SIZE)
     console.log(`Batch ${batchNum}/${totalBatches}: ${batch.join(', ')}`)
 
     const settled = await Promise.allSettled(
@@ -266,7 +289,7 @@ serve(async (req) => {
       }
     })
 
-    if (i + BATCH_SIZE < STOCK_TICKERS.length) {
+    if (i + BATCH_SIZE < tickers.length) {
       await delay(BATCH_DELAY_MS)
     }
   }
@@ -294,7 +317,7 @@ serve(async (req) => {
       started_at: new Date(startTime).toISOString(),
       completed_at: new Date().toISOString(),
       duration_seconds: durationSeconds,
-      stocks_processed: STOCK_TICKERS.length,
+      stocks_processed: tickers.length,
       stocks_succeeded: successCount,
       stocks_failed: results.length - successCount,
       errors: errors.length > 0 ? errors : null,
@@ -304,13 +327,13 @@ serve(async (req) => {
     console.warn('cron_run_logs write threw:', err)
   }
 
-  console.log(`Done in ${durationSeconds.toFixed(1)}s — ${successCount}/${STOCK_TICKERS.length} succeeded`)
+  console.log(`Done in ${durationSeconds.toFixed(1)}s — ${successCount}/${tickers.length} succeeded`)
 
   return new Response(
     JSON.stringify({
       success: true,
       duration_seconds: durationSeconds,
-      stocks_processed: STOCK_TICKERS.length,
+      stocks_processed: tickers.length,
       stocks_succeeded: successCount,
       stocks_failed: results.length - successCount,
       errors: errors.length > 0 ? errors : null,
