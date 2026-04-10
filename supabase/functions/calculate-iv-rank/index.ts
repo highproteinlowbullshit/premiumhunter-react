@@ -222,15 +222,16 @@ serve(async (req) => {
 
   const polygonKey = Deno.env.get('POLYGON_API_KEY')
   const supabaseUrl = Deno.env.get('SUPABASE_URL')
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 
-  if (!polygonKey || !supabaseUrl) {
+  if (!polygonKey || !supabaseUrl || serviceRoleKey === '') {
     return new Response(
-      JSON.stringify({ error: 'Missing env vars: POLYGON_API_KEY or SUPABASE_URL' }),
+      JSON.stringify({ error: 'Missing env vars: POLYGON_API_KEY, SUPABASE_URL, or SUPABASE_SERVICE_ROLE_KEY' }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     )
   }
 
-  const supabase = createClient(supabaseUrl, serviceKey)
+  const supabase = createClient(supabaseUrl, serviceRoleKey)
   const today = new Date().toISOString().split('T')[0]
   const startTime = Date.now()
 
