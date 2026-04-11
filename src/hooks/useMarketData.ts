@@ -149,9 +149,20 @@ export function useScreenerStream(): ScreenerStreamState {
             await new Promise<void>((r) => setTimeout(r, SCREENER_BATCH_DELAY_MS));
           }
         }
+
+        // ── Supabase data is ready — mark loading done so the UI is interactive.
+        // Uncached tickers will continue streaming in silently below.
+        if (!cancelledRef.current) {
+          setIsLoading(false);
+          if (uncachedTickers.length === 0 && _cache) {
+            _cache = { ..._cache, isComplete: true, loadedAt: Date.now() };
+            saveToStorage();
+          }
+        }
       }
 
       // ── Step 3: Full fetch (IV + Finnhub price) for uncached tickers ──────────
+      // Runs in the background after isLoading=false; tickers stream into the table.
       for (let i = 0; i < uncachedTickers.length && !cancelledRef.current; i += SCREENER_BATCH) {
         const batch = uncachedTickers.slice(i, i + SCREENER_BATCH);
         const results = await Promise.allSettled(
@@ -192,8 +203,9 @@ export function useScreenerStream(): ScreenerStreamState {
         }
       }
 
+      // ── Step 3 complete — save full cache ─────────────────────────────────────
       if (!cancelledRef.current) {
-        setIsLoading(false);
+        if (cachedTickers.length === 0) setIsLoading(false); // no cached data path
         if (_cache) {
           _cache = { ..._cache, isComplete: true, loadedAt: Date.now() };
           saveToStorage();
