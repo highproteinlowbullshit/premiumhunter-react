@@ -43,6 +43,10 @@ export function Watchlist() {
   const handleAdd = (tickerVal?: string) => {
     const val = (tickerVal || addInput).toUpperCase().trim();
     if (!val) return;
+    if (!STOCK_LIST.some((s) => s.ticker === val)) {
+      setAddError('Ticker does not exist.');
+      return;
+    }
     if (tickers.includes(val)) {
       setAddError(`${val} is already in your watchlist`);
       return;
