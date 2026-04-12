@@ -100,6 +100,9 @@ interface IVSnapshot {
   iv_hv_ratio: number | null
   weekly_history: IVDataPoint[] | null
   current_price: number | null
+  prev_close: number | null
+  price_change_pct: number | null
+  volume: number | null
   data_source: string
   calculation_success: boolean
   error_message: string | null
@@ -153,7 +156,13 @@ function calcHV(closes: number[], window: number): number {
 async function fetchOHLCV(
   ticker: string,
   polygonKey: string
-): Promise<{ closes: number[]; timestamps: number[]; lastClose: number | null }> {
+): Promise<{
+  closes: number[]
+  timestamps: number[]
+  lastClose: number | null
+  prevClose: number | null
+  lastVolume: number | null
+}> {
   const to = new Date()
   const from = new Date(to)
   from.setFullYear(from.getFullYear() - 1)
@@ -169,7 +178,7 @@ async function fetchOHLCV(
   if (!res.ok) throw new Error(`Polygon ${ticker}: HTTP ${res.status}`)
 
   const json = await res.json()
-  const results: Array<{ c: number; t: number }> = json.results ?? []
+  const results: Array<{ c: number; t: number; v: number }> = json.results ?? []
 
   if (results.length < 83) {
     throw new Error(`Insufficient data for ${ticker}: only ${results.length} bars`)
@@ -177,7 +186,10 @@ async function fetchOHLCV(
 
   const closes = results.map(r => r.c)
   const timestamps = results.map(r => r.t)
-  return { closes, timestamps, lastClose: closes[closes.length - 1] ?? null }
+  const lastClose = closes[closes.length - 1] ?? null
+  const prevClose = closes[closes.length - 2] ?? null
+  const lastVolume = results[results.length - 1]?.v ?? null
+  return { closes, timestamps, lastClose, prevClose, lastVolume }
 }
 
 // ── Compute IV rank — exact port of getIVData in polygon.ts ───────────────
@@ -256,16 +268,28 @@ async function processTicker(
     current_hv: null, hv_30: null,
     hv_52wk_high: null, hv_52wk_low: null,
     iv_hv_ratio: null, weekly_history: null,
-    current_price: null,
+    current_price: null, prev_close: null,
+    price_change_pct: null, volume: null,
     data_source: 'edge_function',
     calculation_success: false,
     error_message: null,
   }
 
   try {
-    const { closes, timestamps, lastClose } = await fetchOHLCV(ticker, polygonKey)
+    const { closes, timestamps, lastClose, prevClose, lastVolume } = await fetchOHLCV(ticker, polygonKey)
     const ivData = computeIVRank(closes, timestamps)
-    return { ...base, ...ivData, current_price: lastClose, calculation_success: true }
+    const priceChangePct =
+      prevClose && prevClose > 0 && lastClose
+        ? parseFloat((((lastClose - prevClose) / prevClose) * 100).toFixed(4))
+        : null
+    return {
+      ...base, ...ivData,
+      current_price: lastClose,
+      prev_close: prevClose,
+      price_change_pct: priceChangePct,
+      volume: lastVolume ? Math.round(lastVolume) : null,
+      calculation_success: true,
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     console.error(`  ✗ ${ticker}: ${message}`)

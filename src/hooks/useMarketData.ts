@@ -92,7 +92,7 @@ export function useScreenerStream(): ScreenerStreamState {
       const cachedTickers = STOCK_LIST.filter((s) => cachedMap.has(s.ticker));
       const uncachedTickers = STOCK_LIST.filter((s) => !cachedMap.has(s.ticker));
 
-      // ── Step 2: Build cached rows instantly (IV from Supabase, price pending) ─
+      // ── Step 2: Build cached rows from Supabase (IV + price + volume all included) ─
       if (cachedTickers.length > 0 && !cancelledRef.current) {
         const cachedStocks: ScreenerStock[] = cachedTickers.map((s) => {
           const row = cachedMap.get(s.ticker)!;
@@ -100,8 +100,8 @@ export function useScreenerStream(): ScreenerStreamState {
             ticker: s.ticker,
             name: s.name,
             sector: s.sector,
-            price: null,
-            priceChange: null,
+            price: row.current_price ?? null,
+            priceChange: row.price_change_pct ?? null,
             ivRank: row.iv_rank,
             ivPercentile: row.iv_percentile,
             currentIV: row.current_hv,
@@ -109,7 +109,7 @@ export function useScreenerStream(): ScreenerStreamState {
             ivHvRatio: row.iv_hv_ratio,
             iv52wkHigh: row.hv_52wk_high,
             iv52wkLow: row.hv_52wk_low,
-            volume: null,
+            volume: row.volume ?? null,
             earningsDate: null,
             dataSource: 'cached' as const,
           };
@@ -118,43 +118,9 @@ export function useScreenerStream(): ScreenerStreamState {
           setStocks(cachedStocks);
           setLoadedCount(cachedStocks.length);
           _cache = { stocks: cachedStocks, loadedAt: Date.now(), isComplete: uncachedTickers.length === 0 };
-        }
-
-        // ── Step 2b: Fetch prices from Finnhub for all cached tickers ──────────
-        for (let i = 0; i < cachedTickers.length && !cancelledRef.current; i += SCREENER_BATCH) {
-          const batch = cachedTickers.slice(i, i + SCREENER_BATCH);
-          const quoteResults = await Promise.allSettled(batch.map((s) => getQuote(s.ticker)));
-          if (!cancelledRef.current) {
-            setStocks((prev) => {
-              const updates = new Map<string, { price: number | null; priceChange: number | null }>();
-              batch.forEach((s, j) => {
-                const r = quoteResults[j];
-                if (r.status === 'fulfilled') {
-                  const q = r.value;
-                  updates.set(s.ticker, {
-                    price: q.c > 0 ? q.c : (q.pc > 0 ? q.pc : null),
-                    priceChange: q.dp ?? null,
-                  });
-                }
-              });
-              const next = prev.map((stock) => {
-                const update = updates.get(stock.ticker);
-                return update ? { ...stock, ...update } : stock;
-              });
-              if (_cache) _cache = { ..._cache, stocks: next };
-              return next;
-            });
-          }
-          if (i + SCREENER_BATCH < cachedTickers.length && !cancelledRef.current) {
-            await new Promise<void>((r) => setTimeout(r, SCREENER_BATCH_DELAY_MS));
-          }
-        }
-
-        // ── Supabase data is ready — mark loading done so the UI is interactive.
-        // Uncached tickers will continue streaming in silently below.
-        if (!cancelledRef.current) {
+          // Price + volume come from Supabase — no Finnhub calls needed. Done immediately.
           setIsLoading(false);
-          if (uncachedTickers.length === 0 && _cache) {
+          if (uncachedTickers.length === 0) {
             _cache = { ..._cache, isComplete: true, loadedAt: Date.now() };
             saveToStorage();
           }
