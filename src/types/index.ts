@@ -28,10 +28,11 @@ export interface WheelPosition {
   strike: number;
   expiry: string;
   premiumCollected: number;
-  currentPrice: number; // current option price
+  currentPrice: number; // current option price (or closing price when closed)
   daysToExpiry: number;
   status: PositionStatus;
   openedAt: string;
+  closedAt?: string;
   contracts: number;
 }
 

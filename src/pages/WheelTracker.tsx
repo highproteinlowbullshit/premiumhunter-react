@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { PositionTable } from '../components/PositionTable';
+import { ClosedPositionTable } from '../components/ClosedPositionTable';
 import { usePositions } from '../hooks/usePositions';
 import { usePaperMode } from '../context/PaperModeContext';
 import { PaperWheelTracker } from './PaperWheelTracker';
@@ -63,11 +64,16 @@ function RealWheelTracker() {
   const openCCs = openPositions.filter((p) => p.strategy === 'CC');
   const lockedCollateral = openCSPs.reduce((acc, p) => acc + p.strike * p.contracts * 100, 0);
 
-  const closedPositions = positions.filter((p) => p.status === 'closed');
+  // Include assigned positions in "closed" — they're done trades with real P&L
+  const closedPositions = positions.filter((p) => p.status === 'closed' || p.status === 'assigned');
   const wins = closedPositions.filter((p) => p.premiumCollected > p.currentPrice * p.contracts);
   const winRate = closedPositions.length > 0
     ? Math.round((wins.length / closedPositions.length) * 100)
     : null;
+  const totalRealizedPnl = closedPositions.reduce(
+    (acc, p) => acc + (p.premiumCollected - p.currentPrice * p.contracts),
+    0,
+  );
 
   return (
     <div className="min-h-screen mesh-bg pt-24 pb-12 px-4 sm:px-6">
@@ -153,6 +159,34 @@ function RealWheelTracker() {
             onClose={setClosingPosition}
             onEdit={setEditingPosition}
             onAssign={setAssigningPosition}
+          />
+        </div>
+
+        {/* Closed Positions Card */}
+        <div className="rounded-2xl p-5 sm:p-6 mt-6"
+          style={{
+            background: 'rgba(13,27,53,0.6)',
+            border: '1px solid rgba(0,229,196,0.1)',
+            backdropFilter: 'blur(12px)',
+            opacity: mounted ? 1 : 0,
+            transition: 'opacity 0.5s ease 0.3s',
+          }}>
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h2 className="text-base font-semibold" style={{ fontFamily: 'Syne, sans-serif', color: '#e8f0fe' }}>
+                Closed Positions
+              </h2>
+              {closedPositions.length > 0 && (
+                <p className="text-xs mt-0.5" style={{ color: totalRealizedPnl >= 0 ? '#00d68f' : '#ff4d6d', fontFamily: 'JetBrains Mono, monospace' }}>
+                  {totalRealizedPnl >= 0 ? '+' : ''}${totalRealizedPnl.toFixed(0)} realized · {closedPositions.length} trade{closedPositions.length !== 1 ? 's' : ''}
+                </p>
+              )}
+            </div>
+          </div>
+          <ClosedPositionTable
+            positions={closedPositions}
+            onEdit={setEditingPosition}
+            onRemove={setDeletingPosition}
           />
         </div>
       </div>

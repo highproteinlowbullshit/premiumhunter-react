@@ -41,6 +41,7 @@ function dbToPosition(row: DbPosition): WheelPosition {
     daysToExpiry: dte,
     status: row.status as PositionStatus,
     openedAt: row.opened_at.split('T')[0],
+    closedAt: row.closed_at ? row.closed_at.split('T')[0] : undefined,
     contracts: Number(row.contracts) || 1,
   };
 }
