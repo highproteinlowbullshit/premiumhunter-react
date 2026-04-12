@@ -8,7 +8,6 @@ import {
   fetchScreenerStock,
 } from '../lib/marketData';
 import { STOCK_LIST } from '../lib/stockList';
-import { getQuote } from '../lib/finnhub';
 import type { ScreenerStock } from '../lib/screenerData';
 
 const SCREENER_BATCH = 20;         // tickers per batch
