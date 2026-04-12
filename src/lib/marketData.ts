@@ -142,7 +142,7 @@ export async function getWatchlistData(
   });
 }
 
-async function fetchWatchlistStock(ticker: string): Promise<WatchlistStockData> {
+export async function fetchWatchlistStock(ticker: string): Promise<WatchlistStockData> {
   const meta = STOCK_META[ticker];
 
   const [quoteRes, hvRes] = await Promise.allSettled([

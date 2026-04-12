@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   getWatchlistData,
+  fetchWatchlistStock,
   getStockDetailData,
   getSupabaseCachedToday,
   fetchScreenerStock,
@@ -190,8 +191,9 @@ export function useScreenerStream(): ScreenerStreamState {
   return { stocks, loadedCount, total: STOCK_LIST.length, isLoading };
 }
 
-// ── Watchlist hook ────────────────────────────────────────────────────────────
+// ── Watchlist hooks ───────────────────────────────────────────────────────────
 
+// Bulk hook retained for pages that still need it (e.g. Dashboard)
 export function useWatchlistData(tickers: string[]) {
   const key = [...tickers].sort().join(',');
   return useQuery({
@@ -200,6 +202,18 @@ export function useWatchlistData(tickers: string[]) {
     staleTime: 60 * 1000,
     refetchInterval: 60 * 1000,
     enabled: tickers.length > 0,
+  });
+}
+
+// Per-ticker hook: each ticker gets its own cache entry so adding/removing
+// one ticker never invalidates the others.
+export function useWatchlistTickerData(ticker: string) {
+  return useQuery({
+    queryKey: ['watchlist', ticker],
+    queryFn: () => fetchWatchlistStock(ticker),
+    staleTime: 60 * 1000,
+    refetchInterval: 60 * 1000,
+    enabled: !!ticker,
   });
 }
 

@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueries } from '@tanstack/react-query';
 import { IVBadge } from '../components/IVBadge';
 import { IVSparkline } from '../components/IVChart';
 import { useWatchlist } from '../hooks/useWatchlist';
-import { useWatchlistData } from '../hooks/useMarketData';
 import { STOCK_LIST } from '../lib/stockList';
+import { fetchWatchlistStock } from '../lib/marketData';
 import type { SortOption, IVDataPoint } from '../types';
+import type { WatchlistStockData } from '../lib/marketData';
 
 type SortField = SortOption['field'];
 
@@ -24,21 +26,27 @@ export function Watchlist() {
   const [mounted, setMounted] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const { data: liveData } = useWatchlistData(tickers);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  useEffect(() => { setMounted(true); }, []);
+
+  // Per-ticker queries — each ticker has its own cache entry.
+  // Adding/removing one ticker never invalidates the others.
+  const results = useQueries({
+    queries: tickers.map((ticker) => ({
+      queryKey: ['watchlist', ticker],
+      queryFn: () => fetchWatchlistStock(ticker),
+      staleTime: 60 * 1000,
+      refetchInterval: 60 * 1000,
+    })),
+  });
 
   const handleAdd = (tickerVal?: string) => {
     const val = (tickerVal || addInput).toUpperCase().trim();
     if (!val) return;
-
     if (tickers.includes(val)) {
       setAddError(`${val} is already in your watchlist`);
       return;
     }
-
     addTicker(val);
     setAddInput('');
     setAddError('');
@@ -53,27 +61,30 @@ export function Watchlist() {
       ).slice(0, 5)
     : [];
 
-  // Build display stocks: prefer live data, fall back to name-only placeholder
-  const displayStocks = tickers.map((t, i) => {
-    const live = liveData?.[i]?.stock;
-    if (live) return live;
-    const meta = STOCK_LIST.find((s) => s.ticker === t);
-    return {
-      ticker: t, name: meta?.name ?? t, price: 0, ivRank: 0,
-      ivPercentile: 0, currentIV: 0, historicalVol: 0, trend: 'flat' as const,
-    };
-  });
+  // Build display entries: ticker + loaded data (or null while loading)
+  const entries = tickers.map((ticker, i) => ({
+    ticker,
+    data: results[i]?.data ?? null,
+    isLoading: results[i]?.isLoading ?? true,
+  }));
 
-  // Build IV history map keyed by ticker
-  const ivHistories: Record<string, IVDataPoint[]> = {};
-  tickers.forEach((t, i) => {
-    ivHistories[t] = liveData?.[i]?.ivHistory ?? [];
-  });
+  // Sort: loaded rows sort by the selected field; loading rows stay at end
+  const sortedEntries = [...entries].sort((a, b) => {
+    const aLoaded = !!a.data;
+    const bLoaded = !!b.data;
+    if (!aLoaded && !bLoaded) return a.ticker.localeCompare(b.ticker);
+    if (!aLoaded) return 1;
+    if (!bLoaded) return -1;
 
-  // Apply sort
-  const sortedStocks = [...displayStocks].sort((a, b) => {
-    const aVal = a[sort.field === 'ticker' ? 'ticker' : sort.field] as string | number;
-    const bVal = b[sort.field === 'ticker' ? 'ticker' : sort.field] as string | number;
+    let aVal: string | number;
+    let bVal: string | number;
+    if (sort.field === 'ticker') {
+      aVal = a.ticker;
+      bVal = b.ticker;
+    } else {
+      aVal = a.data!.stock[sort.field] as number;
+      bVal = b.data!.stock[sort.field] as number;
+    }
     if (sort.direction === 'asc') return aVal > bVal ? 1 : -1;
     return aVal < bVal ? 1 : -1;
   });
@@ -111,10 +122,7 @@ export function Watchlist() {
 
         {/* Add Ticker + Sort Controls */}
         <div className="flex flex-col sm:flex-row gap-4 mb-6"
-          style={{
-            opacity: mounted ? 1 : 0,
-            transition: 'opacity 0.5s ease 0.15s',
-          }}>
+          style={{ opacity: mounted ? 1 : 0, transition: 'opacity 0.5s ease 0.15s' }}>
           {/* Add ticker */}
           <div className="flex-1 relative">
             <div className="flex gap-2">
@@ -242,14 +250,12 @@ export function Watchlist() {
           {/* Table header */}
           <div className="px-4 sm:px-6 py-4"
             style={{ borderBottom: '1px solid rgba(0, 229, 196, 0.08)', background: 'rgba(0,0,0,0.15)' }}>
-            {/* Mobile header: 3 cols */}
             <div className="grid sm:hidden grid-cols-[2fr_1fr_auto] gap-3 text-xs font-medium tracking-widest uppercase"
               style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', letterSpacing: '0.08em' }}>
               <span>Symbol</span>
               <span>IV Rank</span>
               <span className="text-right">Actions</span>
             </div>
-            {/* Desktop header: full cols */}
             <div className="hidden sm:grid grid-cols-[2fr_1fr_1fr_1fr_1.5fr_auto] gap-4 text-xs font-medium tracking-widest uppercase"
               style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', letterSpacing: '0.08em' }}>
               <span>Symbol</span>
@@ -262,7 +268,7 @@ export function Watchlist() {
           </div>
 
           {/* Table rows */}
-          {sortedStocks.length === 0 ? (
+          {sortedEntries.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 gap-3">
               <div className="w-14 h-14 rounded-full flex items-center justify-center"
                 style={{ background: 'rgba(0,229,196,0.06)', border: '1px solid rgba(0,229,196,0.12)' }}>
@@ -280,22 +286,23 @@ export function Watchlist() {
             </div>
           ) : (
             <div>
-              {sortedStocks.map((stock, i) => (
+              {sortedEntries.map((entry, i) => (
                 <WatchlistRow
-                  key={stock.ticker}
-                  stock={stock}
-                  ivHistory={ivHistories[stock.ticker] ?? []}
-                  isLast={i === sortedStocks.length - 1}
-                  onView={() => navigate(`/stock/${stock.ticker}`)}
-                  onRemove={() => removeTicker(stock.ticker)}
-                  delay={i * 50}
+                  key={entry.ticker}
+                  ticker={entry.ticker}
+                  data={entry.data}
+                  isLoading={entry.isLoading}
+                  isLast={i === sortedEntries.length - 1}
+                  onView={() => navigate(`/stock/${entry.ticker}`)}
+                  onRemove={() => removeTicker(entry.ticker)}
+                  delay={i * 40}
                 />
               ))}
             </div>
           )}
         </div>
 
-        {/* Quick add suggestions from STOCK_LIST */}
+        {/* Quick add suggestions */}
         {tickers.length < 6 && (
           <div className="mt-6"
             style={{ opacity: mounted ? 1 : 0, transition: 'opacity 0.5s ease 0.4s' }}>
@@ -331,41 +338,63 @@ export function Watchlist() {
   );
 }
 
-// ——————————————————————————————————
-// Watchlist Row
-// ——————————————————————————————————
+// ── Skeleton shimmer cell ──────────────────────────────────────────────────────
+
+function Skeleton({ width = '3rem', height = '0.875rem' }: { width?: string; height?: string }) {
+  return (
+    <div
+      className="rounded animate-pulse"
+      style={{
+        width,
+        height,
+        background: 'rgba(0,229,196,0.08)',
+      }}
+    />
+  );
+}
+
+// ── Watchlist Row ──────────────────────────────────────────────────────────────
+
 interface WatchlistRowProps {
-  stock: any;
-  ivHistory: any[];
+  ticker: string;
+  data: WatchlistStockData | null;
+  isLoading: boolean;
   isLast: boolean;
   onView: () => void;
   onRemove: () => void;
   delay: number;
 }
 
-function WatchlistRow({ stock, ivHistory, isLast, onView, onRemove, delay }: WatchlistRowProps) {
+function WatchlistRow({ ticker, data, isLoading, isLast, onView, onRemove, delay }: WatchlistRowProps) {
   const [visible, setVisible] = useState(false);
   const [hovered, setHovered] = useState(false);
   const [priceFlash, setPriceFlash] = useState<'up' | 'down' | null>(null);
   const prevPrice = useRef<number | null>(null);
 
   useEffect(() => {
-    const t = setTimeout(() => setVisible(true), delay + 300);
+    const t = setTimeout(() => setVisible(true), delay + 100);
     return () => clearTimeout(t);
   }, [delay]);
 
+  const stock = data?.stock ?? null;
+  const ivHistory: IVDataPoint[] = data?.ivHistory ?? [];
+
   // Flash price cell green/red when live price updates
   useEffect(() => {
-    if (prevPrice.current !== null && prevPrice.current !== stock.price && stock.price > 0) {
-      setPriceFlash(stock.price > prevPrice.current ? 'up' : 'down');
+    const price = stock?.price ?? 0;
+    if (prevPrice.current !== null && prevPrice.current !== price && price > 0) {
+      setPriceFlash(price > prevPrice.current ? 'up' : 'down');
       const t = setTimeout(() => setPriceFlash(null), 800);
       return () => clearTimeout(t);
     }
-    if (stock.price > 0) prevPrice.current = stock.price;
-  }, [stock.price]);
+    if (price > 0) prevPrice.current = price;
+  }, [stock?.price]);
 
-  const isUp = stock.trend === 'up';
-  const isDown = stock.trend === 'down';
+  const meta = STOCK_LIST.find((s) => s.ticker === ticker);
+  const name = stock?.name ?? meta?.name ?? ticker;
+  const price = stock?.price ?? 0;
+  const isUp = stock?.trend === 'up';
+  const isDown = stock?.trend === 'down';
   const flashColor = priceFlash === 'up' ? '#00d68f' : priceFlash === 'down' ? '#ff4d6d' : '#e8f0fe';
 
   return (
@@ -376,14 +405,14 @@ function WatchlistRow({ stock, ivHistory, isLast, onView, onRemove, delay }: Wat
       style={{
         borderBottom: isLast ? 'none' : '1px solid rgba(0, 229, 196, 0.06)',
         background: hovered ? 'rgba(0,229,196,0.03)' : 'transparent',
-        transition: 'background 0.15s ease, opacity 0.4s ease',
+        transition: 'background 0.15s ease, opacity 0.35s ease',
         opacity: visible ? 1 : 0,
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onClick={onView}
     >
-      {/* Symbol — always visible */}
+      {/* Symbol — always visible immediately (no data needed) */}
       <div className="flex items-center gap-2.5 min-w-0">
         <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center flex-shrink-0 text-xs font-bold"
           style={{
@@ -393,68 +422,92 @@ function WatchlistRow({ stock, ivHistory, isLast, onView, onRemove, delay }: Wat
             fontFamily: 'Syne, sans-serif',
             transition: 'background 0.15s ease',
           }}>
-          {stock.ticker.slice(0, 2)}
+          {ticker.slice(0, 2)}
         </div>
         <div className="min-w-0">
           <div className="flex items-center gap-1.5">
             <span className="font-bold text-sm"
               style={{ fontFamily: 'Syne, sans-serif', color: '#e8f0fe' }}>
-              {stock.ticker}
+              {ticker}
             </span>
-            <span className="text-xs" style={{ color: isUp ? '#00d68f' : isDown ? '#ff4d6d' : '#4a6a8a' }}>
-              {isUp ? '↑' : isDown ? '↓' : '→'}
-            </span>
+            {!isLoading && (
+              <span className="text-xs" style={{ color: isUp ? '#00d68f' : isDown ? '#ff4d6d' : '#4a6a8a' }}>
+                {isUp ? '↑' : isDown ? '↓' : '→'}
+              </span>
+            )}
           </div>
-          {/* Price shown inline on mobile, hidden on desktop (has its own column) */}
-          <p className="text-xs sm:hidden tabular-nums transition-colors duration-700"
-            style={{ color: flashColor !== '#e8f0fe' ? flashColor : '#9ab4d4', fontFamily: 'JetBrains Mono, monospace' }}>
-            {stock.price > 0 ? `$${stock.price.toFixed(2)}` : stock.name}
-          </p>
+          {/* Mobile: price inline */}
+          <div className="sm:hidden">
+            {isLoading ? (
+              <Skeleton width="3.5rem" height="0.75rem" />
+            ) : (
+              <p className="text-xs tabular-nums transition-colors duration-700"
+                style={{ color: flashColor !== '#e8f0fe' ? flashColor : '#9ab4d4', fontFamily: 'JetBrains Mono, monospace' }}>
+                {price > 0 ? `$${price.toFixed(2)}` : name}
+              </p>
+            )}
+          </div>
+          {/* Desktop: company name */}
           <p className="text-xs hidden sm:block truncate" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
-            {stock.name}
+            {name}
           </p>
         </div>
       </div>
 
       {/* Price — desktop only */}
-      <div className="hidden sm:block">
-        <p className="text-sm font-medium tabular-nums transition-colors duration-700"
-          style={{ color: flashColor, fontFamily: 'JetBrains Mono, monospace' }}>
-          {stock.price > 0 ? `$${stock.price.toFixed(2)}` : '—'}
-        </p>
-        <p className="text-xs"
-          style={{ color: isUp ? '#00d68f' : isDown ? '#ff4d6d' : '#4a6a8a', fontFamily: 'JetBrains Mono, monospace' }}>
-          {stock.price > 0
-            ? stock.priceChangePct !== undefined
-              ? `${stock.priceChangePct >= 0 ? '+' : ''}${stock.priceChangePct.toFixed(2)}%`
-              : isUp ? '▲' : isDown ? '▼' : ''
-            : ''}
-        </p>
+      <div className="hidden sm:flex flex-col justify-center gap-0.5">
+        {isLoading ? (
+          <>
+            <Skeleton width="4rem" />
+            <Skeleton width="2.5rem" height="0.7rem" />
+          </>
+        ) : (
+          <>
+            <p className="text-sm font-medium tabular-nums transition-colors duration-700"
+              style={{ color: flashColor, fontFamily: 'JetBrains Mono, monospace' }}>
+              {price > 0 ? `$${price.toFixed(2)}` : '—'}
+            </p>
+            <p className="text-xs"
+              style={{ color: isUp ? '#00d68f' : isDown ? '#ff4d6d' : '#4a6a8a', fontFamily: 'JetBrains Mono, monospace' }}>
+              {price > 0 && stock?.priceChangePct !== undefined
+                ? `${stock.priceChangePct >= 0 ? '+' : ''}${stock.priceChangePct.toFixed(2)}%`
+                : price > 0 ? (isUp ? '▲' : isDown ? '▼' : '') : ''}
+            </p>
+          </>
+        )}
       </div>
 
       {/* IV Rank — always visible */}
-      <div>
-        {stock.ivRank > 0 ? <IVBadge value={stock.ivRank} size="sm" showBar /> : (
+      <div className="flex items-center">
+        {isLoading ? (
+          <Skeleton width="3.5rem" height="1.25rem" />
+        ) : stock && stock.ivRank > 0 ? (
+          <IVBadge value={stock.ivRank} size="sm" showBar />
+        ) : (
           <span className="text-xs" style={{ color: '#2e4a6a' }}>—</span>
         )}
       </div>
 
       {/* IV Percentile — desktop only */}
-      <div className="hidden sm:block">
-        <span className="text-sm font-medium tabular-nums"
-          style={{ color: '#9ab4d4', fontFamily: 'JetBrains Mono, monospace' }}>
-          {stock.ivPercentile > 0 ? stock.ivPercentile : '—'}
-        </span>
+      <div className="hidden sm:flex items-center">
+        {isLoading ? (
+          <Skeleton width="2.5rem" />
+        ) : (
+          <span className="text-sm font-medium tabular-nums"
+            style={{ color: '#9ab4d4', fontFamily: 'JetBrains Mono, monospace' }}>
+            {stock && stock.ivPercentile > 0 ? stock.ivPercentile : '—'}
+          </span>
+        )}
       </div>
 
       {/* Sparkline — desktop only */}
-      <div className="hidden sm:block h-10">
-        {ivHistory.length > 0 ? (
+      <div className="hidden sm:flex items-center h-10">
+        {isLoading ? (
+          <Skeleton width="100%" height="100%" />
+        ) : ivHistory.length > 0 ? (
           <IVSparkline data={ivHistory} height={40} />
         ) : (
-          <div className="h-full flex items-center">
-            <span className="text-xs" style={{ color: '#2e4a6a', fontFamily: 'DM Sans, sans-serif' }}>No data</span>
-          </div>
+          <span className="text-xs" style={{ color: '#2e4a6a', fontFamily: 'DM Sans, sans-serif' }}>No data</span>
         )}
       </div>
 
