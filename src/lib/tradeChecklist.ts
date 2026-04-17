@@ -112,7 +112,7 @@ export function checkEarningsSafety(input: TradeChecklistInput): CheckResult {
       status: 'skip',
       value: 'No earnings data',
       threshold: 'Earnings must be outside expiry date',
-      reasoning: 'No earnings date found — verify manually before entering.',
+      reasoning: 'No earnings date found — verify the actual date on the company IR page before entering.',
       isCritical: false,
       canOverride: true,
     };
@@ -120,21 +120,22 @@ export function checkEarningsSafety(input: TradeChecklistInput): CheckResult {
 
   let status: CheckStatus;
   let reasoning: string;
-  let isCritical = false;
+  // Earnings within 7 days is critical only when confirmed — Finnhub dates are
+  // unconfirmed estimates and can be off by weeks, so we never hard-block.
+  const isCritical = false;
 
   if (daysToEarnings <= 7) {
     status = 'fail';
-    isCritical = true;
-    reasoning = `Earnings this week (${daysToEarnings}d away) — do not sell premium into earnings.`;
+    reasoning = `Estimated earnings this week (~${daysToEarnings}d away) — verify the actual date; if confirmed, do not sell premium into earnings.`;
   } else if (daysToEarnings <= 14) {
-    status = 'fail';
-    reasoning = `Earnings in ${daysToEarnings} days — high IV crush risk after announcement.`;
+    status = 'warn';
+    reasoning = `Estimated earnings in ~${daysToEarnings} days — confirm the actual date on company IR or Nasdaq.com before entering.`;
   } else if (daysToEarnings <= dte + 7) {
     status = 'warn';
-    reasoning = `Earnings ${daysToEarnings} days away — within trading window but watch IV crush risk.`;
+    reasoning = `Estimated earnings ~${daysToEarnings} days away — within trading window, watch IV crush risk.`;
   } else {
     status = 'pass';
-    reasoning = `Earnings ${daysToEarnings} days away — safely outside expiry.`;
+    reasoning = `Estimated earnings ~${daysToEarnings} days away — safely outside expiry.`;
   }
 
   return {
@@ -142,11 +143,11 @@ export function checkEarningsSafety(input: TradeChecklistInput): CheckResult {
     label: 'Earnings Safety',
     description: 'Earnings date vs expiry window',
     status,
-    value: `Earnings in ${daysToEarnings} days`,
+    value: `~${daysToEarnings}d to earnings (est.)`,
     threshold: 'Earnings must be outside expiry date',
     reasoning,
     isCritical,
-    canOverride: daysToEarnings > 7,
+    canOverride: true,
   };
 }
 

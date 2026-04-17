@@ -634,7 +634,7 @@ function StickyHeader({ filters, set }: {
     { key: 'ivRank',       label: 'IV Rank'   },
     { key: 'ivPercentile', label: 'IV%ile'    },
     { key: null,           label: 'IV/HV'     },
-    { key: null,           label: '52w Range' },
+    { key: null,           label: 'HV 52w Range' },
     { key: 'volume',       label: 'Volume'    },
     { key: null,           label: 'Earnings'  },
     { key: null,           label: ''          }, // action
