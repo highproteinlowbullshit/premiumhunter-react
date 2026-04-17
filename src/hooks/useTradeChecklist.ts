@@ -70,26 +70,33 @@ export function useTradeChecklist(
     setFetchingTicker(ticker);
 
     const fetchAll = async () => {
-      // IV rank from iv_snapshots
+      // IV rank + cached earnings date from iv_snapshots
       const { data: ivRow } = await supabase
         .from('iv_snapshots')
-        .select('iv_rank, iv_percentile')
+        .select('iv_rank, iv_percentile, earnings_date')
         .eq('ticker', ticker)
         .order('snapshot_date', { ascending: false })
         .limit(1)
         .maybeSingle();
 
-      // Earnings
+      // Earnings: prefer Supabase cache; fall back to live Finnhub if not cached
       let daysToEarnings: number | null = null;
-      try {
-        const earningsDate = await getNextEarnings(ticker);
-        if (earningsDate) {
-          daysToEarnings = Math.ceil(
-            (new Date(earningsDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24),
-          );
+      const cachedEarningsDate: string | null = ivRow?.earnings_date ?? null;
+      if (cachedEarningsDate) {
+        daysToEarnings = Math.ceil(
+          (new Date(cachedEarningsDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24),
+        );
+      } else {
+        try {
+          const earningsDate = await getNextEarnings(ticker);
+          if (earningsDate) {
+            daysToEarnings = Math.ceil(
+              (new Date(earningsDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24),
+            );
+          }
+        } catch (err) {
+          if (import.meta.env.DEV) console.warn(`[checklist] earnings fetch failed for ${ticker}:`, err);
         }
-      } catch (err) {
-        if (import.meta.env.DEV) console.warn(`[checklist] earnings fetch failed for ${ticker}:`, err);
       }
 
       // 52-week low

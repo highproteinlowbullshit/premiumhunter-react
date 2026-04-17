@@ -103,6 +103,7 @@ interface IVSnapshot {
   prev_close: number | null
   price_change_pct: number | null
   volume: number | null
+  earnings_date: string | null
   data_source: string
   calculation_success: boolean
   error_message: string | null
@@ -150,6 +151,30 @@ function calcHV(closes: number[], window: number): number {
   const mean = returns.reduce((a, b) => a + b, 0) / returns.length
   const variance = returns.reduce((a, b) => a + (b - mean) ** 2, 0) / (returns.length - 1)
   return Math.round(Math.sqrt(Math.max(0, variance) * 252) * 100)
+}
+
+// ── Finnhub: fetch next earnings date ─────────────────────────────────────
+async function fetchEarningsDate(ticker: string, finnhubKey: string): Promise<string | null> {
+  try {
+    const today = new Date().toISOString().split('T')[0]
+    const future = new Date()
+    future.setDate(future.getDate() + 180)
+    const futureStr = future.toISOString().split('T')[0]
+
+    const url =
+      `https://finnhub.io/api/v1/calendar/earnings` +
+      `?from=${today}&to=${futureStr}&symbol=${ticker}&token=${finnhubKey}`
+
+    const res = await fetchWithRetry(url, {}, 2, 8000)
+    if (!res.ok) return null
+
+    const json = await res.json()
+    const events: Array<{ date: string; symbol: string }> = json.earningsCalendar ?? []
+    const match = events.find(e => e.symbol === ticker && e.date >= today)
+    return match?.date ?? null
+  } catch {
+    return null
+  }
 }
 
 // ── Polygon: fetch 1yr + 35d of daily OHLCV ───────────────────────────────
@@ -259,6 +284,7 @@ function computeIVRank(
 async function processTicker(
   ticker: string,
   polygonKey: string,
+  finnhubKey: string | null,
   today: string
 ): Promise<IVSnapshot> {
   const base: IVSnapshot = {
@@ -270,13 +296,19 @@ async function processTicker(
     iv_hv_ratio: null, weekly_history: null,
     current_price: null, prev_close: null,
     price_change_pct: null, volume: null,
+    earnings_date: null,
     data_source: 'edge_function',
     calculation_success: false,
     error_message: null,
   }
 
   try {
-    const { closes, timestamps, lastClose, prevClose, lastVolume } = await fetchOHLCV(ticker, polygonKey)
+    // Polygon (required) + Finnhub earnings (optional) run in parallel
+    const [ohlcv, earningsDate] = await Promise.all([
+      fetchOHLCV(ticker, polygonKey),
+      finnhubKey ? fetchEarningsDate(ticker, finnhubKey) : Promise.resolve(null),
+    ])
+    const { closes, timestamps, lastClose, prevClose, lastVolume } = ohlcv
     const ivData = computeIVRank(closes, timestamps)
     const priceChangePct =
       prevClose && prevClose > 0 && lastClose
@@ -288,6 +320,7 @@ async function processTicker(
       prev_close: prevClose,
       price_change_pct: priceChangePct,
       volume: lastVolume ? Math.round(lastVolume) : null,
+      earnings_date: earningsDate,
       calculation_success: true,
     }
   } catch (err) {
@@ -311,6 +344,7 @@ serve(async (req) => {
   }
 
   const polygonKey = Deno.env.get('POLYGON_API_KEY')
+  const finnhubKey = Deno.env.get('FINNHUB_API_KEY') ?? null  // optional — earnings skipped if missing
   const supabaseUrl = Deno.env.get('SUPABASE_URL')
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 
@@ -320,6 +354,7 @@ serve(async (req) => {
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     )
   }
+  if (!finnhubKey) console.warn('FINNHUB_API_KEY not set — earnings_date will not be cached')
 
   const supabase = createClient(supabaseUrl, serviceRoleKey)
   const today = new Date().toISOString().split('T')[0]
@@ -351,7 +386,7 @@ serve(async (req) => {
     console.log(`Batch ${batchNum}/${totalBatches}: ${batch.join(', ')}`)
 
     const settled = await Promise.allSettled(
-      batch.map(ticker => processTicker(ticker, polygonKey, today))
+      batch.map(ticker => processTicker(ticker, polygonKey, finnhubKey, today))
     )
 
     settled.forEach((result, idx) => {
