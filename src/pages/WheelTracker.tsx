@@ -4,6 +4,7 @@ import { ClosedPositionTable } from '../components/ClosedPositionTable';
 import { usePositions } from '../hooks/usePositions';
 import { usePaperMode } from '../context/PaperModeContext';
 import { PaperWheelTracker } from './PaperWheelTracker';
+import { MonthlyPnLChart } from '../components/MonthlyPnLChart';
 import { getQuote } from '../lib/finnhub';
 import { useRealtimePrices } from '../hooks/useRealtimePrices';
 import { WebSocketStatus } from '../components/WebSocketStatus';
@@ -136,6 +137,9 @@ function RealWheelTracker() {
             </div>
           ))}
         </div>
+
+        {/* Monthly Premium Income (compact) */}
+        <MonthlyPnLChart compact />
 
         {/* Positions Table */}
         <div className="rounded-2xl p-5 sm:p-6"

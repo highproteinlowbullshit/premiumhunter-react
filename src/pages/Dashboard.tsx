@@ -8,6 +8,7 @@ import { useWatchlistContext } from '../context/WatchlistContext';
 import { useWatchlistData } from '../hooks/useMarketData';
 import { usePaperMode } from '../context/PaperModeContext';
 import { PaperDashboard } from './PaperDashboard';
+import { MonthlyPnLChart } from '../components/MonthlyPnLChart';
 import type { StockTicker, IVDataPoint, WheelPosition } from '../types';
 
 export function Dashboard() {
@@ -108,6 +109,9 @@ function RealDashboard() {
             delay={340}
           />
         </div>
+
+        {/* Monthly Premium Income Chart */}
+        <MonthlyPnLChart />
 
         {/* Watchlist Grid */}
         <div className="mb-6 flex items-center justify-between">
