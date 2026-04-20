@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { StatCard } from '../components/StatCard';
 import { IVBadge, IVLabel } from '../components/IVBadge';
 import { IVSparkline } from '../components/IVChart';
 import { usePositions } from '../hooks/usePositions';
@@ -9,7 +8,6 @@ import { useWatchlistData } from '../hooks/useMarketData';
 import { usePaperMode } from '../context/PaperModeContext';
 import { PaperDashboard } from './PaperDashboard';
 import { MonthlyPnLChart } from '../components/MonthlyPnLChart';
-import { useMonthlyPnL } from '../hooks/useMonthlyPnL';
 import type { StockTicker, IVDataPoint, WheelPosition } from '../types';
 
 export function Dashboard() {
@@ -21,8 +19,7 @@ export function Dashboard() {
 function RealDashboard() {
   const navigate = useNavigate();
   const [mounted, setMounted] = useState(false);
-  const { positions, openPositions, monthlyPnL } = usePositions();
-  const { data: monthlyData } = useMonthlyPnL();
+  const { openPositions, monthlyPnL } = usePositions();
   const { tickers } = useWatchlistContext();
   const { data: liveData, isLoading } = useWatchlistData(tickers);
 
@@ -31,12 +28,6 @@ function RealDashboard() {
   }, []);
 
   const totalPremium = openPositions.reduce((acc, p) => acc + p.premiumCollected, 0);
-
-  const closedPositions = positions.filter((p) => p.status === 'closed');
-  const wins = closedPositions.filter((p) => p.premiumCollected > p.currentPrice * p.contracts);
-  const winRate = closedPositions.length > 0
-    ? Math.round((wins.length / closedPositions.length) * 100)
-    : null;
 
   const displayStocks: StockTicker[] = tickers.map((t, i) => {
     const live = liveData?.[i]?.stock;
@@ -75,41 +66,6 @@ function RealDashboard() {
           <p className="text-sm mt-1" style={{ color: 'var(--ph-text-3)', fontFamily: 'DM Sans, sans-serif' }}>
             {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
           </p>
-        </div>
-
-        {/* Stat Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <StatCard
-            label="Open Positions"
-            value={openPositions.length.toString()}
-            icon={<PositionsIcon />}
-            accentColor="#00e5c4"
-            delay={100}
-          />
-          <StatCard
-            label="Avg Monthly"
-            value={(monthlyData?.averageMonthly ?? 0).toLocaleString('en-US', { maximumFractionDigits: 0 })}
-            prefix="$"
-            icon={<PnLIcon />}
-            accentColor="#00d68f"
-            delay={180}
-          />
-          <StatCard
-            label="Win Rate"
-            value={winRate !== null ? winRate.toString() : '—'}
-            suffix={winRate !== null ? '%' : ''}
-            icon={<WinRateIcon />}
-            accentColor="#f5c842"
-            delay={260}
-          />
-          <StatCard
-            label="This Year"
-            value={(monthlyData?.totalThisYear ?? 0).toLocaleString('en-US', { maximumFractionDigits: 0 })}
-            prefix="$"
-            icon={<PremiumIcon />}
-            accentColor="#00c6f5"
-            delay={340}
-          />
         </div>
 
         {/* Monthly Premium Income Chart */}
@@ -496,43 +452,3 @@ function WheelSummaryPanel({ openPositions, monthlyPnL, totalPremium, onNavigate
   );
 }
 
-// ——————————————————————————————————
-// Icon components
-// ——————————————————————————————————
-function PositionsIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-      <rect x="1" y="1" width="6" height="6" rx="1.5" stroke="currentColor" strokeWidth="1.2" />
-      <rect x="9" y="1" width="6" height="6" rx="1.5" stroke="currentColor" strokeWidth="1.2" />
-      <rect x="1" y="9" width="6" height="6" rx="1.5" stroke="currentColor" strokeWidth="1.2" />
-      <rect x="9" y="9" width="6" height="6" rx="1.5" stroke="currentColor" strokeWidth="1.2" />
-    </svg>
-  );
-}
-
-function PnLIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-      <polyline points="2,12 5,7 8,9 12,4 14,6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-      <polyline points="10,4 14,4 14,8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function WinRateIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-      <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.2" />
-      <path d="M5 8.5l2 2 4-4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function PremiumIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-      <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.2" />
-      <path d="M8 5v6M6 6.5c0-.83.67-1.5 1.5-1.5h1a1 1 0 0 1 0 2h-1a1 1 0 0 0 0 2h1c.83 0 1.5.67 1.5 1.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-    </svg>
-  );
-}
