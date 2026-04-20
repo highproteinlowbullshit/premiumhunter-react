@@ -377,9 +377,6 @@ export function MonthlyPnLChart({ compact = false }: Props) {
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               <StatPill label="Total this year" value={`$${data.totalThisYear.toLocaleString()}`} color="#00d68f" />
               <StatPill label="Monthly avg" value={`$${data.averageMonthly.toLocaleString()}`} color="#00e5c4" />
-              {data.streakMonths >= 2 && (
-                <StatPill label="" value={`🔥 ${data.streakMonths} mo streak`} color="#f5c842" />
-              )}
               {hasProjectedData && (
                 <button
                   onClick={() => setShowProjected(p => !p)}

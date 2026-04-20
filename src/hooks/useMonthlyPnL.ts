@@ -94,12 +94,14 @@ export function useMonthlyPnL() {
 
         let pnl: number
         if (pos.status === 'expired') {
-          pnl = pos.premium_collected * pos.contracts * 100
+          // Expired worthless — full per-contract premium kept (no ×100: DB stores dollar amount per contract)
+          pnl = pos.premium_collected * pos.contracts
         } else if (pos.closing_price !== null) {
-          pnl = (pos.premium_collected - pos.closing_price) * pos.contracts * 100
+          // Closed manually — net of buyback cost
+          pnl = (pos.premium_collected - pos.closing_price) * pos.contracts
         } else {
-          // Assigned — premium kept as income
-          pnl = pos.premium_collected * pos.contracts * 100
+          // Assigned — keep premium as income
+          pnl = pos.premium_collected * pos.contracts
         }
 
         pnl = Math.round(pnl * 100) / 100
@@ -131,7 +133,7 @@ export function useMonthlyPnL() {
         const openPremium = (openPositions ?? []).reduce((sum: number, pos: any) => {
           const expiryMonth = pos.expiry?.slice(0, 7)
           if (expiryMonth === currentMonthKey) {
-            return sum + (pos.premium_collected * pos.contracts * 100)
+            return sum + (pos.premium_collected * pos.contracts)
           }
           return sum
         }, 0)
