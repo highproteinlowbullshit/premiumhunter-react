@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import {
   BarChart,
   Bar,
@@ -9,7 +9,6 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from 'recharts'
-import { toPng } from 'html-to-image'
 import { useMonthlyPnL, type MonthlyPnLData } from '../hooks/useMonthlyPnL'
 import { usePaperMode } from '../context/PaperModeContext'
 
@@ -225,10 +224,6 @@ export function MonthlyPnLChart({ compact = false }: Props) {
   const { isPaperMode } = usePaperMode()
   const [hoveredMonth, setHoveredMonth] = useState<string | null>(null)
   const [showProjected, setShowProjected] = useState(true)
-  const [shareImageUrl, setShareImageUrl] = useState<string | null>(null)
-  const [showShareModal, setShowShareModal] = useState(false)
-  const [isGenerating, setIsGenerating] = useState(false)
-  const exportRef = useRef<HTMLDivElement>(null)
 
   const cardStyle: React.CSSProperties = {
     background: 'rgba(13,27,53,0.6)',
@@ -308,45 +303,8 @@ export function MonthlyPnLChart({ compact = false }: Props) {
     isHovered: month.monthKey === hoveredMonth,
   }))
 
-  const handleShare = async () => {
-    if (!exportRef.current) return
-    setIsGenerating(true)
-    try {
-      const dataUrl = await toPng(exportRef.current, {
-        backgroundColor: '#0f1923',
-        pixelRatio: 2,
-      })
-      setShareImageUrl(dataUrl)
-      setShowShareModal(true)
-    } catch (err) {
-      console.error('Share image generation failed:', err)
-    } finally {
-      setIsGenerating(false)
-    }
-  }
-
-  const handleDownload = () => {
-    if (!shareImageUrl) return
-    const a = document.createElement('a')
-    a.href = shareImageUrl
-    a.download = `premium-income-${new Date().toISOString().slice(0, 7)}.png`
-    a.click()
-  }
-
-  const handleCopy = async () => {
-    if (!shareImageUrl) return
-    try {
-      const res = await fetch(shareImageUrl)
-      const blob = await res.blob()
-      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
-    } catch (err) {
-      console.error('Copy to clipboard failed:', err)
-    }
-  }
-
   return (
-    <>
-      <div style={cardStyle} ref={exportRef}>
+    <div style={cardStyle}>
         {/* Paper badge */}
         {isPaperMode && (
           <div style={{
@@ -395,30 +353,6 @@ export function MonthlyPnLChart({ compact = false }: Props) {
                   Show projected
                 </button>
               )}
-              <button
-                onClick={handleShare}
-                disabled={isGenerating}
-                style={{
-                  background: 'rgba(0,229,196,0.08)',
-                  border: '1px solid rgba(0,229,196,0.2)',
-                  borderRadius: 6,
-                  padding: '4px 10px',
-                  color: '#00e5c4',
-                  fontSize: 11,
-                  cursor: isGenerating ? 'default' : 'pointer',
-                  fontFamily: 'DM Sans, sans-serif',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 4,
-                  opacity: isGenerating ? 0.7 : 1,
-                }}
-              >
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                  <path d="M6 7.5V1.5M3.5 4L6 1.5 8.5 4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
-                  <path d="M2 8v2.5a.5.5 0 0 0 .5.5h7a.5.5 0 0 0 .5-.5V8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-                </svg>
-                {isGenerating ? 'Generating…' : 'Share'}
-              </button>
             </div>
           )}
         </div>
@@ -427,7 +361,7 @@ export function MonthlyPnLChart({ compact = false }: Props) {
         <ResponsiveContainer width="100%" height={chartHeight}>
           <BarChart
             data={chartData}
-            margin={{ top: 8, right: 0, left: 0, bottom: 0 }}
+            margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
             barSize={28}
             onMouseLeave={() => setHoveredMonth(null)}
           >
@@ -438,9 +372,12 @@ export function MonthlyPnLChart({ compact = false }: Props) {
             />
             <XAxis
               dataKey="month"
-              tick={{ fontSize: 11, fill: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}
+              tick={{ fontSize: 10, fill: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}
               axisLine={false}
               tickLine={false}
+              angle={-45}
+              textAnchor="end"
+              height={48}
               tickFormatter={(value, index) => {
                 const m = chartData[index]
                 if (m?.monthKey.endsWith('-01')) return value
@@ -542,15 +479,6 @@ export function MonthlyPnLChart({ compact = false }: Props) {
           </div>
         )}
 
-        {/* Share export watermark (shown in screenshot) */}
-        {!compact && (
-          <div style={{ textAlign: 'right', marginTop: 8 }}>
-            <span style={{ color: 'rgba(0,229,196,0.2)', fontSize: 10, fontFamily: 'JetBrains Mono, monospace' }}>
-              premiumhunter.xyz
-            </span>
-          </div>
-        )}
-
         {/* Paper mode banner */}
         {isPaperMode && !compact && (
           <div style={{
@@ -568,78 +496,5 @@ export function MonthlyPnLChart({ compact = false }: Props) {
         )}
       </div>
 
-      {/* Share modal */}
-      {showShareModal && shareImageUrl && (
-        <div
-          style={{
-            position: 'fixed', inset: 0, zIndex: 50,
-            background: 'rgba(0,0,0,0.8)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            padding: 16,
-          }}
-          onClick={() => setShowShareModal(false)}
-        >
-          <div
-            style={{
-              background: '#0a1628',
-              border: '1px solid rgba(0,229,196,0.15)',
-              borderRadius: 16,
-              padding: 24,
-              maxWidth: 560,
-              width: '100%',
-            }}
-            onClick={e => e.stopPropagation()}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-              <h3 style={{ color: '#e8f0fe', fontSize: 16, fontWeight: 600, fontFamily: 'Syne, sans-serif', margin: 0 }}>
-                Share your income chart
-              </h3>
-              <button
-                onClick={() => setShowShareModal(false)}
-                style={{ background: 'none', border: 'none', color: '#4a6a8a', cursor: 'pointer', fontSize: 20, lineHeight: 1, padding: 4 }}
-              >
-                ×
-              </button>
-            </div>
-
-            <div style={{ borderRadius: 8, overflow: 'hidden', marginBottom: 16 }}>
-              <img src={shareImageUrl} alt="Premium income chart" style={{ width: '100%', display: 'block' }} />
-            </div>
-
-            <p style={{ color: '#4a6a8a', fontSize: 11, fontFamily: 'DM Sans, sans-serif', textAlign: 'center', marginBottom: 16 }}>
-              Past performance is not indicative of future results.
-            </p>
-
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button
-                onClick={handleDownload}
-                style={{
-                  flex: 1, padding: '10px 0',
-                  background: 'linear-gradient(135deg, #00e5c4, #00b4d8)',
-                  border: 'none', borderRadius: 8,
-                  color: '#050d1a', fontSize: 14, fontWeight: 600,
-                  cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
-                }}
-              >
-                Download PNG
-              </button>
-              <button
-                onClick={handleCopy}
-                style={{
-                  flex: 1, padding: '10px 0',
-                  background: 'rgba(0,229,196,0.1)',
-                  border: '1px solid rgba(0,229,196,0.2)',
-                  borderRadius: 8,
-                  color: '#00e5c4', fontSize: 14, fontWeight: 500,
-                  cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
-                }}
-              >
-                Copy to Clipboard
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
   )
 }

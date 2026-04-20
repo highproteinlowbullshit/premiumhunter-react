@@ -9,6 +9,7 @@ import { useWatchlistData } from '../hooks/useMarketData';
 import { usePaperMode } from '../context/PaperModeContext';
 import { PaperDashboard } from './PaperDashboard';
 import { MonthlyPnLChart } from '../components/MonthlyPnLChart';
+import { useMonthlyPnL } from '../hooks/useMonthlyPnL';
 import type { StockTicker, IVDataPoint, WheelPosition } from '../types';
 
 export function Dashboard() {
@@ -21,6 +22,7 @@ function RealDashboard() {
   const navigate = useNavigate();
   const [mounted, setMounted] = useState(false);
   const { positions, openPositions, monthlyPnL } = usePositions();
+  const { data: monthlyData } = useMonthlyPnL();
   const { tickers } = useWatchlistContext();
   const { data: liveData, isLoading } = useWatchlistData(tickers);
 
@@ -85,11 +87,11 @@ function RealDashboard() {
             delay={100}
           />
           <StatCard
-            label="Monthly P&L"
-            value={Math.abs(monthlyPnL).toLocaleString('en-US', { maximumFractionDigits: 0 })}
-            prefix={monthlyPnL < 0 ? '-$' : '$'}
+            label="Avg Monthly"
+            value={(monthlyData?.averageMonthly ?? 0).toLocaleString('en-US', { maximumFractionDigits: 0 })}
+            prefix="$"
             icon={<PnLIcon />}
-            accentColor={monthlyPnL >= 0 ? '#00d68f' : '#ff4d6d'}
+            accentColor="#00d68f"
             delay={180}
           />
           <StatCard
@@ -101,8 +103,8 @@ function RealDashboard() {
             delay={260}
           />
           <StatCard
-            label="Premium Collected"
-            value={totalPremium.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+            label="This Year"
+            value={(monthlyData?.totalThisYear ?? 0).toLocaleString('en-US', { maximumFractionDigits: 0 })}
             prefix="$"
             icon={<PremiumIcon />}
             accentColor="#00c6f5"
