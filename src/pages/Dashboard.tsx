@@ -436,13 +436,13 @@ function WheelSummaryPanel({ openPositions, monthlyPnL, totalPremium, onNavigate
           background: monthlyPnL >= 0 ? 'rgba(0,214,143,0.06)' : 'rgba(255,77,109,0.06)',
           border: monthlyPnL >= 0 ? '1px solid rgba(0,214,143,0.12)' : '1px solid rgba(255,77,109,0.12)',
         }}>
-          <p className="text-xs mb-1" style={{ color: 'var(--ph-text-3)', fontFamily: 'DM Sans, sans-serif' }}>Open P&L</p>
+          <p className="text-xs mb-1" style={{ color: 'var(--ph-text-3)', fontFamily: 'DM Sans, sans-serif' }}>Avg Monthly (realized)</p>
           <p className="text-lg font-bold" style={{ color: monthlyPnL >= 0 ? '#00d68f' : '#ff4d6d', fontFamily: 'JetBrains Mono, monospace' }}>
             {monthlyPnL >= 0 ? '+' : '-'}${Math.abs(monthlyPnL).toFixed(0)}
           </p>
         </div>
         <div className="rounded-lg p-3" style={{ background: 'rgba(0,229,196,0.06)', border: '1px solid rgba(0,229,196,0.12)' }}>
-          <p className="text-xs mb-1" style={{ color: 'var(--ph-text-3)', fontFamily: 'DM Sans, sans-serif' }}>Premium Collected</p>
+          <p className="text-xs mb-1" style={{ color: 'var(--ph-text-3)', fontFamily: 'DM Sans, sans-serif' }}>Open Premium (locked)</p>
           <p className="text-lg font-bold" style={{ color: '#00e5c4', fontFamily: 'JetBrains Mono, monospace' }}>
             ${totalPremium.toFixed(0)}
           </p>

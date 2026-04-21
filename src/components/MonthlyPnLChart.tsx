@@ -364,6 +364,7 @@ export function MonthlyPnLChart({ compact = false }: Props) {
             margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
             barSize={28}
             onMouseLeave={() => setHoveredMonth(null)}
+            style={{ outline: 'none' }}
           >
             <CartesianGrid
               strokeDasharray="3 3"
