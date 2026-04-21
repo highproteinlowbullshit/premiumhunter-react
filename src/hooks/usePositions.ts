@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { WheelPosition, WheelStrategy, PositionStatus } from '../types';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -33,7 +34,7 @@ function dbToPosition(row: DbPosition): WheelPosition {
     expiry: row.expiry,
     // premiumCollected stored per-contract in DB → convert to total
     premiumCollected: Number(row.premium_collected) * (Number(row.contracts) || 1),
-    // currentPrice: closing price if manually closed; 0 if assigned/expired (full premium kept); 60% estimate for open
+    // currentPrice: use closing price if closed; 0 for assigned/expired (full premium kept); 60% estimate for open
     currentPrice:
       row.closing_price != null
         ? Number(row.closing_price)
@@ -63,26 +64,25 @@ type AddPositionData = {
 export function usePositions() {
   const { user } = useAuth();
   const { showToast } = useToast();
-  const [positions, setPositions] = useState<WheelPosition[]>([]);
+  const queryClient = useQueryClient();
 
-  // Load from Supabase whenever the logged-in user changes
-  useEffect(() => {
-    if (!user) {
-      setPositions([]);
-      return;
-    }
+  const qKey = ['positions', user?.id] as const;
 
-    supabase
-      .from('wheel_positions')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('opened_at', { ascending: false })
-      .then(({ data, error }) => {
-        if (!error && data) {
-          setPositions((data as DbPosition[]).map(dbToPosition));
-        }
-      });
-  }, [user?.id]);
+  const { data: positions = [], isLoading } = useQuery({
+    queryKey: qKey,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('wheel_positions')
+        .select('*')
+        .eq('user_id', user!.id)
+        .order('opened_at', { ascending: false });
+      if (error) throw error;
+      return (data as DbPosition[]).map(dbToPosition);
+    },
+    enabled: !!user,
+    staleTime: 30_000,
+    retry: 3,
+  });
 
   // ── Add position ────────────────────────────────────────────────────────────
   const addPosition = useCallback(
@@ -91,7 +91,6 @@ export function usePositions() {
       const dte = Math.max(0, Math.ceil((expDate.getTime() - Date.now()) / 86_400_000));
       const tempId = `tmp-${Date.now()}`;
 
-      // Optimistic insert with temp ID
       const optimistic: WheelPosition = {
         id: tempId,
         ticker: data.ticker.toUpperCase(),
@@ -106,7 +105,7 @@ export function usePositions() {
         contracts: data.contracts,
       };
 
-      setPositions((prev) => [optimistic, ...prev]);
+      queryClient.setQueryData(qKey, (old: WheelPosition[] = []) => [optimistic, ...old]);
 
       if (!user) return;
 
@@ -127,14 +126,14 @@ export function usePositions() {
         .single();
 
       if (error) {
-        setPositions((prev) => prev.filter((p) => p.id !== tempId));
+        queryClient.setQueryData(qKey, (old: WheelPosition[] = []) =>
+          old.filter((p) => p.id !== tempId)
+        );
         Sentry.captureException(error);
-        console.error('usePositions.addPosition error:', error);
         showToast(`Failed to save position: ${error.message}`, 'error');
       } else {
-        // Swap temp ID for the real Supabase UUID
-        setPositions((prev) =>
-          prev.map((p) => (p.id === tempId ? dbToPosition(inserted as DbPosition) : p))
+        queryClient.setQueryData(qKey, (old: WheelPosition[] = []) =>
+          old.map((p) => (p.id === tempId ? dbToPosition(inserted as DbPosition) : p))
         );
 
         // Credit premium received to cash holdings
@@ -182,13 +181,15 @@ export function usePositions() {
         showToast('Position added', 'success');
       }
     },
-    [user, showToast]
+    [user, showToast, queryClient, qKey]
   );
 
   // ── Remove (delete) position ────────────────────────────────────────────────
   const removePosition = useCallback(
     async (id: string, cashReversalAmount?: number) => {
-      setPositions((prev) => prev.filter((p) => p.id !== id)); // optimistic
+      queryClient.setQueryData(qKey, (old: WheelPosition[] = []) =>
+        old.filter((p) => p.id !== id)
+      );
 
       if (!user || id.startsWith('tmp-')) return;
 
@@ -201,6 +202,7 @@ export function usePositions() {
       if (error) {
         Sentry.captureException(error);
         showToast('Failed to remove position — refresh to sync', 'error');
+        await queryClient.invalidateQueries({ queryKey: qKey });
         return;
       }
 
@@ -236,7 +238,7 @@ export function usePositions() {
 
       showToast('Position deleted', 'success');
     },
-    [user, showToast]
+    [user, showToast, queryClient, qKey]
   );
 
   // ── Close position ──────────────────────────────────────────────────────────
@@ -244,8 +246,8 @@ export function usePositions() {
     async (id: string, closingPrice: number) => {
       const position = positions.find((p) => p.id === id);
 
-      setPositions((prev) =>
-        prev.map((p) =>
+      queryClient.setQueryData(qKey, (old: WheelPosition[] = []) =>
+        old.map((p) =>
           p.id === id
             ? { ...p, status: 'closed' as PositionStatus, currentPrice: closingPrice }
             : p
@@ -267,11 +269,11 @@ export function usePositions() {
       if (error) {
         Sentry.captureException(error);
         showToast('Failed to close position', 'error');
+        await queryClient.invalidateQueries({ queryKey: qKey });
         return;
       }
 
       // For CC closed early (Buy To Close), deduct the BTC cost from cash holdings.
-      // closingPrice is per-contract dollar value; contracts drives total outflow.
       if (position?.strategy === 'CC' && closingPrice > 0) {
         const btcCost = closingPrice * position.contracts;
 
@@ -286,10 +288,9 @@ export function usePositions() {
           .maybeSingle();
 
         if (cashRow) {
-          const newBalance = Number(cashRow.quantity) - btcCost;
           const { error: cashErr } = await supabase
             .from('portfolio_holdings')
-            .update({ quantity: newBalance })
+            .update({ quantity: Number(cashRow.quantity) - btcCost })
             .eq('id', cashRow.id);
 
           if (cashErr) {
@@ -298,8 +299,6 @@ export function usePositions() {
             return;
           }
         } else {
-          // No cash row exists — create one with a negative balance so the
-          // outflow is always recorded even if the user hasn't set up a cash holding.
           const { error: cashErr } = await supabase
             .from('portfolio_holdings')
             .insert({
@@ -323,37 +322,14 @@ export function usePositions() {
 
       showToast('Position closed', 'success');
     },
-    [user, showToast, positions]
+    [user, showToast, queryClient, qKey, positions]
   );
-
-  // ── Derived values ──────────────────────────────────────────────────────────
-  const openPositions = positions.filter((p) => p.status === 'open');
-
-  // Monthly avg P&L: total realized from closed trades ÷ months elapsed since first trade
-  const closedPositions = positions.filter((p) => p.status === 'closed');
-  const totalRealized = closedPositions.reduce(
-    (acc, p) => acc + (p.premiumCollected - p.currentPrice * p.contracts),
-    0
-  );
-  const monthlyPnL = (() => {
-    if (closedPositions.length === 0) return 0;
-    const earliest = closedPositions.reduce(
-      (min, p) => (p.openedAt < min ? p.openedAt : min),
-      closedPositions[0].openedAt
-    );
-    const monthsElapsed = Math.max(
-      1,
-      (Date.now() - new Date(earliest).getTime()) / (1000 * 60 * 60 * 24 * 30.44)
-    );
-    return totalRealized / monthsElapsed;
-  })();
 
   // ── Assign position ─────────────────────────────────────────────────────────
   const assignPosition = useCallback(
     async (id: string, data: { strategy: 'CSP' | 'CC'; ticker: string; strike: number; contracts: number; premiumCollected: number }) => {
-      // Optimistic update
-      setPositions((prev) =>
-        prev.map((p) => p.id === id ? { ...p, status: 'assigned' as PositionStatus } : p)
+      queryClient.setQueryData(qKey, (old: WheelPosition[] = []) =>
+        old.map((p) => p.id === id ? { ...p, status: 'assigned' as PositionStatus } : p)
       );
 
       if (!user || id.startsWith('tmp-')) return;
@@ -367,20 +343,16 @@ export function usePositions() {
       if (error) {
         Sentry.captureException(error);
         showToast('Failed to mark assignment', 'error');
-        setPositions((prev) =>
-          prev.map((p) => p.id === id ? { ...p, status: 'open' as PositionStatus } : p)
-        );
+        await queryClient.invalidateQueries({ queryKey: qKey });
         return;
       }
 
       if (data.strategy === 'CSP') {
-        // CSP assignment: buy shares at effective cost basis (strike − premium per share)
         const premiumPerShare = (data.premiumCollected / data.contracts) / 100;
         const effectiveBasis = Math.max(0, data.strike - premiumPerShare);
         const newQty = data.contracts * 100;
         const today = new Date().toISOString().split('T')[0];
 
-        // Check for an existing open shares holding for this ticker
         const { data: existing, error: fetchErr } = await supabase
           .from('portfolio_holdings')
           .select('id, quantity, avg_cost, notes')
@@ -397,7 +369,6 @@ export function usePositions() {
         let holdingErr;
 
         if (existing) {
-          // Merge: weighted-average cost basis across existing + newly assigned shares
           const existingQty = Number(existing.quantity);
           const existingAvg = Number(existing.avg_cost);
           const mergedQty = existingQty + newQty;
@@ -420,7 +391,6 @@ export function usePositions() {
             );
           }
         } else {
-          // No existing holding — insert a fresh row
           ({ error: holdingErr } = await supabase
             .from('portfolio_holdings')
             .insert({
@@ -444,34 +414,25 @@ export function usePositions() {
           showToast('Assigned — but failed to update shares holding. Add manually in Portfolio.', 'error');
         }
       } else {
-        // CC assignment: shares called away — user closes shares in Portfolio manually
         showToast(`Assigned — ${data.contracts * 100} ${data.ticker} shares called away at $${data.strike}`, 'success');
       }
     },
-    [user, showToast]
+    [user, showToast, queryClient, qKey]
   );
 
   // ── Edit position ───────────────────────────────────────────────────────────
   const editPosition = useCallback(
     async (id: string, data: { strike: number; expiry: string; premiumCollected: number; contracts: number }) => {
-      // Capture old total premium before optimistic update
       const oldPosition = positions.find((p) => p.id === id);
       const oldTotal = oldPosition ? oldPosition.premiumCollected : 0;
       const newTotal = data.premiumCollected * data.contracts;
       const premiumDelta = newTotal - oldTotal;
 
       const newDte = Math.max(0, Math.ceil((new Date(data.expiry).getTime() - Date.now()) / 86_400_000));
-      setPositions((prev) =>
-        prev.map((p) =>
+      queryClient.setQueryData(qKey, (old: WheelPosition[] = []) =>
+        old.map((p) =>
           p.id === id
-            ? {
-                ...p,
-                strike: data.strike,
-                expiry: data.expiry,
-                premiumCollected: newTotal,
-                contracts: data.contracts,
-                daysToExpiry: newDte,
-              }
+            ? { ...p, strike: data.strike, expiry: data.expiry, premiumCollected: newTotal, contracts: data.contracts, daysToExpiry: newDte }
             : p
         )
       );
@@ -492,10 +453,10 @@ export function usePositions() {
       if (error) {
         Sentry.captureException(error);
         showToast('Failed to update position', 'error');
+        await queryClient.invalidateQueries({ queryKey: qKey });
         return;
       }
 
-      // Reflect premium change in cash holdings if the total premium changed
       if (premiumDelta !== 0) {
         const { data: cashRow } = await supabase
           .from('portfolio_holdings')
@@ -518,7 +479,6 @@ export function usePositions() {
             return;
           }
         } else {
-          // No cash row — create one representing the premium adjustment
           const { error: cashErr } = await supabase
             .from('portfolio_holdings')
             .insert({
@@ -541,8 +501,30 @@ export function usePositions() {
 
       showToast('Position updated', 'success');
     },
-    [user, showToast, positions]
+    [user, showToast, queryClient, qKey, positions]
   );
 
-  return { positions, openPositions, monthlyPnL, addPosition, removePosition, closePosition, editPosition, assignPosition };
+  // ── Derived values ──────────────────────────────────────────────────────────
+  const openPositions = positions.filter((p) => p.status === 'open');
+
+  // Monthly avg P&L: total realized from closed trades ÷ months elapsed since first trade
+  const closedOnly = positions.filter((p) => p.status === 'closed');
+  const totalRealized = closedOnly.reduce(
+    (acc, p) => acc + (p.premiumCollected - p.currentPrice * p.contracts),
+    0
+  );
+  const monthlyPnL = (() => {
+    if (closedOnly.length === 0) return 0;
+    const earliest = closedOnly.reduce(
+      (min, p) => (p.openedAt < min ? p.openedAt : min),
+      closedOnly[0].openedAt
+    );
+    const monthsElapsed = Math.max(
+      1,
+      (Date.now() - new Date(earliest).getTime()) / (1000 * 60 * 60 * 24 * 30.44)
+    );
+    return totalRealized / monthsElapsed;
+  })();
+
+  return { positions, openPositions, monthlyPnL, isLoading, addPosition, removePosition, closePosition, editPosition, assignPosition };
 }

@@ -29,7 +29,7 @@ import { DemoBanner } from './components/DemoBanner';
 
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: { retry: 1, refetchOnWindowFocus: false },
+    queries: { retry: 3, refetchOnWindowFocus: false },
   },
 });
 

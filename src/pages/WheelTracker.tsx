@@ -29,7 +29,7 @@ function RealWheelTracker() {
   const [deletingPosition, setDeletingPosition] = useState<WheelPosition | null>(null);
   const [cashBalance, setCashBalance] = useState<number | null>(null);
   const { user } = useAuth();
-  const { positions, openPositions, monthlyPnL, addPosition, removePosition, closePosition, editPosition, assignPosition } = usePositions();
+  const { positions, openPositions, monthlyPnL, isLoading, addPosition, removePosition, closePosition, editPosition, assignPosition } = usePositions();
 
   // Build stable ticker list from open positions for WebSocket subscription
   const openTickers = useMemo(
@@ -156,14 +156,18 @@ function RealWheelTracker() {
             </h2>
             <WebSocketStatus status={wsStatus} />
           </div>
-          <PositionTable
-            positions={openPositions}
-            livePrices={livePrices}
-            onRemove={setDeletingPosition}
-            onClose={setClosingPosition}
-            onEdit={setEditingPosition}
-            onAssign={setAssigningPosition}
-          />
+          {isLoading ? (
+            <SkeletonRows />
+          ) : (
+            <PositionTable
+              positions={openPositions}
+              livePrices={livePrices}
+              onRemove={setDeletingPosition}
+              onClose={setClosingPosition}
+              onEdit={setEditingPosition}
+              onAssign={setAssigningPosition}
+            />
+          )}
         </div>
 
         {/* Closed Positions Card */}
@@ -187,11 +191,15 @@ function RealWheelTracker() {
               )}
             </div>
           </div>
-          <ClosedPositionTable
-            positions={closedPositions}
-            onEdit={setEditingPosition}
-            onRemove={setDeletingPosition}
-          />
+          {isLoading ? (
+            <SkeletonRows />
+          ) : (
+            <ClosedPositionTable
+              positions={closedPositions}
+              onEdit={setEditingPosition}
+              onRemove={setDeletingPosition}
+            />
+          )}
         </div>
       </div>
 
@@ -265,6 +273,20 @@ function RealWheelTracker() {
           }}
         />
       )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Loading skeleton
+// ─────────────────────────────────────────────────────────────────────────────
+function SkeletonRows() {
+  return (
+    <div className="space-y-2 py-2">
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="rounded-xl h-14 animate-pulse"
+          style={{ background: 'rgba(0,229,196,0.04)', animationDelay: `${i * 80}ms` }} />
+      ))}
     </div>
   );
 }
