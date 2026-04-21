@@ -358,13 +358,14 @@ export function MonthlyPnLChart({ compact = false }: Props) {
         </div>
 
         {/* Bar chart */}
+        <div style={{ outline: 'none', WebkitTapHighlightColor: 'transparent' }}>
         <ResponsiveContainer width="100%" height={chartHeight}>
           <BarChart
             data={chartData}
             margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
             barSize={28}
             onMouseLeave={() => setHoveredMonth(null)}
-            style={{ outline: 'none' }}
+            style={{ outline: 'none', WebkitTapHighlightColor: 'transparent' }}
           >
             <CartesianGrid
               strokeDasharray="3 3"
@@ -439,6 +440,7 @@ export function MonthlyPnLChart({ compact = false }: Props) {
             />
           </BarChart>
         </ResponsiveContainer>
+        </div>
 
         {/* Footer stats */}
         {!compact && (
