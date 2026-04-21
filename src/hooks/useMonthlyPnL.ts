@@ -58,14 +58,20 @@ export function useMonthlyPnL() {
         .eq('status', 'open')
 
       // Build month buckets for last 12 months
+      // Use UTC arithmetic throughout — DB timestamps are stored as UTC ISO strings,
+      // so bucket keys must also be UTC-based to avoid off-by-one-month for UTC+ timezones.
       const monthBuckets = new Map<string, MonthlyPnLData>()
 
+      const now = new Date()
+      const nowUTCYear = now.getUTCFullYear()
+      const nowUTCMonth = now.getUTCMonth() // 0-indexed
+
       for (let i = 11; i >= 0; i--) {
-        const date = new Date()
-        date.setDate(1)
-        date.setMonth(date.getMonth() - i)
-        const monthKey = date.toISOString().slice(0, 7)
-        const monthLabel = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+        let mo = nowUTCMonth - i
+        let yr = nowUTCYear
+        while (mo < 0) { mo += 12; yr-- }
+        const monthKey = `${yr}-${String(mo + 1).padStart(2, '0')}`
+        const monthLabel = new Date(Date.UTC(yr, mo, 1)).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
         const isCurrentMonth = i === 0
 
         monthBuckets.set(monthKey, {
@@ -127,7 +133,7 @@ export function useMonthlyPnL() {
       })
 
       // Add projected open premium to current month
-      const currentMonthKey = new Date().toISOString().slice(0, 7)
+      const currentMonthKey = `${nowUTCYear}-${String(nowUTCMonth + 1).padStart(2, '0')}`
       const currentBucket = monthBuckets.get(currentMonthKey)
       if (currentBucket) {
         const openPremium = (openPositions ?? []).reduce((sum: number, pos: any) => {
@@ -145,9 +151,8 @@ export function useMonthlyPnL() {
 
       const totalAllTime = months.reduce((s, m) => s + m.premiumCollected, 0)
 
-      const thisYear = new Date().getFullYear().toString()
       const totalThisYear = months
-        .filter(m => m.monthKey.startsWith(thisYear))
+        .filter(m => m.monthKey.startsWith(nowUTCYear.toString()))
         .reduce((s, m) => s + m.premiumCollected, 0)
 
       const bestMonth = months.reduce(
@@ -161,8 +166,7 @@ export function useMonthlyPnL() {
       const currentMonth = months[months.length - 1]
       const lastYearSameMonth = months.find(m => {
         const [y, mo] = m.monthKey.split('-')
-        const now = new Date()
-        return parseInt(y) === now.getFullYear() - 1 && parseInt(mo) === now.getMonth() + 1
+        return parseInt(y) === nowUTCYear - 1 && parseInt(mo) === nowUTCMonth + 1
       })
 
       const growthPercent =
