@@ -19,7 +19,7 @@ export interface IVDataPoint {
 }
 
 export type WheelStrategy = 'CSP' | 'CC';
-export type PositionStatus = 'open' | 'closed' | 'assigned';
+export type PositionStatus = 'open' | 'closed' | 'assigned' | 'expired';
 
 export interface WheelPosition {
   id: string;

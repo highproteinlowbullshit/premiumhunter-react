@@ -7,8 +7,11 @@ interface ClosedPositionTableProps {
 }
 
 function computeRealPnl(pos: WheelPosition) {
-  // premiumCollected = total collected; currentPrice = per-contract closing price
-  const closeCost = pos.currentPrice * pos.contracts;
+  // Assigned/expired: full premium kept, no buyback cost
+  const closeCost =
+    pos.status === 'assigned' || pos.status === 'expired'
+      ? 0
+      : pos.currentPrice * pos.contracts;
   const realPnl = pos.premiumCollected - closeCost;
   const capitalAtRisk = pos.strike * pos.contracts * 100;
   const returnPct = capitalAtRisk > 0 ? (realPnl / capitalAtRisk) * 100 : 0;
@@ -43,6 +46,7 @@ export function ClosedPositionTable({ positions, onEdit, onRemove }: ClosedPosit
           const { realPnl, returnPct } = computeRealPnl(pos);
           const pnlColor = realPnl >= 0 ? '#00d68f' : '#ff4d6d';
           const isAssigned = pos.status === 'assigned';
+          const isExpired = pos.status === 'expired';
 
           return (
             <div key={pos.id} className="rounded-xl p-4"
@@ -70,6 +74,12 @@ export function ClosedPositionTable({ positions, onEdit, onRemove }: ClosedPosit
                   <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold"
                     style={{ color: '#f5c842', background: 'rgba(245,200,66,0.1)', border: '1px solid rgba(245,200,66,0.2)', fontFamily: 'JetBrains Mono, monospace' }}>
                     ASSIGNED
+                  </span>
+                )}
+                {isExpired && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold"
+                    style={{ color: '#00d68f', background: 'rgba(0,214,143,0.08)', border: '1px solid rgba(0,214,143,0.2)', fontFamily: 'JetBrains Mono, monospace' }}>
+                    EXPIRED
                   </span>
                 )}
               </div>
@@ -151,6 +161,7 @@ export function ClosedPositionTable({ positions, onEdit, onRemove }: ClosedPosit
               const { realPnl, closeCost, returnPct } = computeRealPnl(pos);
               const pnlColor = realPnl >= 0 ? '#00d68f' : '#ff4d6d';
               const isAssigned = pos.status === 'assigned';
+              const isExpired = pos.status === 'expired';
 
               return (
                 <tr
@@ -185,6 +196,12 @@ export function ClosedPositionTable({ positions, onEdit, onRemove }: ClosedPosit
                         <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold"
                           style={{ color: '#f5c842', background: 'rgba(245,200,66,0.08)', border: '1px solid rgba(245,200,66,0.2)', fontFamily: 'JetBrains Mono, monospace' }}>
                           ASSIGNED
+                        </span>
+                      )}
+                      {isExpired && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold"
+                          style={{ color: '#00d68f', background: 'rgba(0,214,143,0.06)', border: '1px solid rgba(0,214,143,0.2)', fontFamily: 'JetBrains Mono, monospace' }}>
+                          EXPIRED
                         </span>
                       )}
                     </div>

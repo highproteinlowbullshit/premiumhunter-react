@@ -64,16 +64,20 @@ function RealWheelTracker() {
   const openCCs = openPositions.filter((p) => p.strategy === 'CC');
   const lockedCollateral = openCSPs.reduce((acc, p) => acc + p.strike * p.contracts * 100, 0);
 
-  // Include assigned positions in "closed" — they're done trades with real P&L
-  const closedPositions = positions.filter((p) => p.status === 'closed' || p.status === 'assigned');
-  const wins = closedPositions.filter((p) => p.premiumCollected > p.currentPrice * p.contracts);
+  // Include assigned and expired in "closed" — they're done trades with real P&L
+  const closedPositions = positions.filter(
+    (p) => p.status === 'closed' || p.status === 'assigned' || p.status === 'expired'
+  );
+  // For assigned/expired the full premium is kept (no buyback cost)
+  const getPositionPnl = (p: (typeof closedPositions)[0]) =>
+    p.status === 'assigned' || p.status === 'expired'
+      ? p.premiumCollected
+      : p.premiumCollected - p.currentPrice * p.contracts;
+  const wins = closedPositions.filter((p) => getPositionPnl(p) > 0);
   const winRate = closedPositions.length > 0
     ? Math.round((wins.length / closedPositions.length) * 100)
     : null;
-  const totalRealizedPnl = closedPositions.reduce(
-    (acc, p) => acc + (p.premiumCollected - p.currentPrice * p.contracts),
-    0,
-  );
+  const totalRealizedPnl = closedPositions.reduce((acc, p) => acc + getPositionPnl(p), 0);
 
   return (
     <div className="min-h-screen mesh-bg pt-24 pb-12 px-4 sm:px-6">

@@ -15,7 +15,7 @@ interface DbPosition {
   expiry: string;
   premium_collected: number;
   contracts: number;
-  status: 'open' | 'closed' | 'assigned';
+  status: 'open' | 'closed' | 'assigned' | 'expired';
   notes: string | null;
   opened_at: string;
   closed_at: string | null;
@@ -33,11 +33,13 @@ function dbToPosition(row: DbPosition): WheelPosition {
     expiry: row.expiry,
     // premiumCollected stored per-contract in DB → convert to total
     premiumCollected: Number(row.premium_collected) * (Number(row.contracts) || 1),
-    // currentPrice: use closing price if closed, else estimate 60% of per-contract premium
+    // currentPrice: closing price if manually closed; 0 if assigned/expired (full premium kept); 60% estimate for open
     currentPrice:
       row.closing_price != null
         ? Number(row.closing_price)
-        : Math.round(Number(row.premium_collected) * 0.6 * 100) / 100,
+        : row.status === 'assigned' || row.status === 'expired'
+          ? 0
+          : Math.round(Number(row.premium_collected) * 0.6 * 100) / 100,
     daysToExpiry: dte,
     status: row.status as PositionStatus,
     openedAt: row.opened_at.split('T')[0],
