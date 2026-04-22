@@ -519,7 +519,7 @@ function WatchlistRow({ ticker, data, isLoading, isLast, onView, onRemove, delay
       <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
         <button
           onClick={onView}
-          className="hidden sm:flex px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 opacity-0 group-hover:opacity-100 items-center"
+          className="hidden sm:flex px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 items-center"
           style={{
             background: 'rgba(0,229,196,0.08)',
             border: '1px solid rgba(0,229,196,0.15)',
@@ -531,7 +531,7 @@ function WatchlistRow({ ticker, data, isLoading, isLast, onView, onRemove, delay
         </button>
         <button
           onClick={onRemove}
-          className="w-7 h-7 rounded-lg flex items-center justify-center transition-all duration-200 sm:opacity-0 sm:group-hover:opacity-100 hover:bg-[rgba(255,77,109,0.1)]"
+          className="w-7 h-7 rounded-lg flex items-center justify-center transition-all duration-200 [@media(hover:hover)]:sm:opacity-0 [@media(hover:hover)]:sm:group-hover:opacity-100 hover:bg-[rgba(255,77,109,0.1)]"
           style={{ color: '#4a6a8a' }}
           title="Remove from watchlist"
         >
