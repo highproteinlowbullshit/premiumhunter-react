@@ -3,39 +3,28 @@ import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWatchlistContext } from '../context/WatchlistContext';
 import { getTopPicks, type TopPick } from '../lib/topPicksEngine';
+import { useScoringPreferences } from '../hooks/useScoringPreferences';
 import type { ScreenerStock } from '../lib/screenerData';
+import { SECTORS } from '../lib/screenerData';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
 const LS_KEY = 'topPicks_collapsed';
 
 function getInitialCollapsed(): boolean {
-  try {
-    return localStorage.getItem(LS_KEY) === 'true';
-  } catch {
-    return false;
-  }
+  try { return localStorage.getItem(LS_KEY) === 'true'; } catch { return false; }
 }
 
 // ── Sub-components ─────────────────────────────────────────────────────────
 
-const rankColors: Record<number, string> = {
-  1: '#f5c842',
-  2: '#9ab4d4',
-  3: '#fb923c',
-};
+const rankColors: Record<number, string> = { 1: '#f5c842', 2: '#9ab4d4', 3: '#fb923c' };
 
 function RankBadge({ rank }: { rank: number }) {
   const color = rankColors[rank] ?? '#4a6a8a';
   return (
     <div
       className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 text-xs font-bold"
-      style={{
-        background: `${color}18`,
-        border: `1px solid ${color}40`,
-        color,
-        fontFamily: 'Syne, sans-serif',
-      }}
+      style={{ background: `${color}18`, border: `1px solid ${color}40`, color, fontFamily: 'Syne, sans-serif' }}
     >
       {rank}
     </div>
@@ -45,6 +34,16 @@ function RankBadge({ rank }: { rank: number }) {
 function ScoreBar({ score, breakdown }: { score: number; breakdown: TopPick['scoreBreakdown'] }) {
   const barColor = score >= 70 ? '#00d68f' : score >= 50 ? '#f5c842' : '#ff4d6d';
   const [hovered, setHovered] = useState(false);
+
+  const rows = [
+    { label: 'IV Rank',        pts: breakdown.ivRankScore },
+    { label: 'IV/HV Ratio',    pts: breakdown.ivHvScore },
+    { label: 'Earnings Safety',pts: breakdown.earningsSafetyScore },
+    { label: 'Liquidity',      pts: breakdown.liquidityScore },
+    { label: 'Momentum',       pts: breakdown.momentumScore },
+    { label: 'Skew',           pts: breakdown.skewScore },
+    { label: 'Penalties',      pts: -breakdown.penalties },
+  ];
 
   return (
     <div
@@ -59,10 +58,7 @@ function ScoreBar({ score, breakdown }: { score: number; breakdown: TopPick['sco
     >
       <div className="flex items-center gap-2">
         <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
-          <div
-            className="h-full rounded-full transition-all duration-700"
-            style={{ width: `${score}%`, background: barColor }}
-          />
+          <div className="h-full rounded-full transition-all duration-700" style={{ width: `${score}%`, background: barColor }} />
         </div>
         <span className="text-xs tabular-nums" style={{ color: barColor, fontFamily: 'JetBrains Mono, monospace', minWidth: 40 }}>
           {score}/100
@@ -71,21 +67,10 @@ function ScoreBar({ score, breakdown }: { score: number; breakdown: TopPick['sco
       {hovered && (
         <div
           className="absolute left-0 z-10 mt-1 rounded-lg p-2.5 text-xs space-y-1"
-          style={{
-            background: 'rgba(5,13,26,0.97)',
-            border: '1px solid rgba(0,229,196,0.15)',
-            minWidth: 200,
-            boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
-          }}
+          style={{ background: 'rgba(5,13,26,0.97)', border: '1px solid rgba(0,229,196,0.15)', minWidth: 210, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}
         >
-          <p className="font-medium mb-1" style={{ color: '#e8f0fe', fontFamily: 'DM Sans, sans-serif' }}>Score breakdown</p>
-          {[
-            { label: 'IV Rank',        pts: breakdown.ivRankScore },
-            { label: 'Earnings Safety',pts: breakdown.earningsSafetyScore },
-            { label: 'Liquidity',      pts: breakdown.liquidityScore },
-            { label: 'Momentum',       pts: breakdown.momentumScore },
-            { label: 'Penalties',      pts: -breakdown.penalties },
-          ].map(({ label, pts }) => (
+          <p className="font-medium mb-1.5" style={{ color: '#e8f0fe', fontFamily: 'DM Sans, sans-serif' }}>Score breakdown</p>
+          {rows.map(({ label, pts }) => (
             <div key={label} className="flex justify-between gap-4">
               <span style={{ color: '#9ab4d4', fontFamily: 'DM Sans, sans-serif' }}>{label}</span>
               <span style={{ color: pts < 0 ? '#ff4d6d' : '#e8f0fe', fontFamily: 'JetBrains Mono, monospace' }}>
@@ -105,6 +90,7 @@ function MethodologyModal({ onClose }: { onClose: () => void }) {
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
   }, [onClose]);
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -113,11 +99,7 @@ function MethodologyModal({ onClose }: { onClose: () => void }) {
     >
       <div
         className="w-full max-w-lg rounded-2xl p-6 overflow-y-auto max-h-[80vh]"
-        style={{
-          background: 'rgba(10,22,40,0.98)',
-          border: '1px solid rgba(0,229,196,0.2)',
-          boxShadow: '0 32px 80px rgba(0,0,0,0.6)',
-        }}
+        style={{ background: 'rgba(10,22,40,0.98)', border: '1px solid rgba(0,229,196,0.2)', boxShadow: '0 32px 80px rgba(0,0,0,0.6)' }}
       >
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-base font-bold" style={{ fontFamily: 'Syne, sans-serif', color: '#e8f0fe' }}>
@@ -138,20 +120,28 @@ function MethodologyModal({ onClose }: { onClose: () => void }) {
         <div className="space-y-4 text-sm" style={{ color: '#9ab4d4', fontFamily: 'DM Sans, sans-serif', lineHeight: '1.6' }}>
           {[
             {
-              title: 'IV Rank (most important)',
-              body: 'Higher IV rank means more expensive premium. We target stocks where IV is historically elevated so you collect maximum income.',
+              title: 'IV Rank (primary signal)',
+              body: 'Higher IV rank means premium is historically expensive — you collect more for the same risk. We target stocks where IV is at elevated levels relative to the past year.',
+            },
+            {
+              title: 'IV/HV Ratio (new)',
+              body: 'Compares implied volatility to recent realised (historical) volatility. A ratio above 1.2x means the market is paying up for options versus what the stock is actually moving — ideal for premium sellers.',
             },
             {
               title: 'Earnings Safety',
-              body: 'We penalise stocks with earnings within 14 days. IV collapses after earnings announcements, destroying premium value.',
+              body: 'Stocks with earnings within 14 days are penalised heavily. IV collapses after announcements, destroying premium value if you\'re caught in an open position.',
             },
             {
-              title: 'Liquidity',
-              body: 'Higher options volume means tighter bid-ask spreads and easier fills at the price you want.',
+              title: 'Liquidity (volume + open interest)',
+              body: 'High stock volume and ATM open interest ensure tight bid-ask spreads and easy fills at the displayed price.',
             },
             {
               title: 'Price Momentum',
-              body: 'For CSPs we prefer flat or slightly rising stocks. For CCs we prefer flat stocks where you won\'t cap significant gains.',
+              body: 'CSPs prefer flat or mildly rising stocks. CCs prefer flat stocks so you don\'t cap significant gains. Strong downtrends penalise CSPs; strong uptrends penalise CCs.',
+            },
+            {
+              title: 'Put/Call Skew (new)',
+              body: 'Positive skew (puts priced above calls) boosts CSP scores — you get extra premium from market demand for downside protection. Negative skew boosts CC scores.',
             },
           ].map(({ title, body }) => (
             <div key={title}>
@@ -160,13 +150,12 @@ function MethodologyModal({ onClose }: { onClose: () => void }) {
             </div>
           ))}
 
-          <div
-            className="rounded-lg p-3 mt-2"
-            style={{ background: 'rgba(0,229,196,0.04)', border: '1px solid rgba(0,229,196,0.1)' }}
-          >
-            <p style={{ color: '#9ab4d4' }}>
-              Scores above <span style={{ color: '#00d68f' }}>60</span> are strong candidates.
-              Below <span style={{ color: '#ff4d6d' }}>40</span> means conditions are not ideal — consider waiting for better IV rank levels.
+          <div className="rounded-lg p-3 mt-2" style={{ background: 'rgba(0,229,196,0.04)', border: '1px solid rgba(0,229,196,0.1)' }}>
+            <p>
+              Strikes are calculated using Black-Scholes to target a{' '}
+              <span style={{ color: '#e8f0fe' }}>30-delta put</span> (CSP) or{' '}
+              <span style={{ color: '#e8f0fe' }}>20-delta call</span> (CC).
+              Two expiry windows are shown: the nearest 28–42 DTE and an alternative 45–56 DTE.
             </p>
           </div>
 
@@ -181,94 +170,95 @@ function MethodologyModal({ onClose }: { onClose: () => void }) {
 
 function SkeletonCard() {
   return (
-    <div
-      className="rounded-xl p-4 space-y-3"
-      style={{ background: 'rgba(0,0,0,0.15)', border: '1px solid rgba(255,255,255,0.04)' }}
-    >
+    <div className="rounded-xl p-4 space-y-3" style={{ background: 'rgba(0,0,0,0.15)', border: '1px solid rgba(255,255,255,0.04)' }}>
       {[80, 60, 90, 50, 70].map((w) => (
-        <div
-          key={w}
-          className="h-3 rounded animate-pulse"
-          style={{ width: `${w}%`, background: 'rgba(255,255,255,0.05)' }}
-        />
+        <div key={w} className="h-3 rounded animate-pulse" style={{ width: `${w}%`, background: 'rgba(255,255,255,0.05)' }} />
       ))}
     </div>
   );
 }
 
-function PickCard({
-  pick,
-  rank,
-  strategy,
-}: {
-  pick: TopPick;
-  rank: number;
-  strategy: 'CSP' | 'CC';
-}) {
+function PickCard({ pick, rank, strategy }: { pick: TopPick; rank: number; strategy: 'CSP' | 'CC' }) {
   const navigate = useNavigate();
   const { isWatched, addTicker, removeTicker } = useWatchlistContext();
   const watched = isWatched(pick.ticker);
-
   const strategyColor = strategy === 'CSP' ? '#00c6f5' : '#00e5c4';
+
+  const ivHvColor = pick.ivHvRatio != null
+    ? (pick.ivHvRatio >= 1.3 ? '#f97316' : pick.ivHvRatio >= 1.1 ? '#f5c842' : '#9ab4d4')
+    : '#4a6a8a';
+
+  const skewNote = pick.putCallSkew != null
+    ? (strategy === 'CSP'
+        ? pick.putCallSkew >= 0.03 ? '↑ Put skew elevated — premium favorable'
+          : pick.putCallSkew <= -0.03 ? '↓ Call skew dominant — puts relatively cheap'
+          : null
+        : pick.putCallSkew <= -0.03 ? '↑ Call skew elevated — premium favorable'
+          : null)
+    : null;
+
+  const momentumLabel = pick.sectorMomentum === 'bullish' ? '▲ Sector' : pick.sectorMomentum === 'bearish' ? '▼ Sector' : null;
+  const momentumColor = pick.sectorMomentum === 'bullish' ? '#00d68f' : '#ff4d6d';
 
   return (
     <div
       className="rounded-xl p-4 space-y-3"
-      style={{
-        background: 'rgba(0,0,0,0.2)',
-        border: '1px solid rgba(0,229,196,0.07)',
-        transition: 'border-color 0.2s',
-      }}
+      style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(0,229,196,0.07)', transition: 'border-color 0.2s' }}
     >
-      {/* Row 1: Rank + Ticker + Name + Sector */}
+      {/* Row 1: Rank + Ticker + Badges */}
       <div className="flex items-start gap-2.5">
         <RankBadge rank={rank} />
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span
-              className="font-bold text-sm"
-              style={{ fontFamily: 'Syne, sans-serif', color: '#e8f0fe' }}
-            >
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="font-bold text-sm" style={{ fontFamily: 'Syne, sans-serif', color: '#e8f0fe' }}>
               {pick.ticker}
             </span>
             <span
               className="text-[10px] px-1.5 py-0.5 rounded font-semibold"
-              style={{
-                color: strategyColor,
-                background: `${strategyColor}14`,
-                border: `1px solid ${strategyColor}30`,
-                fontFamily: 'JetBrains Mono, monospace',
-              }}
+              style={{ color: strategyColor, background: `${strategyColor}14`, border: `1px solid ${strategyColor}30`, fontFamily: 'JetBrains Mono, monospace' }}
             >
               {strategy === 'CSP' ? 'SELL PUT' : 'SELL CALL'}
             </span>
             <span
               className="text-[10px] px-1.5 py-0.5 rounded"
-              style={{
-                color: '#4a6a8a',
-                background: 'rgba(74,106,138,0.08)',
-                border: '1px solid rgba(74,106,138,0.15)',
-                fontFamily: 'DM Sans, sans-serif',
-              }}
+              style={{ color: '#4a6a8a', background: 'rgba(74,106,138,0.08)', border: '1px solid rgba(74,106,138,0.15)', fontFamily: 'DM Sans, sans-serif' }}
             >
               {pick.sector}
             </span>
+            {momentumLabel && (
+              <span
+                className="text-[10px] px-1.5 py-0.5 rounded font-semibold"
+                style={{ color: momentumColor, background: `${momentumColor}12`, border: `1px solid ${momentumColor}25`, fontFamily: 'JetBrains Mono, monospace' }}
+              >
+                {momentumLabel}
+              </span>
+            )}
           </div>
           <p className="text-xs mt-0.5 truncate" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
             {pick.name}
           </p>
         </div>
-        {/* IV Rank badge */}
-        <div
-          className="text-xs px-2 py-1 rounded flex-shrink-0 font-semibold tabular-nums"
-          style={{
-            color: pick.ivRank >= 70 ? '#ff4d6d' : pick.ivRank >= 50 ? '#f97316' : '#f5c842',
-            background: pick.ivRank >= 70 ? 'rgba(255,77,109,0.1)' : pick.ivRank >= 50 ? 'rgba(249,115,22,0.1)' : 'rgba(245,200,66,0.1)',
-            border: `1px solid ${pick.ivRank >= 70 ? 'rgba(255,77,109,0.2)' : pick.ivRank >= 50 ? 'rgba(249,115,22,0.2)' : 'rgba(245,200,66,0.2)'}`,
-            fontFamily: 'JetBrains Mono, monospace',
-          }}
-        >
-          IV {pick.ivRank}
+        {/* IV Rank + IV/HV badges */}
+        <div className="flex flex-col items-end gap-1">
+          <div
+            className="text-xs px-2 py-0.5 rounded flex-shrink-0 font-semibold tabular-nums"
+            style={{
+              color: pick.ivRank >= 70 ? '#ff4d6d' : pick.ivRank >= 50 ? '#f97316' : '#f5c842',
+              background: pick.ivRank >= 70 ? 'rgba(255,77,109,0.1)' : pick.ivRank >= 50 ? 'rgba(249,115,22,0.1)' : 'rgba(245,200,66,0.1)',
+              border: `1px solid ${pick.ivRank >= 70 ? 'rgba(255,77,109,0.2)' : pick.ivRank >= 50 ? 'rgba(249,115,22,0.2)' : 'rgba(245,200,66,0.2)'}`,
+              fontFamily: 'JetBrains Mono, monospace',
+            }}
+          >
+            IV {pick.ivRank}
+          </div>
+          {pick.ivHvRatio != null && (
+            <div
+              className="text-[10px] px-1.5 py-0.5 rounded flex-shrink-0 font-semibold tabular-nums"
+              style={{ color: ivHvColor, background: `${ivHvColor}12`, border: `1px solid ${ivHvColor}28`, fontFamily: 'JetBrains Mono, monospace' }}
+            >
+              {pick.ivHvRatio.toFixed(2)}x IV/HV
+            </div>
+          )}
         </div>
       </div>
 
@@ -280,19 +270,56 @@ function PickCard({
         <ScoreBar score={pick.score} breakdown={pick.scoreBreakdown} />
       </div>
 
-      {/* Row 3: Strike / Expiry / Premium */}
-      <div className="grid grid-cols-3 gap-2">
-        {[
-          { label: 'Strike', value: `$${pick.suggestedStrike.toFixed(2)}` },
-          { label: 'Expiry', value: pick.suggestedExpiry.split(' (')[0] },
-          { label: 'Premium/contract', value: `$${(pick.estimatedPremium * 100).toFixed(2)}` },
-        ].map(({ label, value }) => (
-          <div key={label}>
-            <p className="text-[10px] mb-0.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>{label}</p>
-            <p className="text-xs font-medium" style={{ color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace' }}>{value}</p>
-          </div>
-        ))}
+      {/* Row 3: Strike / Expiry / Premium — near DTE */}
+      <div>
+        <p className="text-[10px] mb-1.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
+          Near expiry · {pick.suggestedExpiry.match(/\(.*\)/)?.[0] ?? ''}
+        </p>
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            { label: 'Strike', value: `$${pick.suggestedStrike.toFixed(2)}` },
+            { label: 'Expiry', value: pick.suggestedExpiry.split(' (')[0] },
+            { label: 'Premium/contract', value: `$${(pick.estimatedPremium * 100).toFixed(2)}` },
+          ].map(({ label, value }) => (
+            <div key={label}>
+              <p className="text-[10px] mb-0.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>{label}</p>
+              <p className="text-xs font-medium" style={{ color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace' }}>{value}</p>
+            </div>
+          ))}
+        </div>
       </div>
+
+      {/* Row 3b: Alt expiry */}
+      {pick.suggestedExpiry2 && pick.estimatedPremium2 != null && (
+        <div
+          className="rounded-lg px-3 py-2"
+          style={{ background: 'rgba(0,229,196,0.03)', border: '1px solid rgba(0,229,196,0.07)' }}
+        >
+          <p className="text-[10px] mb-1" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
+            Alt expiry · {pick.suggestedExpiry2.match(/\(.*\)/)?.[0] ?? ''}
+          </p>
+          <div className="flex gap-4">
+            <div>
+              <p className="text-[10px]" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>Strike</p>
+              <p className="text-xs font-medium" style={{ color: '#9ab4d4', fontFamily: 'JetBrains Mono, monospace' }}>
+                ${(pick.suggestedStrike2 ?? 0).toFixed(2)}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px]" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>Expiry</p>
+              <p className="text-xs font-medium" style={{ color: '#9ab4d4', fontFamily: 'JetBrains Mono, monospace' }}>
+                {pick.suggestedExpiry2.split(' (')[0]}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px]" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>Premium</p>
+              <p className="text-xs font-medium" style={{ color: '#9ab4d4', fontFamily: 'JetBrains Mono, monospace' }}>
+                ${(pick.estimatedPremium2 * 100).toFixed(2)}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Row 4: Annual return + Capital */}
       <div className="flex items-end justify-between">
@@ -317,7 +344,14 @@ function PickCard({
         </div>
       </div>
 
-      {/* Row 5: Reasoning */}
+      {/* Skew note */}
+      {skewNote && (
+        <p className="text-[10px]" style={{ color: strategy === 'CSP' ? '#00d68f' : '#00e5c4', fontFamily: 'DM Sans, sans-serif' }}>
+          {skewNote}
+        </p>
+      )}
+
+      {/* Reasoning */}
       {pick.reasoning.length > 0 && (
         <ul className="space-y-1">
           {pick.reasoning.map((r, i) => (
@@ -331,7 +365,7 @@ function PickCard({
         </ul>
       )}
 
-      {/* Row 6: Warnings */}
+      {/* Warnings */}
       {pick.warnings.length > 0 && (
         <ul className="space-y-1">
           {pick.warnings.map((w, i) => (
@@ -347,17 +381,12 @@ function PickCard({
         </ul>
       )}
 
-      {/* Row 7: Actions */}
+      {/* Actions */}
       <div className="flex items-center gap-2 pt-1">
         <button
           onClick={() => navigate(`/stock/${pick.ticker}`)}
           className="flex-1 text-xs py-1.5 rounded-lg text-center font-medium transition-all duration-150"
-          style={{
-            background: 'rgba(0,229,196,0.06)',
-            border: '1px solid rgba(0,229,196,0.12)',
-            color: '#00e5c4',
-            fontFamily: 'DM Sans, sans-serif',
-          }}
+          style={{ background: 'rgba(0,229,196,0.06)', border: '1px solid rgba(0,229,196,0.12)', color: '#00e5c4', fontFamily: 'DM Sans, sans-serif' }}
         >
           View Stock
         </button>
@@ -378,6 +407,123 @@ function PickCard({
   );
 }
 
+// ── Preferences panel ──────────────────────────────────────────────────────
+
+function PreferencesPanel({
+  prefs,
+  setPrefs,
+  resetPrefs,
+  onClose,
+}: {
+  prefs: ReturnType<typeof useScoringPreferences>['prefs'];
+  setPrefs: ReturnType<typeof useScoringPreferences>['setPrefs'];
+  resetPrefs: () => void;
+  onClose: () => void;
+}) {
+  const inputStyle = {
+    background: 'rgba(5,13,26,0.8)',
+    border: '1px solid rgba(0,229,196,0.15)',
+    color: '#e8f0fe',
+    fontFamily: 'JetBrains Mono, monospace',
+    outline: 'none',
+    caretColor: '#00e5c4',
+  };
+
+  const sectorList = SECTORS.filter((s) => s !== 'All');
+
+  function toggleSector(s: string) {
+    const current = prefs.preferredSectors;
+    const next = current.includes(s) ? current.filter((x) => x !== s) : [...current, s];
+    setPrefs({ preferredSectors: next });
+  }
+
+  return (
+    <div
+      className="rounded-xl p-4 space-y-4 mb-4"
+      style={{ background: 'rgba(5,13,26,0.7)', border: '1px solid rgba(0,229,196,0.12)', backdropFilter: 'blur(8px)' }}
+    >
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-semibold" style={{ color: '#e8f0fe', fontFamily: 'DM Sans, sans-serif' }}>
+          Scoring Preferences
+        </p>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={resetPrefs}
+            className="text-[10px] px-2 py-0.5 rounded transition-opacity hover:opacity-70"
+            style={{ color: '#ff4d6d', background: 'rgba(255,77,109,0.08)', border: '1px solid rgba(255,77,109,0.2)', fontFamily: 'DM Sans, sans-serif' }}
+          >
+            Reset
+          </button>
+          <button onClick={onClose} style={{ color: '#4a6a8a' }}>
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-[10px] block mb-1" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
+            Capital per trade ($)
+          </label>
+          <input
+            type="number"
+            value={prefs.capitalPerTrade}
+            onChange={(e) => setPrefs({ capitalPerTrade: Math.max(0, Number(e.target.value)) })}
+            className="w-full px-2.5 py-1.5 rounded-lg text-xs"
+            style={inputStyle}
+            onFocus={(e) => (e.target.style.borderColor = 'rgba(0,229,196,0.35)')}
+            onBlur={(e) => (e.target.style.borderColor = 'rgba(0,229,196,0.15)')}
+          />
+        </div>
+        <div>
+          <label className="text-[10px] block mb-1" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
+            Min annual return (%)
+          </label>
+          <input
+            type="number"
+            value={prefs.minAnnualReturn}
+            onChange={(e) => setPrefs({ minAnnualReturn: Math.max(0, Number(e.target.value)) })}
+            className="w-full px-2.5 py-1.5 rounded-lg text-xs"
+            style={inputStyle}
+            onFocus={(e) => (e.target.style.borderColor = 'rgba(0,229,196,0.35)')}
+            onBlur={(e) => (e.target.style.borderColor = 'rgba(0,229,196,0.15)')}
+          />
+        </div>
+      </div>
+
+      <div>
+        <p className="text-[10px] mb-1.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
+          Preferred sectors <span style={{ color: '#2e4a6a' }}>(get score boost)</span>
+        </p>
+        <div className="flex flex-wrap gap-1.5">
+          {sectorList.map((s) => {
+            const active = prefs.preferredSectors.includes(s);
+            return (
+              <button
+                key={s}
+                onClick={() => toggleSector(s)}
+                className="text-[10px] px-2 py-0.5 rounded transition-all"
+                style={{
+                  color: active ? '#00e5c4' : '#4a6a8a',
+                  background: active ? 'rgba(0,229,196,0.1)' : 'rgba(255,255,255,0.03)',
+                  border: `1px solid ${active ? 'rgba(0,229,196,0.3)' : 'rgba(255,255,255,0.06)'}`,
+                  fontFamily: 'DM Sans, sans-serif',
+                }}
+              >
+                {s}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Panel ──────────────────────────────────────────────────────────────────
+
 function Panel({
   strategy,
   picks,
@@ -397,13 +543,8 @@ function Panel({
       {showMethodology && <MethodologyModal onClose={() => setShowMethodology(false)} />}
       <div
         className="rounded-2xl p-4 sm:p-5 flex flex-col gap-4"
-        style={{
-          background: 'rgba(13,27,53,0.6)',
-          border: '1px solid rgba(0,229,196,0.1)',
-          backdropFilter: 'blur(12px)',
-        }}
+        style={{ background: 'rgba(13,27,53,0.6)', border: '1px solid rgba(0,229,196,0.1)', backdropFilter: 'blur(12px)' }}
       >
-        {/* Panel header */}
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-2 flex-wrap">
@@ -412,19 +553,13 @@ function Panel({
               </h2>
               <span
                 className="text-[10px] px-1.5 py-0.5 rounded font-bold"
-                style={{
-                  color: strategyColor,
-                  background: `${strategyColor}14`,
-                  border: `1px solid ${strategyColor}30`,
-                  fontFamily: 'JetBrains Mono, monospace',
-                  letterSpacing: '0.06em',
-                }}
+                style={{ color: strategyColor, background: `${strategyColor}14`, border: `1px solid ${strategyColor}30`, fontFamily: 'JetBrains Mono, monospace', letterSpacing: '0.06em' }}
               >
                 {badge}
               </span>
             </div>
             <p className="text-xs mt-0.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
-              Ranked by IV rank, earnings safety, and liquidity
+              Ranked by IV rank, IV/HV ratio, skew, earnings safety &amp; liquidity
             </p>
           </div>
           <button
@@ -441,7 +576,6 @@ function Panel({
           </button>
         </div>
 
-        {/* Cards */}
         <div className="space-y-3">
           {isLoading ? (
             Array.from({ length: 5 }, (_, i) => <SkeletonCard key={i} />)
@@ -474,21 +608,21 @@ interface TopPicksSectionProps {
 
 export function TopPicksSection({ screenerData, isLoading }: TopPicksSectionProps) {
   const [collapsed, setCollapsed] = useState(getInitialCollapsed);
+  const [showPrefs, setShowPrefs] = useState(false);
+  const { prefs, setPrefs, resetPrefs } = useScoringPreferences();
 
   const qualifiedData = useMemo(
     () => screenerData.filter((s) => s.ivRank != null && s.price != null),
     [screenerData],
   );
 
-  const cspPicks = useMemo(() => getTopPicks(qualifiedData, 'CSP', 5), [qualifiedData]);
-  const ccPicks = useMemo(() => getTopPicks(qualifiedData, 'CC', 5), [qualifiedData]);
+  const cspPicks = useMemo(() => getTopPicks(qualifiedData, 'CSP', 5, prefs), [qualifiedData, prefs]);
+  const ccPicks  = useMemo(() => getTopPicks(qualifiedData, 'CC',  5, prefs), [qualifiedData, prefs]);
 
   function toggleCollapsed() {
     const next = !collapsed;
     setCollapsed(next);
-    try {
-      localStorage.setItem(LS_KEY, String(next));
-    } catch { /* non-fatal */ }
+    try { localStorage.setItem(LS_KEY, String(next)); } catch { /* non-fatal */ }
   }
 
   return (
@@ -504,47 +638,69 @@ export function TopPicksSection({ screenerData, isLoading }: TopPicksSectionProp
             Score-Ranked Picks
           </span>
         </div>
-        <button
-          onClick={toggleCollapsed}
-          aria-expanded={!collapsed}
-          className="flex items-center gap-1.5 text-xs transition-colors hover:text-[#9ab4d4]"
-          style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}
-        >
-          {collapsed ? (
-            <>
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-              Show top picks
-            </>
-          ) : (
-            <>
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                <path d="M2 8l4-4 4 4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-              Hide top picks
-            </>
-          )}
-        </button>
+        <div className="flex items-center gap-3">
+          {/* Preferences toggle */}
+          <button
+            onClick={() => setShowPrefs((p) => !p)}
+            className="flex items-center gap-1.5 text-xs transition-colors hover:text-[#9ab4d4]"
+            style={{ color: showPrefs ? '#00e5c4' : '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}
+            title="Scoring preferences"
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <circle cx="6" cy="6" r="2" stroke="currentColor" strokeWidth="1.2"/>
+              <path d="M6 1v1.5M6 9.5V11M1 6h1.5M9.5 6H11M2.6 2.6l1.1 1.1M8.3 8.3l1.1 1.1M2.6 9.4l1.1-1.1M8.3 3.7l1.1-1.1" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round"/>
+            </svg>
+            Preferences
+          </button>
+          <button
+            onClick={toggleCollapsed}
+            aria-expanded={!collapsed}
+            className="flex items-center gap-1.5 text-xs transition-colors hover:text-[#9ab4d4]"
+            style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}
+          >
+            {collapsed ? (
+              <>
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                  <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                Show picks
+              </>
+            ) : (
+              <>
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                  <path d="M2 8l4-4 4 4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                Hide picks
+              </>
+            )}
+          </button>
+        </div>
       </div>
+
+      {/* Preferences panel */}
+      {showPrefs && !collapsed && (
+        <PreferencesPanel
+          prefs={prefs}
+          setPrefs={setPrefs}
+          resetPrefs={resetPrefs}
+          onClose={() => setShowPrefs(false)}
+        />
+      )}
 
       {!collapsed && (
         <>
-          {/* Two-panel grid */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <Panel strategy="CSP" picks={cspPicks} isLoading={isLoading && screenerData.length === 0} />
-            <Panel strategy="CC" picks={ccPicks} isLoading={isLoading && screenerData.length === 0} />
+            <Panel strategy="CC"  picks={ccPicks}  isLoading={isLoading && screenerData.length === 0} />
           </div>
 
-          {/* Disclaimer */}
           <p
             className="text-xs mt-4 leading-relaxed text-center"
             style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', maxWidth: 640, margin: '16px auto 0' }}
           >
-            Top picks are generated algorithmically based on IV rank, earnings dates, and liquidity.
+            Top picks are generated algorithmically based on IV rank, IV/HV ratio, put/call skew, earnings dates, and liquidity.
             They do not constitute financial advice or trading recommendations.
             Always conduct your own research before opening any position.
-            Premium Hunter accepts no liability for trading decisions made using this tool.
           </p>
         </>
       )}

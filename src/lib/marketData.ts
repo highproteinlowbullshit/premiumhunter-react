@@ -43,6 +43,8 @@ interface SupabaseIVRow {
   prev_close: number | null;
   price_change_pct: number | null;
   volume: number | null;
+  put_call_skew: number | null;
+  atm_open_interest: number | null;
 }
 
 /** Fetch today's cached IV rows from Supabase for all tickers in STOCK_LIST.
@@ -54,7 +56,7 @@ export async function getSupabaseCachedToday(): Promise<Map<string, SupabaseIVRo
   try {
     const { data, error } = await supabase
       .from('iv_snapshots')
-      .select('ticker,iv_rank,iv_percentile,current_hv,hv_30,hv_52wk_high,hv_52wk_low,iv_hv_ratio,current_price,prev_close,price_change_pct,volume')
+      .select('ticker,iv_rank,iv_percentile,current_hv,hv_30,hv_52wk_high,hv_52wk_low,iv_hv_ratio,current_price,prev_close,price_change_pct,volume,put_call_skew,atm_open_interest')
       .eq('snapshot_date', today)
       .eq('calculation_success', true);
 
@@ -92,6 +94,8 @@ function buildScreenerFromLive(
     iv52wkLow: hv?.hv52wkLow ?? null,
     volume: hv?.volume ?? null,
     earningsDate,
+    putCallSkew: null,
+    atmOpenInterest: null,
     dataSource: 'live',
   };
 }

@@ -111,6 +111,8 @@ export function useScreenerStream(): ScreenerStreamState {
             iv52wkLow: row.hv_52wk_low,
             volume: row.volume ?? null,
             earningsDate: null,
+            putCallSkew: row.put_call_skew ?? null,
+            atmOpenInterest: row.atm_open_interest ?? null,
             dataSource: 'cached' as const,
           };
         });
@@ -154,6 +156,8 @@ export function useScreenerStream(): ScreenerStreamState {
               iv52wkLow: null,
               volume: null,
               earningsDate: null,
+              putCallSkew: null,
+              atmOpenInterest: null,
               dataSource: 'live' as const,
             } satisfies ScreenerStock;
           });
