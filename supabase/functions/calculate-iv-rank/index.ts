@@ -3,9 +3,10 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 // ── Stock list — must stay in sync with src/lib/stockList.ts ──────────────
-// 98 batches of 5 — all processed nightly via 98 separate pg_cron invocations
-// (one per minute, 11:00 PM – 12:37 AM UTC). Each invocation gets batchIndex 0–97.
-// Polygon free plan (5 req/min): each batch is one burst with no delay needed.
+// 244 batches of 2 — all processed nightly via 244 separate pg_cron invocations
+// (one per minute, 11:00 PM – 3:03 AM UTC). Each invocation gets batchIndex 0–243.
+// Polygon free plan (5 req/min): 2 tickers × 3 calls (OHLCV + 2 options) = 6 calls/batch,
+// spread safely across the minute window with built-in 429 retry handling.
 const STOCK_TICKERS = [
   // Meme / momentum (batches 0–3)
   'GME','MARA','SOFI','RIVN','COIN','HOOD','AMC','PLTR','RBLX','SNAP',
@@ -104,6 +105,8 @@ interface IVSnapshot {
   price_change_pct: number | null
   volume: number | null
   earnings_date: string | null
+  put_call_skew: number | null     // (putIV - callIV) / midIV at ATM; null if options API unavailable
+  atm_open_interest: number | null // ATM call OI + put OI; null if options API unavailable
   data_source: string
   calculation_success: boolean
   error_message: string | null
@@ -174,6 +177,95 @@ async function fetchEarningsDate(ticker: string, finnhubKey: string): Promise<st
     return match?.date ?? null
   } catch {
     return null
+  }
+}
+
+// ── Polygon: fetch ATM options snapshot (Starter plan+; free plan returns null) ──
+// Best-effort — no retries. Returns null fields if unauthorized (403), rate-limited
+// (429), or any other failure so the batch never stalls on a paid-only endpoint.
+async function fetchATMOptionsData(
+  ticker: string,
+  currentPrice: number,
+  polygonKey: string,
+): Promise<{ put_call_skew: number | null; atm_open_interest: number | null }> {
+  const NONE = { put_call_skew: null, atm_open_interest: null }
+  try {
+    // Target the nearest 21–49 DTE window (covers the ~30-DTE monthly expiry)
+    const today = new Date()
+    const expFrom = new Date(today); expFrom.setDate(expFrom.getDate() + 21)
+    const expTo   = new Date(today); expTo.setDate(expTo.getDate() + 49)
+    const expFromStr = expFrom.toISOString().split('T')[0]
+    const expToStr   = expTo.toISOString().split('T')[0]
+
+    const base = `https://api.polygon.io/v3/snapshot/options/${ticker}`
+    const params = `expiration_date_gte=${expFromStr}&expiration_date_lte=${expToStr}&limit=50`
+    const headers = { Authorization: `Bearer ${polygonKey}` }
+
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 8000)
+
+    const [callRes, putRes] = await Promise.all([
+      fetch(`${base}?contract_type=call&${params}`, { headers, signal: controller.signal }),
+      fetch(`${base}?contract_type=put&${params}`,  { headers, signal: controller.signal }),
+    ])
+    clearTimeout(timer)
+
+    // Graceful skip: free-plan 403, payment-required 402, rate-limited 429
+    if (!callRes.ok || !putRes.ok) return NONE
+
+    type OptionResult = {
+      details: { strike_price: number; expiration_date: string }
+      open_interest?: number
+      implied_volatility?: number
+    }
+
+    const [callData, putData] = await Promise.all([callRes.json(), putRes.json()])
+    const calls: OptionResult[] = callData.results ?? []
+    const puts:  OptionResult[] = putData.results ?? []
+    if (calls.length === 0 && puts.length === 0) return NONE
+
+    // Find ATM strike — closest to current price across both sides
+    const allStrikes = [
+      ...calls.map(c => c.details.strike_price),
+      ...puts.map(p => p.details.strike_price),
+    ]
+    const atmStrike = allStrikes.reduce((best, s) =>
+      Math.abs(s - currentPrice) < Math.abs(best - currentPrice) ? s : best,
+      allStrikes[0],
+    )
+    if (atmStrike == null) return NONE
+
+    // Use the earliest expiry in window for both sides
+    const allExpiries = [
+      ...calls.map(c => c.details.expiration_date),
+      ...puts.map(p => p.details.expiration_date),
+    ].sort()
+    const atmExpiry = allExpiries[0]
+    if (!atmExpiry) return NONE
+
+    const atmCall = calls.find(c => c.details.strike_price === atmStrike && c.details.expiration_date === atmExpiry)
+    const atmPut  = puts.find(p => p.details.strike_price === atmStrike && p.details.expiration_date === atmExpiry)
+
+    const callIV = atmCall?.implied_volatility ?? null
+    const putIV  = atmPut?.implied_volatility  ?? null
+    const callOI = atmCall?.open_interest ?? null
+    const putOI  = atmPut?.open_interest  ?? null
+
+    const atmOI = (callOI ?? 0) + (putOI ?? 0)
+
+    let skew: number | null = null
+    if (callIV != null && putIV != null && callIV > 0 && putIV > 0) {
+      const midIV = (callIV + putIV) / 2
+      skew = parseFloat(((putIV - callIV) / midIV).toFixed(4))
+    }
+
+    return {
+      put_call_skew: skew,
+      atm_open_interest: atmOI > 0 ? atmOI : null,
+    }
+  } catch (err) {
+    console.warn(`  Options fetch skipped for ${ticker}:`, err instanceof Error ? err.message : String(err))
+    return NONE
   }
 }
 
@@ -297,13 +389,14 @@ async function processTicker(
     current_price: null, prev_close: null,
     price_change_pct: null, volume: null,
     earnings_date: null,
+    put_call_skew: null, atm_open_interest: null,
     data_source: 'edge_function',
     calculation_success: false,
     error_message: null,
   }
 
   try {
-    // Polygon (required) + Finnhub earnings (optional) run in parallel
+    // Polygon OHLCV (required) + Finnhub earnings (optional) run in parallel
     const [ohlcv, earningsDate] = await Promise.all([
       fetchOHLCV(ticker, polygonKey),
       finnhubKey ? fetchEarningsDate(ticker, finnhubKey) : Promise.resolve(null),
@@ -314,6 +407,12 @@ async function processTicker(
       prevClose && prevClose > 0 && lastClose
         ? parseFloat((((lastClose - prevClose) / prevClose) * 100).toFixed(4))
         : null
+
+    // ATM options data — best-effort, null on free plan (403/429 handled gracefully)
+    const optionsData = lastClose
+      ? await fetchATMOptionsData(ticker, lastClose, polygonKey)
+      : { put_call_skew: null, atm_open_interest: null }
+
     return {
       ...base, ...ivData,
       current_price: lastClose,
@@ -321,6 +420,8 @@ async function processTicker(
       price_change_pct: priceChangePct,
       volume: lastVolume ? Math.round(lastVolume) : null,
       earnings_date: earningsDate,
+      put_call_skew: optionsData.put_call_skew,
+      atm_open_interest: optionsData.atm_open_interest,
       calculation_success: true,
     }
   } catch (err) {
@@ -365,13 +466,13 @@ serve(async (req) => {
   let batchIndex = 0
   try {
     const body = await req.json().catch(() => ({}))
-    if (typeof body.batchIndex === 'number' && body.batchIndex >= 0 && body.batchIndex <= 97) {
+    if (typeof body.batchIndex === 'number' && body.batchIndex >= 0 && body.batchIndex <= 243) {
       batchIndex = body.batchIndex
     }
   } catch { /* no body — default to 0 */ }
-  const tickers = STOCK_TICKERS.slice(batchIndex * 5, batchIndex * 5 + 5)
+  const tickers = STOCK_TICKERS.slice(batchIndex * 2, batchIndex * 2 + 2)
 
-  console.log(`IV rank — batch ${batchIndex}/97 (${tickers.join(', ')}) — ${new Date().toISOString()}`)
+  console.log(`IV rank — batch ${batchIndex}/243 (${tickers.join(', ')}) — ${new Date().toISOString()}`)
 
   const results: IVSnapshot[] = []
   const errors: string[] = []
@@ -394,7 +495,9 @@ serve(async (req) => {
       if (result.status === 'fulfilled') {
         results.push(result.value)
         if (result.value.calculation_success) {
-          console.log(`  ✓ ${ticker}: IV Rank ${result.value.iv_rank}, HV30 ${result.value.current_hv}%`)
+          const skewStr = result.value.put_call_skew != null ? `, skew ${result.value.put_call_skew}` : ''
+          const oiStr   = result.value.atm_open_interest != null ? `, OI ${result.value.atm_open_interest}` : ''
+          console.log(`  ✓ ${ticker}: IV Rank ${result.value.iv_rank}, HV30 ${result.value.current_hv}%${skewStr}${oiStr}`)
         } else {
           errors.push(`${ticker}: ${result.value.error_message}`)
         }
