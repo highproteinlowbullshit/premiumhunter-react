@@ -522,8 +522,8 @@ export function getTopPicks(
 
   const top = scored.slice(0, count);
 
-  const nearExpiry = findExpiry(28, 42);
-  const farExpiry = findExpiry(45, 56);
+  const nearExpiry = findExpiry(21, 49);
+  const farExpiry = findExpiry(50, 80);
 
   return top.map(({ stock, components }) => {
     const price = stock.price!;
