@@ -8,6 +8,7 @@ import { useWatchlistData } from '../hooks/useMarketData';
 import { usePaperMode } from '../context/PaperModeContext';
 import { PaperDashboard } from './PaperDashboard';
 import { MonthlyPnLChart } from '../components/MonthlyPnLChart';
+import { MonthlyTargetCompact } from '../components/MonthlyTargetTracker';
 import type { StockTicker, IVDataPoint, WheelPosition } from '../types';
 
 export function Dashboard() {
@@ -70,6 +71,9 @@ function RealDashboard() {
 
         {/* Monthly Premium Income Chart */}
         <MonthlyPnLChart />
+
+        {/* Monthly Income Target (compact) */}
+        <MonthlyTargetCompact />
 
         {/* Watchlist Grid */}
         <div className="mb-6 flex items-center justify-between">

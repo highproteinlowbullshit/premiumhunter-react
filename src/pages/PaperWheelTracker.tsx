@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { usePaperAccount, usePaperPositions, usePaperActions } from '../hooks/usePaperTrading';
 import { usePaperMode } from '../context/PaperModeContext';
 import { ResetConfirmModal } from '../components/PaperModals';
+import { MonthlyTargetTracker } from '../components/MonthlyTargetTracker';
 import { getQuote } from '../lib/finnhub';
 import type { PaperPosition, OpenPaperPositionData } from '../types';
 
@@ -129,6 +130,9 @@ export function PaperWheelTracker() {
             </div>
           </div>
         )}
+
+        {/* Monthly Income Target */}
+        <MonthlyTargetTracker />
 
         {/* Open positions */}
         <div className="rounded-2xl p-5 sm:p-6 mb-6"

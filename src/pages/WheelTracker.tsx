@@ -12,6 +12,7 @@ import { useAuth } from '../context/AuthContext';
 import type { WheelPosition, WheelStrategy } from '../types';
 import { useTradeChecklist } from '../hooks/useTradeChecklist';
 import { TradeChecklist } from '../components/TradeChecklist';
+import { MonthlyTargetTracker } from '../components/MonthlyTargetTracker';
 import type { ChecklistResult } from '../lib/tradeChecklist';
 
 export function WheelTracker() {
@@ -140,6 +141,9 @@ function RealWheelTracker() {
             </div>
           ))}
         </div>
+
+        {/* Monthly Income Target */}
+        <MonthlyTargetTracker />
 
         {/* Positions Table */}
         <div className="rounded-2xl p-5 sm:p-6"
