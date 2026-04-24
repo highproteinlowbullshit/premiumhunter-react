@@ -37,23 +37,71 @@ function countTradingDays(expiry: string): number {
   return count;
 }
 
+// ── Zone icons — SVG only, no emoji ──────────────────────────────────────────
+
+function IconToday({ color }: { color: string }) {
+  return (
+    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ flexShrink: 0 }}>
+      <circle cx="5" cy="5" r="4.5" fill={color} fillOpacity="0.9" />
+    </svg>
+  );
+}
+
+function IconWarning({ color }: { color: string }) {
+  return (
+    <svg width="11" height="10" viewBox="0 0 11 10" fill="none" style={{ flexShrink: 0 }}>
+      <path d="M5.5 1L10 9H1L5.5 1Z" stroke={color} strokeWidth="1.2" strokeLinejoin="round" fill={color} fillOpacity="0.15" />
+      <line x1="5.5" y1="4" x2="5.5" y2="6.5" stroke={color} strokeWidth="1.2" strokeLinecap="round" />
+      <circle cx="5.5" cy="7.8" r="0.5" fill={color} />
+    </svg>
+  );
+}
+
+function IconBell({ color }: { color: string }) {
+  return (
+    <svg width="10" height="11" viewBox="0 0 10 11" fill="none" style={{ flexShrink: 0 }}>
+      <path d="M5 1C5 1 2 2.5 2 5.5V7H8V5.5C8 2.5 5 1 5 1Z" stroke={color} strokeWidth="1.1" strokeLinejoin="round" fill={color} fillOpacity="0.12" />
+      <line x1="1" y1="7" x2="9" y2="7" stroke={color} strokeWidth="1.1" strokeLinecap="round" />
+      <path d="M4 7.5C4 8.05 4.45 8.5 5 8.5C5.55 8.5 6 8.05 6 7.5" stroke={color} strokeWidth="1" fill="none" />
+    </svg>
+  );
+}
+
+function IconClock({ color }: { color: string }) {
+  return (
+    <svg width="11" height="11" viewBox="0 0 11 11" fill="none" style={{ flexShrink: 0 }}>
+      <circle cx="5.5" cy="5.5" r="4.5" stroke={color} strokeWidth="1.1" fill={color} fillOpacity="0.08" />
+      <line x1="5.5" y1="3" x2="5.5" y2="5.5" stroke={color} strokeWidth="1.2" strokeLinecap="round" />
+      <line x1="5.5" y1="5.5" x2="7.5" y2="6.8" stroke={color} strokeWidth="1.2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconDot({ color }: { color: string }) {
+  return (
+    <svg width="6" height="6" viewBox="0 0 6 6" fill="none" style={{ flexShrink: 0 }}>
+      <circle cx="3" cy="3" r="2.5" fill={color} fillOpacity="0.7" />
+    </svg>
+  );
+}
+
 interface ZoneConfig {
   color: string;
   bold: boolean;
   bgColor: string | null;
   pulse: boolean;
   pulseSlow: boolean;
-  icon: string | null;
+  icon: React.ReactNode | null;
 }
 
 function getZone(dte: number, isExpired: boolean, isToday: boolean): ZoneConfig {
-  if (isExpired)  return { color: '#7f1d1d', bold: false, bgColor: null, pulse: false, pulseSlow: false, icon: null };
-  if (isToday)    return { color: '#dc2626', bold: true,  bgColor: 'rgba(220,38,38,0.15)', pulse: true,  pulseSlow: false, icon: '🔴' };
-  if (dte <= 2)   return { color: '#dc2626', bold: true,  bgColor: 'rgba(220,38,38,0.15)', pulse: true,  pulseSlow: false, icon: '⚠' };
-  if (dte <= 6)   return { color: '#ef4444', bold: true,  bgColor: 'rgba(239,68,68,0.12)', pulse: false, pulseSlow: true,  icon: '🔔' };
-  if (dte <= 13)  return { color: '#f97316', bold: true,  bgColor: 'rgba(249,115,22,0.1)', pulse: false, pulseSlow: false, icon: '⏰' };
-  if (dte <= 21)  return { color: '#f59e0b', bold: false, bgColor: null, pulse: false, pulseSlow: false, icon: '⏱' };
-  return           { color: '#9ab4d4',       bold: false, bgColor: null, pulse: false, pulseSlow: false, icon: null };
+  if (isExpired)  return { color: '#7f1d1d', bold: false, bgColor: null,                        pulse: false, pulseSlow: false, icon: null };
+  if (isToday)    return { color: '#dc2626', bold: true,  bgColor: 'rgba(220,38,38,0.15)',       pulse: true,  pulseSlow: false, icon: <IconToday color="#dc2626" /> };
+  if (dte <= 2)   return { color: '#dc2626', bold: true,  bgColor: 'rgba(220,38,38,0.15)',       pulse: true,  pulseSlow: false, icon: <IconWarning color="#dc2626" /> };
+  if (dte <= 6)   return { color: '#ef4444', bold: true,  bgColor: 'rgba(239,68,68,0.12)',       pulse: false, pulseSlow: true,  icon: <IconBell color="#ef4444" /> };
+  if (dte <= 13)  return { color: '#f97316', bold: true,  bgColor: 'rgba(249,115,22,0.1)',       pulse: false, pulseSlow: false, icon: <IconClock color="#f97316" /> };
+  if (dte <= 21)  return { color: '#f59e0b', bold: false, bgColor: null,                        pulse: false, pulseSlow: false, icon: <IconDot color="#f59e0b" /> };
+  return           { color: '#9ab4d4',       bold: false, bgColor: null,                        pulse: false, pulseSlow: false, icon: null };
 }
 
 function getZoneHint(dte: number, isToday: boolean, isExpired: boolean): string {
@@ -77,7 +125,7 @@ const pulseKeyframes = `
 @keyframes dte-pulse-slow { 0%,100%{opacity:1} 50%{opacity:0.7} }
 `;
 
-export function DTEIndicator({ expiry, compact = true }: Props) {
+export function DTEIndicator({ expiry, compact: _compact = true }: Props) {
   const [tooltip, setTooltip] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const { dte, isExpired, isToday, expiryLabel } = calculateDTE(expiry);
@@ -100,9 +148,7 @@ export function DTEIndicator({ expiry, compact = true }: Props) {
       ? { animation: 'dte-pulse-slow 1.5s ease-in-out infinite' }
       : {};
 
-  const dteLabel = isExpired ? 'EXPIRED'
-    : isToday ? 'TODAY'
-    : `${dte}d`;
+  const dteLabel = isExpired ? 'EXPIRED' : isToday ? 'TODAY' : `${dte}d`;
 
   const fullExpiry = new Date(expiry).toLocaleDateString('en-US', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
@@ -119,15 +165,13 @@ export function DTEIndicator({ expiry, compact = true }: Props) {
         >
           {/* Main DTE pill */}
           <div style={{
-            display: 'inline-flex', alignItems: 'center', gap: 3,
+            display: 'inline-flex', alignItems: 'center', gap: 4,
             background: zone.bgColor ?? 'transparent',
             borderRadius: zone.bgColor ? 5 : 0,
             padding: zone.bgColor ? '2px 6px' : 0,
             ...pulseStyle,
           }}>
-            {zone.icon && !compact && (
-              <span style={{ fontSize: 11 }}>{zone.icon}</span>
-            )}
+            {zone.icon}
             <span style={{
               fontFamily: 'JetBrains Mono, monospace',
               fontSize: 13,
@@ -135,7 +179,7 @@ export function DTEIndicator({ expiry, compact = true }: Props) {
               color: zone.color,
               textDecoration: isExpired ? 'line-through' : 'none',
             }}>
-              {zone.icon && compact ? `${zone.icon} ` : ''}{dteLabel}
+              {dteLabel}
             </span>
           </div>
           {/* Expiry date label */}
@@ -147,16 +191,11 @@ export function DTEIndicator({ expiry, compact = true }: Props) {
         {/* Tooltip */}
         {tooltip && (
           <div style={{
-            position: 'absolute',
-            top: '100%',
-            left: 0,
-            zIndex: 100,
-            marginTop: 6,
+            position: 'absolute', top: '100%', left: 0, zIndex: 100, marginTop: 6,
             width: 220,
             background: 'rgba(10,22,40,0.98)',
             border: '1px solid rgba(0,229,196,0.2)',
-            borderRadius: 10,
-            padding: '12px 14px',
+            borderRadius: 10, padding: '12px 14px',
             boxShadow: '0 16px 40px rgba(0,0,0,0.5)',
             fontFamily: 'DM Sans, sans-serif',
           }}>
