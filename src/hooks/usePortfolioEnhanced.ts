@@ -182,8 +182,9 @@ export function usePortfolioEnhanced(timeRange: EnhancedTimeRange) {
         }
       });
 
-      const totalPremiumIncome = cspPremium + ccPremium;
-      const totalRealizedPnL = totalPremiumIncome + assignmentPremium + totalGains;
+      // assignmentPremium is premium income — include it so the % split is premium vs capital gains only
+      const totalPremiumIncome = cspPremium + ccPremium + assignmentPremium;
+      const totalRealizedPnL = totalPremiumIncome + totalGains;
       const premiumPct = totalRealizedPnL > 0
         ? Math.round((totalPremiumIncome / totalRealizedPnL) * 1000) / 10
         : 100;
