@@ -13,6 +13,7 @@ import type { WheelPosition, WheelStrategy } from '../types';
 import { useTradeChecklist } from '../hooks/useTradeChecklist';
 import { TradeChecklist } from '../components/TradeChecklist';
 import { MonthlyTargetTracker } from '../components/MonthlyTargetTracker';
+import { AssignmentFlowModal } from '../components/AssignmentFlowModal';
 import type { ChecklistResult } from '../lib/tradeChecklist';
 
 export function WheelTracker() {
@@ -260,22 +261,39 @@ function RealWheelTracker() {
         />
       )}
 
-      {/* Assign Position Modal */}
+      {/* Assign Position Modal — CSP uses 3-step flow with lot creation */}
       {assigningPosition && (
-        <AssignPositionModal
-          position={assigningPosition}
-          onClose={() => setAssigningPosition(null)}
-          onConfirm={() => {
-            assignPosition(assigningPosition.id, {
-              strategy: assigningPosition.strategy,
-              ticker: assigningPosition.ticker,
-              strike: assigningPosition.strike,
-              contracts: assigningPosition.contracts,
-              premiumCollected: assigningPosition.premiumCollected,
-            });
-            setAssigningPosition(null);
-          }}
-        />
+        assigningPosition.strategy === 'CSP' ? (
+          <AssignmentFlowModal
+            position={assigningPosition}
+            onClose={() => setAssigningPosition(null)}
+            onConfirm={() => {
+              assignPosition(assigningPosition.id, {
+                strategy: assigningPosition.strategy,
+                ticker: assigningPosition.ticker,
+                strike: assigningPosition.strike,
+                contracts: assigningPosition.contracts,
+                premiumCollected: assigningPosition.premiumCollected,
+              });
+              setAssigningPosition(null);
+            }}
+          />
+        ) : (
+          <AssignPositionModal
+            position={assigningPosition}
+            onClose={() => setAssigningPosition(null)}
+            onConfirm={() => {
+              assignPosition(assigningPosition.id, {
+                strategy: assigningPosition.strategy,
+                ticker: assigningPosition.ticker,
+                strike: assigningPosition.strike,
+                contracts: assigningPosition.contracts,
+                premiumCollected: assigningPosition.premiumCollected,
+              });
+              setAssigningPosition(null);
+            }}
+          />
+        )
       )}
     </div>
   );

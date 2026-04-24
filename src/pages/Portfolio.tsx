@@ -2,58 +2,22 @@ import { useState, useRef, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePaperMode } from '../context/PaperModeContext';
 import { PaperPortfolio } from './PaperPortfolio';
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  ReferenceLine,
-} from 'recharts';
 import { usePortfolio, type HoldingWithPrice } from '../hooks/usePortfolio';
 import { usePositions } from '../hooks/usePositions';
 import { LeapsTableCells, LeapsMobileValues } from '../components/LeapsTableCells';
 import { LeapsCalculator } from '../components/LeapsCalculator';
 import { blackScholes, yearsToExpiry, estimateVolatility } from '../lib/blackScholes';
 import { getQuote } from '../lib/finnhub';
-import type { PortfolioSnapshot, HoldingType } from '../types';
+import type { HoldingType } from '../types';
 import { useRealtimePrices } from '../hooks/useRealtimePrices';
 import { WebSocketStatus } from '../components/WebSocketStatus';
+import { usePortfolioEnhanced, type EnhancedTimeRange } from '../hooks/usePortfolioEnhanced';
+import { PortfolioBenchmarkChart } from '../components/PortfolioBenchmarkChart';
+import { AssignedSharesSection } from '../components/AssignedSharesSection';
 
 type Currency = 'USD' | 'SGD';
 const SGD_FALLBACK_RATE = 1.275; // fallback if Finnhub fetch fails
 
-type RangeKey = '1W' | '1M' | '3M' | '6M' | '1Y' | 'All';
-
-const RANGES: RangeKey[] = ['1W', '1M', '3M', '6M', '1Y', 'All'];
-
-function filterSnapshotsByRange(snapshots: PortfolioSnapshot[], range: RangeKey): PortfolioSnapshot[] {
-  if (range === 'All') return snapshots;
-  const now = Date.now();
-  const msMap: Record<RangeKey, number> = {
-    '1W': 7 * 86400000,
-    '1M': 30 * 86400000,
-    '3M': 90 * 86400000,
-    '6M': 180 * 86400000,
-    '1Y': 365 * 86400000,
-    All: 0,
-  };
-  const cutoff = now - msMap[range];
-  return snapshots.filter((s) => new Date(s.snapshotDate).getTime() >= cutoff);
-}
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
-
-function formatCurrency(val: number): string {
-  if (Math.abs(val) >= 1000) {
-    return `$${(val / 1000).toFixed(1)}k`;
-  }
-  return `$${val.toFixed(0)}`;
-}
 
 function formatDollars(val: number): string {
   const abs = Math.abs(val);
@@ -83,66 +47,6 @@ function holdingTypeBadgeColor(type: HoldingType): string {
 
 function getDte(expiry: string): number {
   return Math.max(0, Math.ceil((new Date(expiry).getTime() - Date.now()) / 86400000));
-}
-
-// ── Custom Tooltip ─────────────────────────────────────────────────────────────
-
-interface TooltipPayloadEntry {
-  value: number;
-  name: string;
-  color?: string;
-}
-
-interface CustomTooltipProps {
-  active?: boolean;
-  payload?: TooltipPayloadEntry[];
-  label?: string;
-}
-
-function CustomChartTooltip({ active, payload, label }: CustomTooltipProps) {
-  if (!active || !payload || payload.length === 0) return null;
-  const value = payload.find((p) => p.name === 'portfolioValue')?.value ?? 0;
-  const cost = payload.find((p) => p.name === 'costBasis')?.value ?? 0;
-  const pnl = value - cost;
-  return (
-    <div
-      style={{
-        background: 'rgba(13,27,53,0.95)',
-        border: '1px solid rgba(0,229,196,0.15)',
-        borderRadius: 8,
-        padding: '10px 14px',
-        fontFamily: 'DM Sans, sans-serif',
-      }}
-    >
-      <div style={{ color: '#9ab4d4', fontSize: 11, marginBottom: 6 }}>{label}</div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <span style={{ color: '#9ab4d4', fontSize: 12 }}>Value:</span>
-          <span style={{ color: '#e8f0fe', fontSize: 12, fontFamily: 'JetBrains Mono, monospace' }}>
-            {formatDollars(value)}
-          </span>
-        </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <span style={{ color: '#9ab4d4', fontSize: 12 }}>Cost:</span>
-          <span style={{ color: '#e8f0fe', fontSize: 12, fontFamily: 'JetBrains Mono, monospace' }}>
-            {formatDollars(cost)}
-          </span>
-        </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <span style={{ color: '#9ab4d4', fontSize: 12 }}>P&L:</span>
-          <span
-            style={{
-              color: pnl >= 0 ? '#00d68f' : '#ff4d6d',
-              fontSize: 12,
-              fontFamily: 'JetBrains Mono, monospace',
-            }}
-          >
-            {pnl >= 0 ? '+' : ''}{formatDollars(pnl)}
-          </span>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 // ── Add Holding Modal ──────────────────────────────────────────────────────────
@@ -1182,7 +1086,6 @@ function RealPortfolio() {
   const navigate = useNavigate();
   const {
     holdingsWithPrice,
-    snapshots,
     isLoading,
     addHolding,
     closeHolding,
@@ -1195,7 +1098,7 @@ function RealPortfolio() {
   } = usePortfolio();
   const { openPositions } = usePositions();
 
-  const [range, setRange] = useState<RangeKey>('3M');
+  const [enhancedTimeRange, setEnhancedTimeRange] = useState<EnhancedTimeRange>('3M');
   const [currency, setCurrency] = useState<Currency>('USD');
   const [sgdRate, setSgdRate] = useState<number>(SGD_FALLBACK_RATE);
   const [rateLoading, setRateLoading] = useState(false);
@@ -1215,6 +1118,7 @@ function RealPortfolio() {
     [holdingsWithPrice]
   );
   const { prices: wsPrices, wsStatus } = useRealtimePrices(holdingTickers);
+  const { data: enhanced } = usePortfolioEnhanced(enhancedTimeRange);
 
   // Merge REST prices with WebSocket prices (WS takes precedence)
   const livePriceMap = useMemo(() => {
@@ -1245,14 +1149,6 @@ function RealPortfolio() {
       return acc + (livePrice * h.quantity - costBasis);
     }, 0);
   }, [holdingsWithPrice, wsPrices]);
-
-  const filteredSnapshots = filterSnapshotsByRange(snapshots, range);
-
-  const chartData = filteredSnapshots.map((s) => ({
-    date: formatDate(s.snapshotDate),
-    portfolioValue: s.totalValue,
-    costBasis: s.totalCost,
-  }));
 
   const unrealizedPnlPct = totalCost > 0 ? (unrealizedPnl / totalCost) * 100 : 0;
 
@@ -1548,129 +1444,26 @@ function RealPortfolio() {
           />
         )}
 
-        {/* Section C — P&L Chart */}
-        <div
-          style={{
-            background: 'rgba(13,27,53,0.6)',
-            border: '1px solid rgba(0,229,196,0.08)',
-            borderRadius: 12,
-            padding: '20px 24px',
-            marginBottom: 24,
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: 16,
-              flexWrap: 'wrap',
-              gap: 12,
-            }}
-          >
-            <h2
-              style={{
-                color: '#4a6a8a',
-                fontFamily: 'DM Sans, sans-serif',
-                fontSize: 12,
-                fontWeight: 600,
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
-                margin: 0,
-              }}
-            >
-              Portfolio Value History
-            </h2>
-            <div style={{ display: 'flex', gap: 4, overflowX: 'auto' }}>
-              {RANGES.map((r) => (
-                <button
-                  key={r}
-                  onClick={() => setRange(r)}
-                  style={{
-                    background: range === r ? 'rgba(0,229,196,0.12)' : 'transparent',
-                    border: `1px solid ${range === r ? 'rgba(0,229,196,0.25)' : 'rgba(0,229,196,0.08)'}`,
-                    borderRadius: 6,
-                    color: range === r ? '#00e5c4' : '#4a6a8a',
-                    fontFamily: 'DM Sans, sans-serif',
-                    fontSize: 12,
-                    fontWeight: 600,
-                    padding: '4px 10px',
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {r}
-                </button>
-              ))}
-            </div>
-          </div>
+        {/* Section C — Benchmark Chart + Attribution */}
+        <PortfolioBenchmarkChart
+          benchmark={enhanced?.benchmark ?? null}
+          attribution={enhanced?.attribution ?? null}
+          timeRange={enhancedTimeRange}
+          onTimeRangeChange={setEnhancedTimeRange}
+          isLoading={!enhanced}
+        />
 
-          {chartData.length === 0 ? (
-            <div
-              style={{
-                height: 220,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#4a6a8a',
-                fontFamily: 'DM Sans, sans-serif',
-                fontSize: 14,
-                textAlign: 'center',
-              }}
-            >
-              No history yet — portfolio value snapshots are saved each time you visit this page
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height={220}>
-              <AreaChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="portfolioGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#00e5c4" stopOpacity={0.18} />
-                    <stop offset="95%" stopColor="#00e5c4" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,229,196,0.06)" vertical={false} />
-                <XAxis
-                  dataKey="date"
-                  tick={{ fill: '#4a6a8a', fontSize: 11, fontFamily: 'DM Sans, sans-serif' }}
-                  axisLine={false}
-                  tickLine={false}
-                  interval="preserveStartEnd"
-                />
-                <YAxis
-                  tick={{ fill: '#4a6a8a', fontSize: 11, fontFamily: 'DM Sans, sans-serif' }}
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={formatCurrency}
-                  width={56}
-                />
-                <Tooltip content={<CustomChartTooltip />} />
-                <ReferenceLine y={0} stroke="rgba(0,229,196,0.1)" strokeDasharray="3 3" />
-                <Area
-                  type="monotone"
-                  dataKey="costBasis"
-                  name="costBasis"
-                  stroke="#4a6a8a"
-                  strokeWidth={1.5}
-                  strokeDasharray="4 4"
-                  fill="none"
-                  dot={false}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="portfolioValue"
-                  name="portfolioValue"
-                  stroke="#00e5c4"
-                  strokeWidth={2}
-                  fill="url(#portfolioGrad)"
-                  dot={false}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          )}
-        </div>
+        {/* Section C.5 — Assigned Shares */}
+        <AssignedSharesSection
+          activeLots={enhanced?.activeLots ?? []}
+          closedLots={enhanced?.closedLots ?? []}
+          hasAnyLots={enhanced?.hasAnyLots ?? false}
+          totalLotsPremiumCollected={enhanced?.totalLotsPremiumCollected ?? 0}
+          orphanedAssignments={enhanced?.orphanedAssignments ?? 0}
+          isLoading={!enhanced}
+        />
 
-        {/* Section C — Holdings Table */}
+        {/* Section D — Holdings Table */}
         <div
           style={{
             background: 'rgba(13,27,53,0.6)',
