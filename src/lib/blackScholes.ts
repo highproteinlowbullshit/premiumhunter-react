@@ -122,3 +122,121 @@ export const MONEYNESS_COLORS: Record<MoneynessLevel, string> = {
   'OTM':      '#ff8c42',
   'Deep OTM': '#ff4d6d',
 };
+
+// ── Assignment Probability ────────────────────────────────────────────────────
+
+export interface AssignmentProbabilityResult {
+  probability: number;
+  delta: number;
+  moneyness: number;
+  status: 'safe' | 'watch' | 'near' | 'itm' | 'assigned' | 'expired_worthless';
+  distanceToStrike: number;
+  distancePercent: number;
+  safetyBuffer: number;
+  label: string;
+  recommendation: string | null;
+}
+
+export function calculateAssignmentProbability(params: {
+  spotPrice: number;
+  strikePrice: number;
+  daysToExpiry: number;
+  impliedVolatility: number;
+  strategy: 'CSP' | 'CC';
+  riskFreeRate?: number;
+}): AssignmentProbabilityResult {
+  const { spotPrice, strikePrice, daysToExpiry, impliedVolatility, strategy, riskFreeRate = 0.045 } = params;
+
+  if (daysToExpiry <= 0) {
+    const isAssigned = strategy === 'CSP' ? spotPrice <= strikePrice : spotPrice >= strikePrice;
+    return {
+      probability: isAssigned ? 100 : 0,
+      delta: isAssigned ? (strategy === 'CSP' ? -1 : 1) : 0,
+      moneyness: spotPrice / strikePrice,
+      status: isAssigned ? 'assigned' : 'expired_worthless',
+      distanceToStrike: Math.abs(spotPrice - strikePrice),
+      distancePercent: Math.abs((spotPrice - strikePrice) / spotPrice) * 100,
+      safetyBuffer: strategy === 'CSP' ? spotPrice - strikePrice : strikePrice - spotPrice,
+      label: isAssigned ? 'Assigned' : 'Expired worthless',
+      recommendation: null,
+    };
+  }
+
+  const T = daysToExpiry / 365;
+  const result = blackScholes({
+    spotPrice,
+    strikePrice,
+    timeToExpiry: T,
+    riskFreeRate,
+    volatility: impliedVolatility,
+    optionType: strategy === 'CSP' ? 'put' : 'call',
+  });
+
+  const probability = Math.round(Math.abs(result.delta) * 1000) / 10;
+  const distanceToStrike = strategy === 'CSP' ? spotPrice - strikePrice : strikePrice - spotPrice;
+  const distancePercent = Math.round(Math.abs(distanceToStrike / spotPrice) * 10000) / 100;
+  const moneyness = spotPrice / strikePrice;
+
+  let status: AssignmentProbabilityResult['status'];
+  if (strategy === 'CSP') {
+    if (spotPrice < strikePrice) status = 'itm';
+    else if (distancePercent < 3) status = 'near';
+    else if (distancePercent < 8) status = 'watch';
+    else status = 'safe';
+  } else {
+    if (spotPrice > strikePrice) status = 'itm';
+    else if (distancePercent < 3) status = 'near';
+    else if (distancePercent < 8) status = 'watch';
+    else status = 'safe';
+  }
+
+  const labels: Record<string, string> = { safe: 'Safe', watch: 'Watch', near: 'Near strike', itm: 'In the money' };
+
+  let recommendation: string | null = null;
+  if (status === 'itm' && daysToExpiry > 7) recommendation = 'Position ITM — monitor closely, assignment likely';
+  else if (status === 'near' && daysToExpiry <= 14) recommendation = 'Near strike with low DTE — consider accepting assignment';
+  else if (status === 'watch' && daysToExpiry <= 7) recommendation = 'Watch closely — approaching strike near expiry';
+
+  return {
+    probability,
+    delta: result.delta,
+    moneyness,
+    status,
+    distanceToStrike,
+    distancePercent,
+    safetyBuffer: distanceToStrike,
+    label: labels[status],
+    recommendation,
+  };
+}
+
+export function calculateAssignmentProbabilitiesBatch(
+  positions: Array<{ id: string; ticker: string; strategy: 'CSP' | 'CC'; strike: number; expiry: string }>,
+  priceMap: Map<string, number>,
+  ivMap: Map<string, number>,
+): Map<string, AssignmentProbabilityResult> {
+  const results = new Map<string, AssignmentProbabilityResult>();
+  const today = new Date();
+
+  positions.forEach(position => {
+    const spotPrice = priceMap.get(position.ticker);
+    if (!spotPrice || spotPrice <= 0) return;
+
+    const expiryDate = new Date(position.expiry);
+    const daysToExpiry = Math.max(0, Math.ceil(
+      (expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+    ));
+
+    const iv = ivMap.get(position.ticker) ?? estimateVolatility(position.ticker);
+
+    results.set(position.id, calculateAssignmentProbability({
+      spotPrice,
+      strikePrice: position.strike,
+      daysToExpiry,
+      impliedVolatility: iv,
+      strategy: position.strategy,
+    }));
+  });
+
+  return results;
+}

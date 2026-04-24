@@ -14,6 +14,8 @@ import { useTradeChecklist } from '../hooks/useTradeChecklist';
 import { TradeChecklist } from '../components/TradeChecklist';
 import { MonthlyTargetTracker } from '../components/MonthlyTargetTracker';
 import { AssignmentFlowModal } from '../components/AssignmentFlowModal';
+import { PositionsUrgencyBanner } from '../components/PositionsUrgencyBanner';
+import { useAssignmentProbabilities } from '../hooks/useAssignmentProbabilities';
 import type { ChecklistResult } from '../lib/tradeChecklist';
 
 export function WheelTracker() {
@@ -39,6 +41,27 @@ function RealWheelTracker() {
     [openPositions]
   );
   const { prices: livePrices, wsStatus } = useRealtimePrices(openTickers);
+
+  // Assignment probabilities (uses livePrices already fetched above)
+  const { probabilities, summary: probabilitySummary } = useAssignmentProbabilities(openPositions, livePrices);
+
+  // DTE summary for urgency banner
+  const dteSummary = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return openPositions.reduce(
+      (acc, pos) => {
+        const d = new Date(pos.expiry);
+        d.setHours(0, 0, 0, 0);
+        const dte = Math.ceil((d.getTime() - today.getTime()) / 86400000);
+        if (dte === 0) acc.expiringToday++;
+        else if (dte <= 2) acc.criticalDTE++;
+        else if (dte <= 6) acc.urgentDTE++;
+        return acc;
+      },
+      { expiringToday: 0, criticalDTE: 0, urgentDTE: 0 },
+    );
+  }, [openPositions]);
 
   // Fetch cash balance from portfolio_holdings (holding_type = 'cash')
   useEffect(() => {
@@ -161,12 +184,24 @@ function RealWheelTracker() {
             </h2>
             <WebSocketStatus status={wsStatus} />
           </div>
+
+          {/* Urgency banner — hidden when everything is comfortable */}
+          {!isLoading && openPositions.length > 0 && (
+            <PositionsUrgencyBanner
+              positions={openPositions}
+              probabilities={probabilities}
+              dteSummary={dteSummary}
+            />
+          )}
+
           {isLoading ? (
             <SkeletonRows />
           ) : (
             <PositionTable
               positions={openPositions}
               livePrices={livePrices}
+              probabilities={probabilities}
+              probabilitySummary={probabilitySummary}
               onRemove={setDeletingPosition}
               onClose={setClosingPosition}
               onEdit={setEditingPosition}
