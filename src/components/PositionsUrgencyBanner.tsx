@@ -2,6 +2,76 @@ import { useState } from 'react';
 import type { AssignmentProbabilityResult } from '../lib/blackScholes';
 import type { WheelPosition } from '../types';
 
+function IconCalendar({ color }: { color: string }) {
+  return (
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ flexShrink: 0, display: 'inline', verticalAlign: 'middle' }}>
+      <rect x="1" y="2" width="10" height="9" rx="1.5" stroke={color} strokeWidth="1.1" fill={color} fillOpacity="0.1" />
+      <line x1="1" y1="5" x2="11" y2="5" stroke={color} strokeWidth="1" />
+      <line x1="4" y1="1" x2="4" y2="3.5" stroke={color} strokeWidth="1.1" strokeLinecap="round" />
+      <line x1="8" y1="1" x2="8" y2="3.5" stroke={color} strokeWidth="1.1" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconWarningBanner({ color }: { color: string }) {
+  return (
+    <svg width="13" height="12" viewBox="0 0 13 12" fill="none" style={{ flexShrink: 0, display: 'inline', verticalAlign: 'middle' }}>
+      <path d="M6.5 1.5L11.5 10.5H1.5L6.5 1.5Z" stroke={color} strokeWidth="1.2" strokeLinejoin="round" fill={color} fillOpacity="0.12" />
+      <line x1="6.5" y1="5" x2="6.5" y2="7.5" stroke={color} strokeWidth="1.2" strokeLinecap="round" />
+      <circle cx="6.5" cy="9" r="0.6" fill={color} />
+    </svg>
+  );
+}
+
+function IconBellBanner({ color }: { color: string }) {
+  return (
+    <svg width="12" height="13" viewBox="0 0 12 13" fill="none" style={{ flexShrink: 0, display: 'inline', verticalAlign: 'middle' }}>
+      <path d="M6 1C6 1 3 2.5 3 6V8H9V6C9 2.5 6 1 6 1Z" stroke={color} strokeWidth="1.1" strokeLinejoin="round" fill={color} fillOpacity="0.12" />
+      <line x1="1.5" y1="8" x2="10.5" y2="8" stroke={color} strokeWidth="1.1" strokeLinecap="round" />
+      <path d="M4.5 8.5C4.5 9.33 5.17 10 6 10C6.83 10 7.5 9.33 7.5 8.5" stroke={color} strokeWidth="1" fill="none" />
+    </svg>
+  );
+}
+
+function IconEye({ color }: { color: string }) {
+  return (
+    <svg width="14" height="10" viewBox="0 0 14 10" fill="none" style={{ flexShrink: 0, display: 'inline', verticalAlign: 'middle' }}>
+      <path d="M1 5C1 5 3 1 7 1C11 1 13 5 13 5C13 5 11 9 7 9C3 9 1 5 1 5Z" stroke={color} strokeWidth="1.1" fill={color} fillOpacity="0.1" />
+      <circle cx="7" cy="5" r="2" stroke={color} strokeWidth="1.1" fill={color} fillOpacity="0.2" />
+    </svg>
+  );
+}
+
+function IconWeek({ color }: { color: string }) {
+  return (
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ flexShrink: 0, display: 'inline', verticalAlign: 'middle' }}>
+      <rect x="1" y="2" width="10" height="9" rx="1.5" stroke={color} strokeWidth="1.1" fill={color} fillOpacity="0.08" />
+      <line x1="1" y1="5" x2="11" y2="5" stroke={color} strokeWidth="1" />
+      <line x1="4" y1="1" x2="4" y2="3.5" stroke={color} strokeWidth="1.1" strokeLinecap="round" />
+      <line x1="8" y1="1" x2="8" y2="3.5" stroke={color} strokeWidth="1.1" strokeLinecap="round" />
+      <rect x="3.5" y="6.5" width="2" height="2" rx="0.5" fill={color} fillOpacity="0.6" />
+      <rect x="6.5" y="6.5" width="2" height="2" rx="0.5" fill={color} fillOpacity="0.6" />
+    </svg>
+  );
+}
+
+function IconCheckmark({ color }: { color: string }) {
+  return (
+    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ flexShrink: 0, display: 'inline', verticalAlign: 'middle' }}>
+      <path d="M2 5L4.5 7.5L8 3" stroke={color} strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function IconAlert({ color }: { color: string }) {
+  return (
+    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ flexShrink: 0, display: 'inline', verticalAlign: 'middle' }}>
+      <line x1="5" y1="3" x2="5" y2="6" stroke={color} strokeWidth="1.3" strokeLinecap="round" />
+      <circle cx="5" cy="7.5" r="0.6" fill={color} />
+    </svg>
+  );
+}
+
 interface Props {
   positions: WheelPosition[];
   probabilities: Map<string, AssignmentProbabilityResult>;
@@ -39,7 +109,7 @@ interface BannerConfig {
   priority: string;
   bg: string;
   border: string;
-  icon: string;
+  icon: React.ReactNode;
   message: string;
   tickers: string;
   pulse?: boolean;
@@ -91,7 +161,7 @@ export function PositionsUrgencyBanner({ positions, probabilities, dteSummary: _
       priority: priorityKey,
       bg: 'rgba(220,38,38,0.12)',
       border: '1px solid rgba(220,38,38,0.3)',
-      icon: '📅',
+      icon: <IconCalendar color="#dc2626" />,
       message: `${expiringToday.length} position${expiringToday.length > 1 ? 's' : ''} expiring today — check status after close`,
       tickers: expiringToday.map(p => `${p.ticker} $${p.strike} ${p.strategy}`).join(' · '),
     };
@@ -101,7 +171,7 @@ export function PositionsUrgencyBanner({ positions, probabilities, dteSummary: _
       priority: priorityKey,
       bg: 'rgba(239,68,68,0.1)',
       border: '1px solid rgba(239,68,68,0.25)',
-      icon: '⚠',
+      icon: <IconWarningBanner color="#ef4444" />,
       message: `${itmPositions.length} position${itmPositions.length > 1 ? 's' : ''} in the money — assignment likely`,
       tickers: itmPositions.map(p => {
         const sp = probabilities.get(p.id);
@@ -115,7 +185,7 @@ export function PositionsUrgencyBanner({ positions, probabilities, dteSummary: _
       priority: priorityKey,
       bg: 'rgba(249,115,22,0.08)',
       border: '1px solid rgba(249,115,22,0.22)',
-      icon: '🔔',
+      icon: <IconBellBanner color="#f97316" />,
       message: `${criticalPositions.length} position${criticalPositions.length > 1 ? 's' : ''} within 2 days with >40% assignment probability`,
       tickers: criticalPositions.map(p => `${p.ticker} $${p.strike}`).join(' · '),
     };
@@ -125,7 +195,7 @@ export function PositionsUrgencyBanner({ positions, probabilities, dteSummary: _
       priority: priorityKey,
       bg: 'rgba(245,158,11,0.08)',
       border: '1px solid rgba(245,158,11,0.2)',
-      icon: '👁',
+      icon: <IconEye color="#f59e0b" />,
       message: `${nearPositions.length} position${nearPositions.length > 1 ? 's' : ''} approaching strike level — monitor closely`,
       tickers: nearPositions.map(p => {
         const r = probabilities.get(p.id);
@@ -138,7 +208,7 @@ export function PositionsUrgencyBanner({ positions, probabilities, dteSummary: _
       priority: priorityKey,
       bg: 'rgba(0,229,196,0.05)',
       border: '1px solid rgba(0,229,196,0.15)',
-      icon: '📆',
+      icon: <IconWeek color="#00e5c4" />,
       message: `${urgentPositions.length} position${urgentPositions.length > 1 ? 's' : ''} expiring this week — prepare for next cycle`,
       tickers: '',
     };
@@ -171,15 +241,16 @@ export function PositionsUrgencyBanner({ positions, probabilities, dteSummary: _
         display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12,
       }}>
         <div style={{ flex: 1 }}>
-          <p style={{ color: '#00e5c4', fontSize: 13, fontWeight: 600, marginBottom: 6, fontFamily: 'DM Sans, sans-serif' }}>
-            📅 Expiry Friday — Monthly options settle today
+          <p style={{ color: '#00e5c4', fontSize: 13, fontWeight: 600, marginBottom: 6, fontFamily: 'DM Sans, sans-serif', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <IconCalendar color="#00e5c4" /> Expiry Friday — Monthly options settle today
           </p>
           {expiringTodayForFriday.map(p => {
             const r = probabilities.get(p.id);
             const itm = r?.status === 'itm';
             return (
-              <div key={p.id} style={{ fontSize: 11, fontFamily: 'JetBrains Mono, monospace', marginBottom: 3, color: itm ? '#ef4444' : '#00d68f' }}>
-                {p.ticker} ${p.strike} {p.strategy} {itm ? '⚠ ITM — assignment likely' : '✓ OTM — expires worthless'}
+              <div key={p.id} style={{ fontSize: 11, fontFamily: 'JetBrains Mono, monospace', marginBottom: 3, color: itm ? '#ef4444' : '#00d68f', display: 'flex', alignItems: 'center', gap: 5 }}>
+                {itm ? <IconAlert color="#ef4444" /> : <IconCheckmark color="#00d68f" />}
+                {p.ticker} ${p.strike} {p.strategy} {itm ? 'ITM — assignment likely' : 'OTM — expires worthless'}
               </div>
             );
           })}
@@ -217,7 +288,7 @@ export function PositionsUrgencyBanner({ positions, probabilities, dteSummary: _
             animation: banner.pulse ? 'apg-pulse 2s ease-in-out infinite' : 'none',
           }}>
           <div style={{ flex: 1 }}>
-            <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 13, fontWeight: 600, color: '#e8f0fe', margin: '0 0 3px' }}>
+            <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 13, fontWeight: 600, color: '#e8f0fe', margin: '0 0 3px', display: 'flex', alignItems: 'center', gap: 6 }}>
               {banner.icon} {banner.message}
             </p>
             {banner.tickers && (

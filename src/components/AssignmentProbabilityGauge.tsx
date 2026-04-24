@@ -90,6 +90,7 @@ function CircularGauge({ probability }: { probability: number }) {
 
 export function AssignmentProbabilityGauge({ result, strategy, strike, currentPrice, compact: _compact = true }: Props) {
   const [tooltip, setTooltip] = useState(false);
+  const [tooltipPos, setTooltipPos] = useState({ top: 0, left: 0 });
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -100,6 +101,15 @@ export function AssignmentProbabilityGauge({ result, strategy, strike, currentPr
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [tooltip]);
+
+  const handleMouseEnter = () => {
+    if (ref.current) {
+      const rect = ref.current.getBoundingClientRect();
+      const left = Math.min(rect.left, window.innerWidth - 276);
+      setTooltipPos({ top: rect.bottom + 8, left });
+    }
+    setTooltip(true);
+  };
 
   // Null/loading state
   if (!result || currentPrice === null) {
@@ -133,7 +143,7 @@ export function AssignmentProbabilityGauge({ result, strategy, strike, currentPr
         {/* Compact row */}
         <div
           style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'default' }}
-          onMouseEnter={() => setTooltip(true)}
+          onMouseEnter={handleMouseEnter}
           onMouseLeave={() => setTooltip(false)}
           aria-label={`Assignment probability: ${probability}%, status: ${label}`}
           role="img"
@@ -160,11 +170,10 @@ export function AssignmentProbabilityGauge({ result, strategy, strike, currentPr
         {/* Tooltip */}
         {tooltip && (
           <div style={{
-            position: 'absolute',
-            top: '100%',
-            left: 0,
-            zIndex: 200,
-            marginTop: 8,
+            position: 'fixed',
+            top: tooltipPos.top,
+            left: tooltipPos.left,
+            zIndex: 9999,
             width: 260,
             background: 'rgba(10,22,40,0.99)',
             border: '1px solid rgba(0,229,196,0.2)',
@@ -219,8 +228,13 @@ export function AssignmentProbabilityGauge({ result, strategy, strike, currentPr
                 padding: '7px 10px', background: 'rgba(245,158,11,0.08)',
                 border: '1px solid rgba(245,158,11,0.2)', borderRadius: 7, marginBottom: 8,
               }}>
-                <p style={{ fontSize: 11, color: '#f59e0b', margin: 0, lineHeight: 1.5 }}>
-                  💡 {recommendation}
+                <p style={{ fontSize: 11, color: '#f59e0b', margin: 0, lineHeight: 1.5, display: 'flex', alignItems: 'flex-start', gap: 5 }}>
+                  <svg width="11" height="11" viewBox="0 0 11 11" fill="none" style={{ flexShrink: 0, marginTop: 1 }}>
+                    <circle cx="5.5" cy="5.5" r="4.5" stroke="#f59e0b" strokeWidth="1.1" fill="rgba(245,158,11,0.1)" />
+                    <line x1="5.5" y1="4.5" x2="5.5" y2="7.5" stroke="#f59e0b" strokeWidth="1.2" strokeLinecap="round" />
+                    <circle cx="5.5" cy="3.2" r="0.55" fill="#f59e0b" />
+                  </svg>
+                  {recommendation}
                 </p>
               </div>
             )}

@@ -127,6 +127,7 @@ const pulseKeyframes = `
 
 export function DTEIndicator({ expiry, compact: _compact = true }: Props) {
   const [tooltip, setTooltip] = useState(false);
+  const [tooltipPos, setTooltipPos] = useState({ top: 0, left: 0 });
   const ref = useRef<HTMLDivElement>(null);
   const { dte, isExpired, isToday, expiryLabel } = calculateDTE(expiry);
   const zone = getZone(dte, isExpired, isToday);
@@ -141,6 +142,15 @@ export function DTEIndicator({ expiry, compact: _compact = true }: Props) {
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [tooltip]);
+
+  const handleMouseEnter = () => {
+    if (ref.current) {
+      const rect = ref.current.getBoundingClientRect();
+      const left = Math.min(rect.left, window.innerWidth - 236);
+      setTooltipPos({ top: rect.bottom + 6, left });
+    }
+    setTooltip(true);
+  };
 
   const pulseStyle = zone.pulse
     ? { animation: 'dte-pulse 1s ease-in-out infinite' }
@@ -160,7 +170,7 @@ export function DTEIndicator({ expiry, compact: _compact = true }: Props) {
       <div ref={ref} style={{ position: 'relative', display: 'inline-block' }}>
         <div
           style={{ display: 'flex', flexDirection: 'column', gap: 1, cursor: 'default' }}
-          onMouseEnter={() => setTooltip(true)}
+          onMouseEnter={handleMouseEnter}
           onMouseLeave={() => setTooltip(false)}
         >
           {/* Main DTE pill */}
@@ -191,7 +201,7 @@ export function DTEIndicator({ expiry, compact: _compact = true }: Props) {
         {/* Tooltip */}
         {tooltip && (
           <div style={{
-            position: 'absolute', top: '100%', left: 0, zIndex: 100, marginTop: 6,
+            position: 'fixed', top: tooltipPos.top, left: tooltipPos.left, zIndex: 9999,
             width: 220,
             background: 'rgba(10,22,40,0.98)',
             border: '1px solid rgba(0,229,196,0.2)',
