@@ -289,10 +289,9 @@ function ListIcon() {
 function ScreenerIcon() {
   return (
     <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
-      <rect x="1" y="1" width="13" height="2.5" rx="1" stroke="currentColor" strokeWidth="1.1" />
-      <rect x="1" y="5.5" width="9" height="2.5" rx="1" stroke="currentColor" strokeWidth="1.1" />
-      <rect x="1" y="10" width="6" height="2.5" rx="1" stroke="currentColor" strokeWidth="1.1" />
-      <circle cx="12.5" cy="11.5" r="2" stroke="currentColor" strokeWidth="1.1" />
+      <rect x="1"   y="1.5" width="13" height="2.2" rx="1" stroke="currentColor" strokeWidth="1.1" />
+      <rect x="2.5" y="6"   width="10" height="2.2" rx="1" stroke="currentColor" strokeWidth="1.1" />
+      <rect x="4.5" y="10.5" width="6" height="2.2" rx="1" stroke="currentColor" strokeWidth="1.1" />
     </svg>
   );
 }
