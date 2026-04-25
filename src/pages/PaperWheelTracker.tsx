@@ -51,7 +51,6 @@ export function PaperWheelTracker() {
     : null;
   const openCSPs = openPositions.filter((p) => p.strategy === 'CSP');
   const openCCs = openPositions.filter((p) => p.strategy === 'CC');
-  const lockedCollateral = openCSPs.reduce((acc, p) => acc + p.strike * p.contracts * 100, 0);
   const totalOpenPremium = openPositions.reduce((acc, p) => acc + p.premiumCollected * p.contracts * 100, 0);
 
   const fadeIn = (delay = '0s') => ({
