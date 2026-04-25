@@ -154,6 +154,11 @@ export function Screener() {
 
   useEffect(() => { setMounted(true); }, []);
 
+  useEffect(() => {
+    const t = setTimeout(() => { void import('./StockDetail'); }, 1000);
+    return () => clearTimeout(t);
+  }, []);
+
   // Debounce search input 300ms
   useEffect(() => {
     clearTimeout(debounceRef.current);
