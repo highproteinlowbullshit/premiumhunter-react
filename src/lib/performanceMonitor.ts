@@ -13,7 +13,7 @@ export function measurePageLoad(): void {
       const lcp = lcpEntries.length > 0 ? (lcpEntries[lcpEntries.length - 1] as PerformanceEntry).startTime : 0;
 
       const metrics = {
-        ttfb: Math.round(nav.responseStart - nav.requestStart),
+        ttfb: Math.round(nav.responseStart - nav.fetchStart),
         fcp:  Math.round(fcp),
         lcp:  Math.round(lcp),
         domInteractive: Math.round(nav.domInteractive),
@@ -27,5 +27,5 @@ export function measurePageLoad(): void {
         console.groupEnd();
       }
     }, 0);
-  });
+  }, { once: true });
 }
