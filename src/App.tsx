@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
@@ -7,29 +7,44 @@ import { WatchlistProvider } from './context/WatchlistContext';
 import { PaperModeProvider } from './context/PaperModeContext';
 import { Navbar } from './components/Navbar';
 import { ToastContainer } from './components/Toast';
-import { LeapsCalculator } from './components/LeapsCalculator';
 import { WelcomeModal, SwitchOffListener } from './components/PaperModals';
 import { PaperBanner } from './components/PaperBanner';
 import * as Sentry from '@sentry/react';
 import { ErrorFallback } from './components/ErrorBoundary';
 import { ProtectedRoute, GuestRoute } from './components/ProtectedRoute';
-import { Dashboard } from './pages/Dashboard';
-import { Watchlist } from './pages/Watchlist';
-import { StockDetail } from './pages/StockDetail';
-import { WheelTracker } from './pages/WheelTracker';
-import { Screener } from './pages/Screener';
-import { Login } from './pages/Login';
-import { Signup } from './pages/Signup';
-import { ForgotPassword } from './pages/ForgotPassword';
-import { ResetPassword } from './pages/ResetPassword';
-import { NotFound } from './pages/NotFound';
-import { Portfolio } from './pages/Portfolio';
-import { HelpPage } from './pages/HelpPage';
 import { DemoBanner } from './components/DemoBanner';
+import { PageLoader } from './components/PageLoader';
+import { Dashboard } from './pages/Dashboard';
+
+const LeapsCalculator  = lazy(() => import('./components/LeapsCalculator').then(m => ({ default: m.LeapsCalculator })));
+const Watchlist        = lazy(() => import('./pages/Watchlist').then(m => ({ default: m.Watchlist })));
+const StockDetail      = lazy(() => import('./pages/StockDetail').then(m => ({ default: m.StockDetail })));
+const WheelTracker     = lazy(() => import('./pages/WheelTracker').then(m => ({ default: m.WheelTracker })));
+const Screener         = lazy(() => import('./pages/Screener').then(m => ({ default: m.Screener })));
+const Login            = lazy(() => import('./pages/Login').then(m => ({ default: m.Login })));
+const Signup           = lazy(() => import('./pages/Signup').then(m => ({ default: m.Signup })));
+const ForgotPassword   = lazy(() => import('./pages/ForgotPassword').then(m => ({ default: m.ForgotPassword })));
+const ResetPassword    = lazy(() => import('./pages/ResetPassword').then(m => ({ default: m.ResetPassword })));
+const NotFound         = lazy(() => import('./pages/NotFound').then(m => ({ default: m.NotFound })));
+const Portfolio        = lazy(() => import('./pages/Portfolio').then(m => ({ default: m.Portfolio })));
+const HelpPage         = lazy(() => import('./pages/HelpPage').then(m => ({ default: m.HelpPage })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: { retry: 3, refetchOnWindowFocus: false },
+    queries: {
+      staleTime: 5 * 60 * 1000,
+      gcTime: 30 * 60 * 1000,
+      refetchOnWindowFocus: false,
+      refetchOnMount: false,
+      refetchOnReconnect: true,
+      retry: 1,
+      retryDelay: 1000,
+      networkMode: 'online',
+    },
+    mutations: {
+      retry: 0,
+      networkMode: 'online',
+    },
   },
 });
 
@@ -59,32 +74,36 @@ function AppInner() {
       <Navbar
         onOpenLeapsCalc={() => setLeapsCalcOpen(true)}
       />
-      <LeapsCalculator isOpen={leapsCalcOpen} onClose={() => setLeapsCalcOpen(false)} />
+      <Suspense fallback={null}>
+        <LeapsCalculator isOpen={leapsCalcOpen} onClose={() => setLeapsCalcOpen(false)} />
+      </Suspense>
       <WelcomeModal />
       <SwitchOffListener />
       <PaperBanner />
       <ToastContainer />
       <Sentry.ErrorBoundary fallback={(props) => <ErrorFallback onReset={props.resetError} />}>
-        <Routes>
-          {/* Public */}
-          <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />
-          <Route path="/signup" element={<GuestRoute><Signup /></GuestRoute>} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/help" element={<HelpPage />} />
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
+            {/* Public */}
+            <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />
+            <Route path="/signup" element={<GuestRoute><Signup /></GuestRoute>} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/help" element={<HelpPage />} />
 
-          {/* Protected */}
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-          <Route path="/watchlist" element={<ProtectedRoute><Watchlist /></ProtectedRoute>} />
-          <Route path="/stock/:ticker" element={<ProtectedRoute><StockDetail /></ProtectedRoute>} />
-          <Route path="/wheel" element={<ProtectedRoute><WheelTracker /></ProtectedRoute>} />
-          <Route path="/screener" element={<ProtectedRoute><Screener /></ProtectedRoute>} />
-          <Route path="/portfolio" element={<ProtectedRoute><Portfolio /></ProtectedRoute>} />
+            {/* Protected */}
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            <Route path="/watchlist" element={<ProtectedRoute><Watchlist /></ProtectedRoute>} />
+            <Route path="/stock/:ticker" element={<ProtectedRoute><StockDetail /></ProtectedRoute>} />
+            <Route path="/wheel" element={<ProtectedRoute><WheelTracker /></ProtectedRoute>} />
+            <Route path="/screener" element={<ProtectedRoute><Screener /></ProtectedRoute>} />
+            <Route path="/portfolio" element={<ProtectedRoute><Portfolio /></ProtectedRoute>} />
 
-          {/* Catch-all */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+            {/* Catch-all */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </Suspense>
       </Sentry.ErrorBoundary>
       <DemoBanner />
     </div>

@@ -28,6 +28,14 @@ function RealDashboard() {
     setMounted(true);
   }, []);
 
+  useEffect(() => {
+    const t = setTimeout(() => {
+      void import('./Screener');
+      void import('./WheelTracker');
+    }, 2000);
+    return () => clearTimeout(t);
+  }, []);
+
   const totalPremium = openPositions.reduce((acc, p) => acc + p.premiumCollected, 0);
 
   const displayStocks: StockTicker[] = tickers.map((t, i) => {

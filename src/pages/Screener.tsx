@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { useNavigate } from 'react-router-dom';
 import {
   SECTORS,
@@ -146,10 +147,17 @@ export function Screener() {
   const [mounted, setMounted] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const { stocks, loadedCount, total, isLoading } = useScreenerStream();
+  const tableScrollRef = useRef<HTMLDivElement>(null);
+  const mobileScrollRef = useRef<HTMLDivElement>(null);
   const loading = isLoading && stocks.length === 0;
   const lastRun = useIVFreshness();
 
   useEffect(() => { setMounted(true); }, []);
+
+  useEffect(() => {
+    const t = setTimeout(() => { void import('./StockDetail'); }, 1000);
+    return () => clearTimeout(t);
+  }, []);
 
   // Debounce search input 300ms
   useEffect(() => {
@@ -196,6 +204,20 @@ export function Screener() {
     });
   }, [stocks, filters.ivRankMin, filters.ivRankMax, filters.priceMin, filters.priceMax,
       filters.sector, filters.sortBy, filters.sortDir, debouncedSearch]);
+
+  const desktopVirtualizer = useVirtualizer({
+    count: filtered.length,
+    getScrollElement: () => tableScrollRef.current,
+    estimateSize: () => 52,
+    overscan: 10,
+  });
+
+  const mobileVirtualizer = useVirtualizer({
+    count: filtered.length,
+    getScrollElement: () => mobileScrollRef.current,
+    estimateSize: () => 128,
+    overscan: 5,
+  });
 
   // ── Summary stats ─────────────────────────────────────────────────────────
   const stats = useMemo(() => {
@@ -289,40 +311,91 @@ export function Screener() {
                 border: '1px solid rgba(0,229,196,0.1)',
                 backdropFilter: 'blur(12px)',
               }}>
-              <div className="overflow-x-auto">
+              <div
+                ref={tableScrollRef}
+                className="overflow-x-auto"
+                style={{ maxHeight: '640px', overflowY: 'auto' }}
+              >
                 <table className="w-full" style={{ borderCollapse: 'separate', borderSpacing: 0 }}>
                   <StickyHeader filters={filters} set={set} />
-                  <tbody>
-                    {filtered.map((stock, i) => (
-                      <DesktopRow
-                        key={stock.ticker}
-                        stock={stock}
-                        isLast={i === filtered.length - 1}
-                        watched={isWatched(stock.ticker)}
-                        onToggleWatch={() => isWatched(stock.ticker) ? removeTicker(stock.ticker) : addTicker(stock.ticker)}
-                        onClick={() => navigate(`/stock/${stock.ticker}`)}
-                        isPaperMode={isPaperMode}
-                        onPaperTrade={() => setPaperTradeStock(stock)}
-                      />
-                    ))}
+                  <tbody
+                    style={{
+                      display: 'block',
+                      height: `${desktopVirtualizer.getTotalSize()}px`,
+                      position: 'relative',
+                    }}
+                  >
+                    {desktopVirtualizer.getVirtualItems().map((virtualRow) => {
+                      const stock = filtered[virtualRow.index];
+                      return (
+                        <tr
+                          key={stock.ticker}
+                          style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            width: '100%',
+                            height: `${virtualRow.size}px`,
+                            transform: `translateY(${virtualRow.start}px)`,
+                            display: 'flex',
+                            alignItems: 'center',
+                          }}
+                        >
+                          <DesktopRow
+                            stock={stock}
+                            isLast={virtualRow.index === filtered.length - 1}
+                            watched={isWatched(stock.ticker)}
+                            onToggleWatch={() => isWatched(stock.ticker) ? removeTicker(stock.ticker) : addTicker(stock.ticker)}
+                            onClick={() => navigate(`/stock/${stock.ticker}`)}
+                            isPaperMode={isPaperMode}
+                            onPaperTrade={() => setPaperTradeStock(stock)}
+                          />
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
             </div>
 
             {/* Mobile cards */}
-            <div className="md:hidden space-y-3">
-              {filtered.map((stock) => (
-                <MobileCard
-                  key={stock.ticker}
-                  stock={stock}
-                  watched={isWatched(stock.ticker)}
-                  onToggleWatch={() => isWatched(stock.ticker) ? removeTicker(stock.ticker) : addTicker(stock.ticker)}
-                  onClick={() => navigate(`/stock/${stock.ticker}`)}
-                  isPaperMode={isPaperMode}
-                  onPaperTrade={() => setPaperTradeStock(stock)}
-                />
-              ))}
+            <div
+              ref={mobileScrollRef}
+              className="md:hidden"
+              style={{ height: '80vh', overflowY: 'auto' }}
+            >
+              <div
+                style={{
+                  height: `${mobileVirtualizer.getTotalSize()}px`,
+                  position: 'relative',
+                }}
+              >
+                {mobileVirtualizer.getVirtualItems().map((virtualRow) => {
+                  const stock = filtered[virtualRow.index];
+                  return (
+                    <div
+                      key={stock.ticker}
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        transform: `translateY(${virtualRow.start}px)`,
+                        paddingBottom: 12,
+                      }}
+                    >
+                      <MobileCard
+                        stock={stock}
+                        watched={isWatched(stock.ticker)}
+                        onToggleWatch={() => isWatched(stock.ticker) ? removeTicker(stock.ticker) : addTicker(stock.ticker)}
+                        onClick={() => navigate(`/stock/${stock.ticker}`)}
+                        isPaperMode={isPaperMode}
+                        onPaperTrade={() => setPaperTradeStock(stock)}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </>
         )}

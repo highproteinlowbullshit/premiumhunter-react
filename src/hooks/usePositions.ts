@@ -73,7 +73,7 @@ export function usePositions() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('wheel_positions')
-        .select('*')
+        .select('id, ticker, strategy, strike, expiry, premium_collected, contracts, status, opened_at, closed_at, closing_price')
         .eq('user_id', user!.id)
         .order('opened_at', { ascending: false });
       if (error) throw error;
@@ -122,7 +122,7 @@ export function usePositions() {
           status: 'open',
           ...(data.checklistSnapshot ? { checklist_snapshot: data.checklistSnapshot } : {}),
         })
-        .select('*')
+        .select('id, ticker, strategy, strike, expiry, premium_collected, contracts, status, opened_at, closed_at, closing_price')
         .single();
 
       if (error) {
