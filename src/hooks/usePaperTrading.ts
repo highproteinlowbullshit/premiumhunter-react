@@ -50,7 +50,7 @@ export function usePaperAccount() {
   const load = useCallback(async () => {
     if (!user) { setAccount(null); return; }
     setIsLoading(true);
-    const { data } = await supabase.from('paper_accounts').select('*').eq('user_id', user.id).maybeSingle();
+    const { data } = await supabase.from('paper_accounts').select('id, user_id, starting_balance, current_cash, total_premium_collected, total_realized_pnl, trades_won, trades_total, created_at, reset_at').eq('user_id', user.id).maybeSingle();
     setAccount(data ? dbToAccount(data as Record<string, unknown>) : null);
     setIsLoading(false);
   }, [user]);
@@ -71,7 +71,7 @@ export function usePaperPositions() {
     setIsLoading(true);
     const { data } = await supabase
       .from('paper_positions')
-      .select('*')
+      .select('id, ticker, strategy, strike, expiry, premium_collected, contracts, underlying_price_at_entry, status, notes, opened_at, closed_at, closing_premium, realized_pnl, created_at')
       .eq('user_id', user.id)
       .order('opened_at', { ascending: false });
     const all = (data ?? []).map(dbToPosition);
@@ -140,7 +140,7 @@ export function usePaperActions() {
   const closePaperPosition = useCallback(async (id: string, closingPremium: number): Promise<void> => {
     if (!user) return;
 
-    const { data: pos } = await supabase.from('paper_positions').select('*').eq('id', id).single();
+    const { data: pos } = await supabase.from('paper_positions').select('id, ticker, strategy, strike, expiry, premium_collected, contracts, underlying_price_at_entry, status, notes, opened_at, closed_at, closing_premium, realized_pnl, created_at').eq('id', id).single();
     if (!pos) return;
 
     const position = dbToPosition(pos as Record<string, unknown>);
@@ -154,7 +154,7 @@ export function usePaperActions() {
       closed_at: new Date().toISOString(),
     }).eq('id', id);
 
-    const { data: acct } = await supabase.from('paper_accounts').select('*').eq('user_id', user.id).single();
+    const { data: acct } = await supabase.from('paper_accounts').select('id, user_id, starting_balance, current_cash, total_premium_collected, total_realized_pnl, trades_won, trades_total, created_at, reset_at').eq('user_id', user.id).single();
     const currentCash = Number(acct?.current_cash ?? 0);
     const currentPnl = Number(acct?.total_realized_pnl ?? 0);
     const currentWon = Number(acct?.trades_won ?? 0);
@@ -174,7 +174,7 @@ export function usePaperActions() {
   const expirePaperPosition = useCallback(async (id: string): Promise<void> => {
     if (!user) return;
 
-    const { data: pos } = await supabase.from('paper_positions').select('*').eq('id', id).single();
+    const { data: pos } = await supabase.from('paper_positions').select('id, ticker, strategy, strike, expiry, premium_collected, contracts, underlying_price_at_entry, status, notes, opened_at, closed_at, closing_premium, realized_pnl, created_at').eq('id', id).single();
     if (!pos) return;
 
     const position = dbToPosition(pos as Record<string, unknown>);
@@ -188,7 +188,7 @@ export function usePaperActions() {
       closed_at: new Date().toISOString(),
     }).eq('id', id);
 
-    const { data: acct } = await supabase.from('paper_accounts').select('*').eq('user_id', user.id).single();
+    const { data: acct } = await supabase.from('paper_accounts').select('id, user_id, starting_balance, current_cash, total_premium_collected, total_realized_pnl, trades_won, trades_total, created_at, reset_at').eq('user_id', user.id).single();
     await supabase.from('paper_accounts').update({
       current_cash: Number(acct?.current_cash ?? 0) + collateralReturn + realizedPnl,
       total_realized_pnl: Number(acct?.total_realized_pnl ?? 0) + realizedPnl,

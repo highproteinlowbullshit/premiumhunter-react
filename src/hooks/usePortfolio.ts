@@ -104,18 +104,18 @@ async function fetchPortfolioData(userId: string): Promise<PortfolioQueryResult>
   const [holdingsRes, snapshotsRes, closedRes, wheelRes] = await Promise.allSettled([
     supabase
       .from('portfolio_holdings')
-      .select('*')
+      .select('id, holding_type, ticker, quantity, avg_cost, closing_price, expiry, strike, notes, opened_at, closed_at, status')
       .eq('user_id', userId)
       .eq('status', 'open')
       .order('ticker', { ascending: true }),
     supabase
       .from('portfolio_snapshots')
-      .select('*')
+      .select('id, snapshot_date, total_value, total_cost, unrealized_pnl, realized_pnl, options_premium')
       .eq('user_id', userId)
       .order('snapshot_date', { ascending: true }),
     supabase
       .from('portfolio_holdings')
-      .select('*')
+      .select('id, holding_type, ticker, quantity, avg_cost, closing_price, expiry, strike, notes, opened_at, closed_at, status')
       .eq('user_id', userId)
       .eq('status', 'closed'),
     supabase
@@ -279,7 +279,7 @@ async function fetchPortfolioData(userId: string): Promise<PortfolioQueryResult>
         },
         { onConflict: 'user_id,snapshot_date' }
       )
-      .select('*')
+      .select('id, snapshot_date, total_value, total_cost, unrealized_pnl, realized_pnl, options_premium')
       .single();
 
     if (!snapErr && inserted) {

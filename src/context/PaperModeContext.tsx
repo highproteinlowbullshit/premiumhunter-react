@@ -51,7 +51,7 @@ export function PaperModeProvider({ children }: { children: ReactNode }) {
   // Fetch account
   const fetchAccount = useCallback(async () => {
     if (!user) { setPaperAccount(null); return; }
-    const { data } = await supabase.from('paper_accounts').select('*').eq('user_id', user.id).maybeSingle();
+    const { data } = await supabase.from('paper_accounts').select('id, user_id, starting_balance, current_cash, total_premium_collected, total_realized_pnl, trades_won, trades_total, created_at, reset_at').eq('user_id', user.id).maybeSingle();
     if (data) setPaperAccount(dbToAccount(data as Record<string, unknown>));
   }, [user]);
 
@@ -93,7 +93,7 @@ export function PaperModeProvider({ children }: { children: ReactNode }) {
       const { data: inserted } = await supabase
         .from('paper_accounts')
         .insert({ user_id: user.id })
-        .select('*')
+        .select('id, user_id, starting_balance, current_cash, total_premium_collected, total_realized_pnl, trades_won, trades_total, created_at, reset_at')
         .maybeSingle();
 
       if (inserted) {
