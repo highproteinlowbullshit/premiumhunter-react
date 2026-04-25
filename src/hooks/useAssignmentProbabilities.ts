@@ -48,7 +48,7 @@ export function useAssignmentProbabilities(
     const seen = new Set<string>();
     for (const row of ivRows ?? []) {
       if (!seen.has(row.ticker) && row.hv_30) {
-        map.set(row.ticker, Number(row.hv_30));
+        map.set(row.ticker, Number(row.hv_30) / 100);
         seen.add(row.ticker);
       }
     }
