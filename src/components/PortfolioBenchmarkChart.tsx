@@ -170,10 +170,10 @@ function BenchmarkView({ benchmark }: { benchmark: BenchmarkComparison | null })
     return (
       <div style={{ height: 260, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
         <p style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', fontSize: 14, textAlign: 'center' }}>
-          Not enough data for benchmark comparison.
+          Building benchmark history…
         </p>
         <p style={{ color: '#2e4a6a', fontFamily: 'DM Sans, sans-serif', fontSize: 12, textAlign: 'center' }}>
-          Requires portfolio snapshots + Polygon.io API key for SPY data.
+          Requires at least 7 days of portfolio snapshots. Visit again daily and it will populate automatically.
         </p>
       </div>
     );

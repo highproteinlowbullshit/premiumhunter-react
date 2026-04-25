@@ -74,8 +74,11 @@ export async function fetchAndCacheSPYData(
 }
 
 function nearestPrice(spyMap: Map<string, number>, date: string): number | undefined {
-  for (let i = 0; i < 5; i++) {
-    const d = new Date(new Date(date).getTime() - i * 86_400_000).toISOString().split('T')[0];
+  const base = new Date(date).getTime();
+  // Check backward 5 days, then forward 3 days (handles today's data not yet available)
+  const offsets = [-0, -1, -2, -3, -4, 1, 2, 3];
+  for (const i of offsets) {
+    const d = new Date(base + i * 86_400_000).toISOString().split('T')[0];
     const p = spyMap.get(d);
     if (p) return p;
   }
@@ -90,6 +93,14 @@ export function calculateBenchmarkComparison(
 
   const sorted = [...snapshots].sort((a, b) => a.snapshot_date.localeCompare(b.snapshot_date));
   const startDate = sorted[0].snapshot_date;
+  const endDate = sorted[sorted.length - 1].snapshot_date;
+
+  // Require at least 7 calendar days of history — fewer gives meaningless flat charts
+  const daySpan = Math.round(
+    (new Date(endDate).getTime() - new Date(startDate).getTime()) / 86_400_000
+  );
+  if (daySpan < 7) return null;
+
   const startValue = sorted[0].total_value;
   const startSPY = nearestPrice(spyMap, startDate);
 

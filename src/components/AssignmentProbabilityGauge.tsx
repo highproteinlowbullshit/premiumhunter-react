@@ -56,16 +56,7 @@ function CircularGauge({ probability }: { probability: number }) {
     <div style={{ position: 'relative', width: 80, height: 80 }}>
       <svg width="80" height="80" viewBox="0 0 80 80" style={{ transform: 'rotate(-90deg)' }}>
         {/* Background track */}
-        <circle cx="40" cy="40" r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="6" />
-        {/* Red zone (50-100%) */}
-        <circle cx="40" cy="40" r={r} fill="none" stroke="#ef4444" strokeWidth="6"
-          strokeDasharray={`${circ * 0.5} ${circ * 0.5}`} strokeDashoffset={0} strokeLinecap="round" opacity={0.3} />
-        {/* Amber zone (0-50%) */}
-        <circle cx="40" cy="40" r={r} fill="none" stroke="#f59e0b" strokeWidth="6"
-          strokeDasharray={`${circ * 0.5} ${circ * 0.5}`} strokeDashoffset={0} strokeLinecap="round" opacity={0.3} />
-        {/* Green zone (0-30%) */}
-        <circle cx="40" cy="40" r={r} fill="none" stroke="#14b8a6" strokeWidth="6"
-          strokeDasharray={`${circ * 0.3} ${circ * 0.7}`} strokeDashoffset={0} strokeLinecap="round" opacity={0.35} />
+        <circle cx="40" cy="40" r={r} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="6" />
         {/* Active fill */}
         <circle cx="40" cy="40" r={r} fill="none" stroke={color} strokeWidth="6"
           strokeDasharray={circ}
