@@ -3,6 +3,7 @@ import { usePaperAccount, usePaperPositions, usePaperActions } from '../hooks/us
 import { usePaperMode } from '../context/PaperModeContext';
 import { ResetConfirmModal } from '../components/PaperModals';
 import { MonthlyTargetTracker } from '../components/MonthlyTargetTracker';
+import { DTEIndicator } from '../components/DTEIndicator';
 import { getQuote } from '../lib/finnhub';
 import type { PaperPosition, OpenPaperPositionData } from '../types';
 
@@ -29,7 +30,6 @@ export function PaperWheelTracker() {
   const [assigningPos, setAssigningPos] = useState<PaperPosition | null>(null);
   const [editingPos, setEditingPos] = useState<PaperPosition | null>(null);
   const [showReset, setShowReset] = useState(false);
-  const [showHistory, setShowHistory] = useState(false);
 
   const { account, reload: reloadAccount } = usePaperAccount();
   const { positions: openPositions, allPositions, isLoading, reload: reloadPositions } = usePaperPositions();
@@ -49,9 +49,10 @@ export function PaperWheelTracker() {
   const winRate = account && account.tradesTotal > 0
     ? Math.round((account.tradesWon / account.tradesTotal) * 100)
     : null;
-  const lockedCollateral = openPositions
-    .filter((p) => p.strategy === 'CSP')
-    .reduce((acc, p) => acc + p.strike * p.contracts * 100, 0);
+  const openCSPs = openPositions.filter((p) => p.strategy === 'CSP');
+  const openCCs = openPositions.filter((p) => p.strategy === 'CC');
+  const lockedCollateral = openCSPs.reduce((acc, p) => acc + p.strike * p.contracts * 100, 0);
+  const totalOpenPremium = openPositions.reduce((acc, p) => acc + p.premiumCollected * p.contracts * 100, 0);
 
   const fadeIn = (delay = '0s') => ({
     opacity: mounted ? 1 : 0,
@@ -78,8 +79,12 @@ export function PaperWheelTracker() {
                 style={{ fontFamily: 'Syne, sans-serif', color: A.text, letterSpacing: '-0.02em' }}>
                 Paper Wheel Tracker
               </h1>
-              <p className="text-sm mt-1" style={{ color: A.muted, fontFamily: 'DM Sans, sans-serif' }}>
-                {openPositions.length} open positions · Practice with virtual money
+              <p className="text-sm mt-1" style={{ color: '#9ab4d4', fontFamily: 'DM Sans, sans-serif' }}>
+                <span style={{ color: '#f5a623', fontWeight: 600 }}>{openCSPs.length} CSP{openCSPs.length !== 1 ? 's' : ''}</span>
+                <span style={{ color: '#6a8aaa' }}> · </span>
+                <span style={{ color: A.amber, fontWeight: 600 }}>{openCCs.length} CC{openCCs.length !== 1 ? 's' : ''}</span>
+                <span style={{ color: '#6a8aaa' }}> · </span>
+                {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -100,36 +105,21 @@ export function PaperWheelTracker() {
           </div>
         </div>
 
-        {/* Account balance card */}
-        {account && (
-          <div className="rounded-2xl p-5 sm:p-6 mb-6" style={{ ...fadeIn('0.05s'), background: A.amberBg, border: `1px solid ${A.amberBorder}`, backdropFilter: 'blur(12px)' }}>
-            <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-8">
-              <div className="flex-1">
-                <p className="text-xs mb-1 tracking-widest uppercase" style={{ color: A.amber, fontFamily: 'DM Sans, sans-serif' }}>Available Cash</p>
-                <p className="text-3xl font-bold tabular-nums" style={{ fontFamily: 'JetBrains Mono, monospace', color: A.text }}>
-                  ${account.currentCash.toLocaleString('en-US', { maximumFractionDigits: 0 })}
-                </p>
-                {lockedCollateral > 0 && (
-                  <p className="text-xs mt-1" style={{ color: A.muted, fontFamily: 'DM Sans, sans-serif' }}>
-                    + ${lockedCollateral.toLocaleString()} locked as CSP collateral
-                  </p>
-                )}
-              </div>
-              <div className="grid grid-cols-3 gap-4 sm:gap-8">
-                {[
-                  { label: 'Realized P&L', value: `${account.totalRealizedPnl >= 0 ? '+' : ''}$${account.totalRealizedPnl.toFixed(0)}`, color: account.totalRealizedPnl >= 0 ? '#00d68f' : '#ff4d6d' },
-                  { label: 'Win Rate', value: winRate !== null ? `${winRate}%` : '—', color: A.amber },
-                  { label: 'Trades', value: String(account.tradesTotal), color: A.text },
-                ].map(({ label, value, color }) => (
-                  <div key={label}>
-                    <p className="text-xs mb-1" style={{ color: A.muted, fontFamily: 'DM Sans, sans-serif' }}>{label}</p>
-                    <p className="text-lg font-bold tabular-nums" style={{ color, fontFamily: 'JetBrains Mono, monospace' }}>{value}</p>
-                  </div>
-                ))}
-              </div>
+        {/* Stats cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6" style={fadeIn('0.05s')}>
+          {[
+            { label: 'Open Positions', value: openPositions.length.toString(), color: A.amber },
+            { label: 'Total Premium', value: `$${totalOpenPremium.toLocaleString('en-US', { maximumFractionDigits: 0 })}`, color: '#f5a623' },
+            { label: 'Available Cash', value: account ? `$${account.currentCash.toLocaleString('en-US', { maximumFractionDigits: 0 })}` : '—', color: A.amber },
+            { label: 'Win Rate', value: winRate !== null ? `${winRate}%` : '—', color: A.amber },
+          ].map(({ label, value, color }) => (
+            <div key={label} className="rounded-xl p-4"
+              style={{ background: A.cardBg, border: `1px solid ${A.cardBorder}`, backdropFilter: 'blur(12px)' }}>
+              <p className="text-xs mb-2 tracking-wide" style={{ color: A.muted, fontFamily: 'DM Sans, sans-serif' }}>{label}</p>
+              <p className="text-xl font-bold tabular-nums" style={{ fontFamily: 'JetBrains Mono, monospace', color }}>{value}</p>
             </div>
-          </div>
-        )}
+          ))}
+        </div>
 
         {/* Monthly Income Target */}
         <MonthlyTargetTracker />
@@ -160,44 +150,23 @@ export function PaperWheelTracker() {
           )}
         </div>
 
-        {/* Trade history */}
-        {closedPositions.length > 0 && (
-          <div className="rounded-2xl p-5 sm:p-6 mb-6"
-            style={{ ...fadeIn('0.15s'), background: A.cardBg, border: `1px solid ${A.cardBorder}`, backdropFilter: 'blur(12px)' }}>
-            <button className="flex items-center justify-between w-full" onClick={() => setShowHistory((v) => !v)}>
-              <h2 className="text-base font-semibold" style={{ fontFamily: 'Syne, sans-serif', color: A.text }}>
-                Trade History <span style={{ color: A.muted, fontWeight: 400, fontSize: '13px' }}>({closedPositions.length})</span>
-              </h2>
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none"
-                style={{ color: A.muted, transform: showHistory ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s ease' }}>
-                <path d="M2 5l5 5 5-5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </button>
-            {showHistory && <div className="mt-5"><HistoryTable positions={closedPositions} /></div>}
+        {/* Closed Positions */}
+        <div className="rounded-2xl p-5 sm:p-6"
+          style={{ ...fadeIn('0.15s'), background: A.cardBg, border: `1px solid ${A.cardBorder}`, backdropFilter: 'blur(12px)' }}>
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h2 className="text-base font-semibold" style={{ fontFamily: 'Syne, sans-serif', color: A.text }}>Closed Positions</h2>
+              {closedPositions.length > 0 && account && (
+                <p className="text-xs mt-0.5" style={{
+                  color: account.totalRealizedPnl >= 0 ? '#00d68f' : '#ff4d6d',
+                  fontFamily: 'JetBrains Mono, monospace',
+                }}>
+                  {account.totalRealizedPnl >= 0 ? '+' : ''}${account.totalRealizedPnl.toFixed(0)} realized · {closedPositions.length} trade{closedPositions.length !== 1 ? 's' : ''}
+                </p>
+              )}
+            </div>
           </div>
-        )}
-
-        {/* Education */}
-        <div className="rounded-2xl p-5" style={{ ...fadeIn('0.2s'), background: 'rgba(245,200,66,0.04)', border: `1px solid ${A.amberBorder}` }}>
-          <h3 className="text-sm font-semibold mb-4" style={{ color: A.amber, fontFamily: 'Syne, sans-serif' }}>The Wheel Strategy</h3>
-          <div className="grid sm:grid-cols-3 gap-4">
-            {[
-              { step: '1', title: 'Sell a CSP', body: 'Sell a Cash Secured Put at a strike you\'d be happy owning. You collect premium immediately and need cash as collateral.' },
-              { step: '2', title: 'Expire or Get Assigned', body: 'If it expires worthless you keep 100% of the premium. If assigned, you now own shares at below-market cost basis.' },
-              { step: '3', title: 'Sell a Covered Call', body: 'With shares in hand, sell a Covered Call above your cost basis. Repeat until shares are called away, then restart.' },
-            ].map(({ step, title, body }) => (
-              <div key={step} className="flex gap-3">
-                <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5"
-                  style={{ background: A.amberBg, border: `1px solid ${A.amberBorder}` }}>
-                  <span className="text-xs font-bold" style={{ color: A.amber, fontFamily: 'JetBrains Mono, monospace' }}>{step}</span>
-                </div>
-                <div>
-                  <p className="text-sm font-semibold mb-1" style={{ color: A.text, fontFamily: 'DM Sans, sans-serif' }}>{title}</p>
-                  <p className="text-xs leading-relaxed" style={{ color: A.muted, fontFamily: 'DM Sans, sans-serif' }}>{body}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+          <PaperClosedPositionTable positions={closedPositions} />
         </div>
       </div>
 
@@ -288,48 +257,64 @@ interface PaperPositionTableProps {
   onDelete: (id: string) => void;
 }
 
+const paperThStyle: React.CSSProperties = {
+  color: '#4a6a8a',
+  borderBottom: `1px solid rgba(245,200,66,0.1)`,
+  letterSpacing: '0.08em', fontWeight: 600, fontSize: 11, whiteSpace: 'nowrap',
+};
+
+function paperDeskBtn(color: string): React.CSSProperties {
+  return {
+    background: `${color}14`, border: `1px solid ${color}26`,
+    borderRadius: 5, color, fontFamily: 'DM Sans, sans-serif',
+    fontSize: 11, fontWeight: 600, padding: '4px 8px', cursor: 'pointer', whiteSpace: 'nowrap',
+  };
+}
+
 function PaperPositionTable({ positions, onClose, onExpire, onAssign, onEdit, onDelete }: PaperPositionTableProps) {
   return (
     <>
       {/* Mobile */}
       <div className="sm:hidden space-y-3">
         {positions.map((pos) => {
-          const dte = getDTE(pos.expiry);
+          const capitalAtRisk = pos.strike * pos.contracts * 100;
+          const returnPct = capitalAtRisk > 0 ? (pos.premiumCollected / pos.strike) * 100 : 0;
           const totalPremium = pos.premiumCollected * pos.contracts * 100;
-          const returnPct = pos.strike > 0 ? (pos.premiumCollected / pos.strike) * 100 : 0;
-          const dteColor = dte <= 7 ? '#ff4d6d' : dte <= 21 ? A.amber : '#9ab4d4';
           return (
-            <div key={pos.id} className="rounded-xl p-4" style={{ background: 'rgba(0,0,0,0.2)', border: `1px solid ${A.amberBorder}` }}>
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-base font-bold" style={{ color: A.text, fontFamily: 'Syne, sans-serif' }}>{pos.ticker}</span>
-                  <span className="text-xs px-2 py-0.5 rounded font-semibold"
-                    style={{ color: A.amber, background: A.amberBg, border: `1px solid ${A.amberBorder}`, fontFamily: 'JetBrains Mono, monospace' }}>
-                    {pos.strategy}
-                  </span>
-                  <span className="text-xs" style={{ color: A.muted, fontFamily: 'JetBrains Mono, monospace' }}>{pos.contracts}x</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <ActionButton onClick={() => onExpire(pos)} color={A.amber} title="Expire Worthless"><ExpireIcon /></ActionButton>
-                  <ActionButton onClick={() => onAssign(pos)} color="#9ab4d4" title="Mark Assigned"><AssignIcon /></ActionButton>
-                  <ActionButton onClick={() => onClose(pos)} color="#00e5c4" title="Close Position"><CloseIcon /></ActionButton>
-                  <ActionButton onClick={() => onEdit(pos)} color={A.muted} title="Edit"><EditIcon /></ActionButton>
-                  <ActionButton onClick={() => onDelete(pos.id)} color={A.muted} title="Delete"><TrashIcon /></ActionButton>
-                </div>
+            <div key={pos.id} className="rounded-xl p-4"
+              style={{ background: 'rgba(0,0,0,0.2)', border: `1px solid ${A.amberBorder}` }}>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-base font-bold" style={{ color: A.text, fontFamily: 'Syne, sans-serif' }}>{pos.ticker}</span>
+                <span className="text-xs px-2 py-0.5 rounded font-semibold"
+                  style={{ color: A.amber, background: A.amberBg, border: `1px solid ${A.amberBorder}`, fontFamily: 'JetBrains Mono, monospace' }}>
+                  {pos.strategy}
+                </span>
+                <span className="text-xs font-semibold" style={{ color: '#c8daf0', fontFamily: 'JetBrains Mono, monospace' }}>{pos.contracts}×</span>
               </div>
               <div className="grid grid-cols-4 gap-2">
-                <Metric label="Strike" value={`$${pos.strike}`} />
-                <Metric label="Premium" value={`$${totalPremium.toFixed(0)}`} color="#f5c842" />
-                <Metric label="Return" value={`${returnPct.toFixed(1)}%`} color="#00d68f" />
+                <div>
+                  <p className="text-xs mb-0.5" style={{ color: A.muted, fontFamily: 'DM Sans, sans-serif' }}>Strike</p>
+                  <p className="text-sm font-medium" style={{ color: A.text, fontFamily: 'JetBrains Mono, monospace' }}>${pos.strike}</p>
+                </div>
+                <div>
+                  <p className="text-xs mb-0.5" style={{ color: A.muted, fontFamily: 'DM Sans, sans-serif' }}>Premium</p>
+                  <p className="text-sm font-medium" style={{ color: A.amber, fontFamily: 'JetBrains Mono, monospace' }}>${totalPremium.toFixed(0)}</p>
+                </div>
+                <div>
+                  <p className="text-xs mb-0.5" style={{ color: A.muted, fontFamily: 'DM Sans, sans-serif' }}>Return</p>
+                  <p className="text-sm font-semibold" style={{ color: '#00d68f', fontFamily: 'JetBrains Mono, monospace' }}>{returnPct.toFixed(1)}%</p>
+                </div>
                 <div>
                   <p className="text-xs mb-0.5" style={{ color: A.muted, fontFamily: 'DM Sans, sans-serif' }}>DTE</p>
-                  <div className="flex items-center gap-1">
-                    <p className="text-sm font-medium" style={{ color: dteColor, fontFamily: 'JetBrains Mono, monospace' }}>{dte}d</p>
-                    {dte <= 7 && <span className="text-[9px] px-1 py-0.5 rounded" style={{ background: 'rgba(255,77,109,0.12)', color: '#ff4d6d', border: '1px solid rgba(255,77,109,0.2)' }}>EXP</span>}
-                  </div>
+                  <DTEIndicator expiry={pos.expiry} strategy={pos.strategy} compact />
                 </div>
               </div>
-              <p className="text-xs mt-2" style={{ color: A.muted, fontFamily: 'JetBrains Mono, monospace' }}>Expires {pos.expiry}</p>
+              <div className="flex items-center gap-2 mt-3 pt-3" style={{ borderTop: `1px solid ${A.amberBorder}` }}>
+                <button onClick={() => onExpire(pos)} style={{ flex: 1, background: `${A.amber}14`, border: `1px solid ${A.amber}33`, borderRadius: 7, color: A.amber, fontFamily: 'DM Sans, sans-serif', fontSize: 12, fontWeight: 600, padding: '8px 0', cursor: 'pointer' }}>Expire</button>
+                <button onClick={() => onAssign(pos)} style={{ flex: 1, background: 'rgba(154,180,212,0.08)', border: '1px solid rgba(154,180,212,0.15)', borderRadius: 7, color: '#9ab4d4', fontFamily: 'DM Sans, sans-serif', fontSize: 12, fontWeight: 600, padding: '8px 0', cursor: 'pointer' }}>Assign</button>
+                <button onClick={() => onClose(pos)} style={{ flex: 1, background: 'rgba(0,229,196,0.08)', border: '1px solid rgba(0,229,196,0.15)', borderRadius: 7, color: '#00e5c4', fontFamily: 'DM Sans, sans-serif', fontSize: 12, fontWeight: 600, padding: '8px 0', cursor: 'pointer' }}>Close</button>
+                <button onClick={() => onEdit(pos)} style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 7, color: A.muted, fontFamily: 'DM Sans, sans-serif', fontSize: 12, fontWeight: 600, padding: '8px 0', cursor: 'pointer' }}>Edit</button>
+              </div>
             </div>
           );
         })}
@@ -340,32 +325,32 @@ function PaperPositionTable({ positions, onClose, onExpire, onAssign, onEdit, on
         <table className="w-full text-sm" style={{ fontFamily: 'DM Sans, sans-serif', borderCollapse: 'separate', borderSpacing: 0 }}>
           <thead>
             <tr>
-              {['Ticker', 'Strategy', 'Strike', 'Expiry', 'Premium', 'Return', 'DTE', ''].map((h) => (
-                <th key={h} className="text-left py-3 px-4 text-xs font-medium tracking-widest uppercase first:pl-0 last:pr-0"
-                  style={{ color: A.muted, borderBottom: `1px solid ${A.amberBorder}`, letterSpacing: '0.08em' }}>
-                  {h}
-                </th>
-              ))}
+              <th className="text-left py-3 px-4 first:pl-0" style={paperThStyle}>Ticker</th>
+              <th className="text-left py-3 px-4" style={paperThStyle}>Strategy</th>
+              <th className="text-left py-3 px-4" style={paperThStyle}>Strike</th>
+              <th className="text-left py-3 px-4" style={paperThStyle}>Premium</th>
+              <th className="text-left py-3 px-4" style={paperThStyle}>Return</th>
+              <th className="text-left py-3 px-4" style={paperThStyle}>Expires</th>
+              <th className="text-left py-3 px-4 last:pr-0" style={paperThStyle}></th>
             </tr>
           </thead>
           <tbody>
             {positions.map((pos, i) => {
-              const dte = getDTE(pos.expiry);
+              const capitalAtRisk = pos.strike * pos.contracts * 100;
+              const returnPct = capitalAtRisk > 0 ? (pos.premiumCollected / pos.strike) * 100 : 0;
               const totalPremium = pos.premiumCollected * pos.contracts * 100;
-              const returnPct = pos.strike > 0 ? (pos.premiumCollected / pos.strike) * 100 : 0;
-              const dteColor = dte <= 7 ? '#ff4d6d' : dte <= 21 ? A.amber : '#9ab4d4';
               return (
-                <tr key={pos.id} className="group"
+                <tr key={pos.id} className="stock-row-hover group"
                   style={{ borderBottom: i < positions.length - 1 ? `1px solid rgba(245,200,66,0.06)` : 'none' }}>
                   <td className="py-3.5 px-4 first:pl-0">
                     <div className="flex flex-col gap-0.5">
-                      <span className="font-bold text-sm" style={{ color: A.text, fontFamily: 'Syne, sans-serif' }}>{pos.ticker}</span>
-                      <span className="text-xs" style={{ color: A.muted }}>{pos.contracts}x</span>
+                      <span className="font-bold text-sm tracking-wide" style={{ color: A.text, fontFamily: 'Syne, sans-serif' }}>{pos.ticker}</span>
+                      <span className="text-xs" style={{ color: A.muted }}>{pos.contracts}×</span>
                     </div>
                   </td>
                   <td className="py-3.5 px-4">
                     <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold"
-                      style={{ color: A.amber, background: A.amberBg, border: `1px solid ${A.amberBorder}`, fontFamily: 'JetBrains Mono, monospace' }}>
+                      style={{ color: A.amber, background: A.amberBg, border: `1px solid ${A.amberBorder}`, fontFamily: 'JetBrains Mono, monospace', letterSpacing: '0.04em' }}>
                       {pos.strategy}
                     </span>
                   </td>
@@ -373,39 +358,32 @@ function PaperPositionTable({ positions, onClose, onExpire, onAssign, onEdit, on
                     <span style={{ color: A.text, fontFamily: 'JetBrains Mono, monospace' }}>${pos.strike}</span>
                   </td>
                   <td className="py-3.5 px-4">
-                    <span style={{ color: '#9ab4d4', fontFamily: 'JetBrains Mono, monospace', fontSize: '12px' }}>{pos.expiry}</span>
-                  </td>
-                  <td className="py-3.5 px-4">
                     <div className="flex flex-col gap-0.5">
                       <span className="font-medium" style={{ color: A.amber, fontFamily: 'JetBrains Mono, monospace' }}>
                         ${totalPremium.toFixed(0)}
                       </span>
-                      <span className="text-xs" style={{ color: A.muted }}>${pos.premiumCollected.toFixed(2)}/sh</span>
+                      <span className="text-xs" style={{ color: A.muted }}>
+                        on ${(capitalAtRisk / 1000).toFixed(0)}k
+                      </span>
                     </div>
                   </td>
                   <td className="py-3.5 px-4">
-                    <span className="font-semibold" style={{ color: '#00d68f', fontFamily: 'JetBrains Mono, monospace' }}>
-                      {returnPct.toFixed(1)}%
-                    </span>
+                    <div className="flex flex-col gap-0.5">
+                      <span className="font-semibold" style={{ color: '#00d68f', fontFamily: 'JetBrains Mono, monospace' }}>
+                        {returnPct.toFixed(1)}%
+                      </span>
+                    </div>
                   </td>
                   <td className="py-3.5 px-4">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium tabular-nums" style={{ color: dteColor, fontFamily: 'JetBrains Mono, monospace' }}>{dte}d</span>
-                      {dte <= 7 && (
-                        <span className="text-[9px] px-1.5 py-0.5 rounded"
-                          style={{ background: 'rgba(255,77,109,0.12)', color: '#ff4d6d', border: '1px solid rgba(255,77,109,0.2)' }}>
-                          EXP
-                        </span>
-                      )}
-                    </div>
+                    <DTEIndicator expiry={pos.expiry} strategy={pos.strategy} compact />
                   </td>
                   <td className="py-3.5 px-4 last:pr-0">
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-                      <ActionButton onClick={() => onExpire(pos)} color={A.amber} title="Expire worthless"><ExpireIcon /></ActionButton>
-                      <ActionButton onClick={() => onAssign(pos)} color="#9ab4d4" title="Mark assigned"><AssignIcon /></ActionButton>
-                      <ActionButton onClick={() => onClose(pos)} color="#00e5c4" title="Close position"><CloseIcon /></ActionButton>
-                      <ActionButton onClick={() => onEdit(pos)} color={A.muted} title="Edit"><EditIcon /></ActionButton>
-                      <ActionButton onClick={() => onDelete(pos.id)} color={A.muted} title="Delete"><TrashIcon /></ActionButton>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <button onClick={() => onExpire(pos)} style={paperDeskBtn(A.amber)}>Expire</button>
+                      <button onClick={() => onAssign(pos)} style={paperDeskBtn('#9ab4d4')}>Assign</button>
+                      <button onClick={() => onClose(pos)} style={paperDeskBtn('#00e5c4')}>Close</button>
+                      <button onClick={() => onEdit(pos)} style={paperDeskBtn(A.muted)}>Edit</button>
+                      <button onClick={() => onDelete(pos.id)} style={paperDeskBtn('#ff4d6d')}>Delete</button>
                     </div>
                   </td>
                 </tr>
@@ -418,81 +396,171 @@ function PaperPositionTable({ positions, onClose, onExpire, onAssign, onEdit, on
   );
 }
 
-// ─── History table ────────────────────────────────────────────────────────────
-function HistoryTable({ positions }: { positions: PaperPosition[] }) {
-  const statusLabel: Record<PaperPosition['status'], { label: string; color: string }> = {
-    open: { label: 'Open', color: A.amber },
-    closed: { label: 'Closed', color: '#00e5c4' },
-    assigned: { label: 'Assigned', color: '#9ab4d4' },
-    expired: { label: 'Expired', color: '#00d68f' },
-  };
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm" style={{ fontFamily: 'DM Sans, sans-serif', borderCollapse: 'separate', borderSpacing: 0 }}>
-        <thead>
-          <tr>
-            {['Ticker', 'Strategy', 'Strike', 'Opened', 'Status', 'Realized P&L'].map((h) => (
-              <th key={h} className="text-left py-2 px-3 text-xs font-medium tracking-widest uppercase first:pl-0"
-                style={{ color: A.muted, borderBottom: `1px solid ${A.amberBorder}` }}>
-                {h}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {positions.map((pos, i) => {
-            const s = statusLabel[pos.status];
-            const pnl = pos.realizedPnl ?? 0;
-            return (
-              <tr key={pos.id} style={{ borderBottom: i < positions.length - 1 ? `1px solid rgba(245,200,66,0.04)` : 'none' }}>
-                <td className="py-2.5 px-3 first:pl-0">
-                  <span className="font-semibold" style={{ color: A.text, fontFamily: 'Syne, sans-serif' }}>{pos.ticker}</span>
-                </td>
-                <td className="py-2.5 px-3">
-                  <span className="text-xs px-1.5 py-0.5 rounded" style={{ color: A.amber, background: A.amberBg, fontFamily: 'JetBrains Mono, monospace' }}>
-                    {pos.strategy}
-                  </span>
-                </td>
-                <td className="py-2.5 px-3">
-                  <span style={{ color: '#9ab4d4', fontFamily: 'JetBrains Mono, monospace' }}>${pos.strike}</span>
-                </td>
-                <td className="py-2.5 px-3">
-                  <span style={{ color: A.muted, fontFamily: 'JetBrains Mono, monospace', fontSize: '12px' }}>{pos.openedAt}</span>
-                </td>
-                <td className="py-2.5 px-3">
-                  <span className="text-xs" style={{ color: s.color }}>{s.label}</span>
-                </td>
-                <td className="py-2.5 px-3">
-                  <span className="font-semibold" style={{ color: pnl >= 0 ? '#00d68f' : '#ff4d6d', fontFamily: 'JetBrains Mono, monospace' }}>
-                    {pnl >= 0 ? '+' : ''}${pnl.toFixed(0)}
-                  </span>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
-  );
-}
+// ─── Closed positions table ───────────────────────────────────────────────────
+function PaperClosedPositionTable({ positions }: { positions: PaperPosition[] }) {
+  if (!positions.length) {
+    return (
+      <div className="flex flex-col items-center justify-center py-14 gap-3">
+        <div className="w-12 h-12 rounded-full flex items-center justify-center"
+          style={{ background: A.amberBg, border: `1px solid ${A.amberBorder}` }}>
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <circle cx="10" cy="10" r="8" stroke={A.amber} strokeWidth="1.5" strokeOpacity="0.4" />
+            <path d="M6 10l3 3 5-5" stroke={A.amber} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" strokeOpacity="0.4" />
+          </svg>
+        </div>
+        <p className="text-sm" style={{ color: A.muted, fontFamily: 'DM Sans, sans-serif' }}>No closed positions yet</p>
+      </div>
+    );
+  }
 
-// ─── Shared helpers ───────────────────────────────────────────────────────────
-function Metric({ label, value, color = A.text }: { label: string; value: string; color?: string }) {
   return (
-    <div>
-      <p className="text-xs mb-0.5" style={{ color: A.muted, fontFamily: 'DM Sans, sans-serif' }}>{label}</p>
-      <p className="text-sm font-medium" style={{ color, fontFamily: 'JetBrains Mono, monospace' }}>{value}</p>
-    </div>
-  );
-}
+    <>
+      {/* Mobile */}
+      <div className="sm:hidden space-y-3">
+        {positions.map((pos) => {
+          const pnl = pos.realizedPnl ?? 0;
+          const pnlColor = pnl >= 0 ? '#00d68f' : '#ff4d6d';
+          const capitalAtRisk = pos.strike * pos.contracts * 100;
+          const returnPct = capitalAtRisk > 0 ? (pnl / capitalAtRisk) * 100 : 0;
+          const totalPremium = pos.premiumCollected * pos.contracts * 100;
 
-function ActionButton({ onClick, color, title, children }: { onClick: () => void; color: string; title: string; children: React.ReactNode }) {
-  return (
-    <button onClick={onClick} title={title}
-      className="w-7 h-7 rounded-md flex items-center justify-center transition-all duration-150"
-      style={{ color }}>
-      {children}
-    </button>
+          return (
+            <div key={pos.id} className="rounded-xl p-4"
+              style={{ background: 'rgba(0,0,0,0.2)', border: `1px solid rgba(245,200,66,0.06)` }}>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-base font-bold" style={{ fontFamily: 'Syne, sans-serif', color: A.text }}>{pos.ticker}</span>
+                <span className="text-xs px-2 py-0.5 rounded font-semibold"
+                  style={{ color: A.amber, background: A.amberBg, border: `1px solid ${A.amberBorder}`, fontFamily: 'JetBrains Mono, monospace' }}>
+                  {pos.strategy}
+                </span>
+                <span className="text-xs font-semibold" style={{ color: '#c8daf0', fontFamily: 'JetBrains Mono, monospace' }}>{pos.contracts}×</span>
+                {pos.status === 'assigned' && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold"
+                    style={{ color: A.amber, background: A.amberBg, border: `1px solid ${A.amberBorder}`, fontFamily: 'JetBrains Mono, monospace' }}>
+                    ASSIGNED
+                  </span>
+                )}
+                {pos.status === 'expired' && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold"
+                    style={{ color: '#00d68f', background: 'rgba(0,214,143,0.08)', border: '1px solid rgba(0,214,143,0.2)', fontFamily: 'JetBrains Mono, monospace' }}>
+                    EXPIRED
+                  </span>
+                )}
+              </div>
+              <div className="grid grid-cols-4 gap-2 mb-2">
+                <div>
+                  <p className="text-xs mb-0.5" style={{ color: A.muted, fontFamily: 'DM Sans, sans-serif' }}>Strike</p>
+                  <p className="text-sm font-medium" style={{ color: A.text, fontFamily: 'JetBrains Mono, monospace' }}>${pos.strike}</p>
+                </div>
+                <div>
+                  <p className="text-xs mb-0.5" style={{ color: A.muted, fontFamily: 'DM Sans, sans-serif' }}>Premium</p>
+                  <p className="text-sm font-medium" style={{ color: A.amber, fontFamily: 'JetBrains Mono, monospace' }}>${totalPremium.toFixed(0)}</p>
+                </div>
+                <div>
+                  <p className="text-xs mb-0.5" style={{ color: A.muted, fontFamily: 'DM Sans, sans-serif' }}>Real P&L</p>
+                  <p className="text-sm font-semibold" style={{ color: pnlColor, fontFamily: 'JetBrains Mono, monospace' }}>{pnl >= 0 ? '+' : ''}${pnl.toFixed(0)}</p>
+                </div>
+                <div>
+                  <p className="text-xs mb-0.5" style={{ color: A.muted, fontFamily: 'DM Sans, sans-serif' }}>Return</p>
+                  <p className="text-sm font-semibold" style={{ color: pnlColor, fontFamily: 'JetBrains Mono, monospace' }}>{returnPct >= 0 ? '+' : ''}{returnPct.toFixed(1)}%</p>
+                </div>
+              </div>
+              <p className="text-xs" style={{ color: A.muted, fontFamily: 'JetBrains Mono, monospace' }}>
+                Expired {pos.expiry}{pos.closedAt ? ` · Closed ${pos.closedAt}` : ''}
+              </p>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Desktop */}
+      <div className="hidden sm:block overflow-x-auto">
+        <table className="w-full text-sm" style={{ fontFamily: 'DM Sans, sans-serif', borderCollapse: 'separate', borderSpacing: 0 }}>
+          <thead>
+            <tr>
+              {['Ticker', 'Strategy', 'Strike', 'Expiry', 'Premium', 'Real P&L', 'Return', 'Closed'].map((h) => (
+                <th key={h} className="text-left py-3 px-4 text-xs font-medium tracking-widest uppercase first:pl-0"
+                  style={{ color: '#4a6a8a', borderBottom: `1px solid rgba(245,200,66,0.1)`, letterSpacing: '0.08em' }}>
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {positions.map((pos, i) => {
+              const pnl = pos.realizedPnl ?? 0;
+              const pnlColor = pnl >= 0 ? '#00d68f' : '#ff4d6d';
+              const capitalAtRisk = pos.strike * pos.contracts * 100;
+              const returnPct = capitalAtRisk > 0 ? (pnl / capitalAtRisk) * 100 : 0;
+              const totalPremium = pos.premiumCollected * pos.contracts * 100;
+
+              return (
+                <tr key={pos.id} className="stock-row-hover"
+                  style={{ borderBottom: i < positions.length - 1 ? `1px solid rgba(245,200,66,0.06)` : 'none' }}>
+                  <td className="py-3.5 px-4 first:pl-0">
+                    <div className="flex flex-col gap-0.5">
+                      <span className="font-bold text-sm tracking-wide" style={{ color: A.text, fontFamily: 'Syne, sans-serif' }}>{pos.ticker}</span>
+                      <span className="text-xs" style={{ color: A.muted }}>{pos.contracts}×</span>
+                    </div>
+                  </td>
+                  <td className="py-3.5 px-4">
+                    <div className="flex items-center gap-1.5">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold"
+                        style={{ color: A.amber, background: A.amberBg, border: `1px solid ${A.amberBorder}`, fontFamily: 'JetBrains Mono, monospace' }}>
+                        {pos.strategy}
+                      </span>
+                      {pos.status === 'assigned' && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold"
+                          style={{ color: A.amber, background: A.amberBg, border: `1px solid ${A.amberBorder}`, fontFamily: 'JetBrains Mono, monospace' }}>
+                          ASSIGNED
+                        </span>
+                      )}
+                      {pos.status === 'expired' && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold"
+                          style={{ color: '#00d68f', background: 'rgba(0,214,143,0.06)', border: '1px solid rgba(0,214,143,0.2)', fontFamily: 'JetBrains Mono, monospace' }}>
+                          EXPIRED
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="py-3.5 px-4">
+                    <span style={{ color: A.text, fontFamily: 'JetBrains Mono, monospace' }}>${pos.strike}</span>
+                  </td>
+                  <td className="py-3.5 px-4">
+                    <span style={{ color: '#9ab4d4', fontFamily: 'JetBrains Mono, monospace', fontSize: '12px' }}>{pos.expiry}</span>
+                  </td>
+                  <td className="py-3.5 px-4">
+                    <span className="font-medium" style={{ color: A.amber, fontFamily: 'JetBrains Mono, monospace' }}>+${totalPremium.toFixed(0)}</span>
+                  </td>
+                  <td className="py-3.5 px-4">
+                    <div className="flex flex-col gap-0.5">
+                      <span className="font-bold tabular-nums" style={{ color: pnlColor, fontFamily: 'JetBrains Mono, monospace', fontSize: '13px' }}>
+                        {pnl >= 0 ? '+' : ''}${pnl.toFixed(0)}
+                      </span>
+                      <div className="w-14 h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                        <div className="h-full rounded-full"
+                          style={{ width: `${Math.min(100, Math.abs(returnPct) * 10)}%`, background: pnlColor }} />
+                      </div>
+                    </div>
+                  </td>
+                  <td className="py-3.5 px-4">
+                    <div className="flex flex-col gap-0.5">
+                      <span className="font-semibold" style={{ color: pnlColor, fontFamily: 'JetBrains Mono, monospace' }}>
+                        {returnPct >= 0 ? '+' : ''}{returnPct.toFixed(1)}%
+                      </span>
+                      <span className="text-xs" style={{ color: A.muted }}>on ${(capitalAtRisk / 1000).toFixed(0)}k</span>
+                    </div>
+                  </td>
+                  <td className="py-3.5 px-4">
+                    <span style={{ color: '#6a8aaa', fontFamily: 'JetBrains Mono, monospace', fontSize: '12px' }}>{pos.closedAt ?? '—'}</span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 }
 
@@ -982,44 +1050,5 @@ function PaperEditModal({ position, onClose, onSave }: {
         </div>
       </div>
     </PaperModalShell>
-  );
-}
-
-// ─── Icons ────────────────────────────────────────────────────────────────────
-function ExpireIcon() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-      <circle cx="6.5" cy="6.5" r="5" stroke="currentColor" strokeWidth="1.3" />
-      <path d="M6.5 3.5v3l2 1.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-    </svg>
-  );
-}
-function AssignIcon() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-      <path d="M6.5 1v7M4 5.5l2.5 2.5L9 5.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M2 10h9" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-    </svg>
-  );
-}
-function CloseIcon() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-      <path d="M2 7l3.5 3.5L11 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-function EditIcon() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-      <path d="M9 2l2 2-6.5 6.5-2.5.5.5-2.5L9 2z" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-function TrashIcon() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-      <path d="M2 3.5h9M5 3.5V2.5h3v1M4.5 3.5l.5 7h3l.5-7" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
   );
 }
