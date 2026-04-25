@@ -316,7 +316,7 @@ function AttributionView({ attribution }: { attribution: PnLAttribution | null }
           <YAxis tickFormatter={fmt}
             tick={{ fill: '#4a6a8a', fontSize: 10, fontFamily: 'DM Sans, sans-serif' }}
             axisLine={false} tickLine={false} width={48} />
-          <Tooltip content={<AttributionTooltip />} />
+          <Tooltip content={<AttributionTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
           <Bar dataKey="premiumIncome" name="Premium income" stackId="a" fill="#14b8a6" radius={[0, 0, 0, 0]} />
           <Bar dataKey="capitalGains" name="Capital gains" stackId="a" fill="#6366f1" radius={[3, 3, 0, 0]} />
         </BarChart>
