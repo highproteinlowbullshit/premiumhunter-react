@@ -48,8 +48,10 @@ function BenchmarkTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   const port = payload.find((p: any) => p.dataKey === 'portfolioValue');
   const spy = payload.find((p: any) => p.dataKey === 'spyValue');
-  const portRet = payload.find((p: any) => p.dataKey === 'portfolioReturn')?.value ?? 0;
-  const spyRet = payload.find((p: any) => p.dataKey === 'spyReturn')?.value ?? 0;
+  // Read pre-computed returns from the data row (hidden Areas excluded in Recharts v3)
+  const row = payload[0]?.payload ?? {};
+  const portRet: number = row.portfolioReturn ?? 0;
+  const spyRet: number = row.spyReturn ?? 0;
   const outperf = Math.round((portRet - spyRet) * 100) / 100;
   return (
     <div style={{ background: 'rgba(10,22,40,0.97)', border: '1px solid rgba(0,229,196,0.15)', borderRadius: 8, padding: '10px 14px', fontFamily: 'DM Sans, sans-serif', fontSize: 12 }}>
@@ -233,9 +235,6 @@ function BenchmarkView({ benchmark }: { benchmark: BenchmarkComparison | null })
             tick={{ fill: '#4a6a8a', fontSize: 10, fontFamily: 'DM Sans, sans-serif' }}
             axisLine={false} tickLine={false} width={52} />
           <Tooltip content={<BenchmarkTooltip />} />
-          {/* Hidden dataKeys for tooltip */}
-          <Area dataKey="portfolioReturn" hide stroke="none" fill="none" name="portfolioReturn" />
-          <Area dataKey="spyReturn" hide stroke="none" fill="none" name="spyReturn" />
           {/* Visible lines */}
           <Area type="monotone" dataKey="spyValue" name="SPY (normalised)"
             stroke="#475569" strokeWidth={1.5} strokeDasharray="4 2" fill="none" dot={false} />
