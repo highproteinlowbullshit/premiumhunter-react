@@ -215,7 +215,7 @@ export function Screener() {
   const mobileVirtualizer = useVirtualizer({
     count: filtered.length,
     getScrollElement: () => mobileScrollRef.current,
-    estimateSize: () => 116,
+    estimateSize: () => 128,
     overscan: 5,
   });
 
