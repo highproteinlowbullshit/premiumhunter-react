@@ -79,7 +79,7 @@ function CircularGauge({ probability }: { probability: number }) {
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
       }}>
         <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 18, fontWeight: 700, color, lineHeight: 1 }}>
-          {probability.toFixed(1)}%
+          {probability.toFixed(0)}%
         </span>
         <span style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 9, color: '#4a6a8a', marginTop: 2 }}>
           assignment
@@ -153,7 +153,7 @@ export function AssignmentProbabilityGauge({ result, strategy, strike, currentPr
           </div>
           {/* Percentage */}
           <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12, fontWeight: 500, color, minWidth: 34, textAlign: 'right' }}>
-            {probability.toFixed(1)}%
+            {probability.toFixed(0)}%
           </span>
           {/* Status badge */}
           <span style={badgeStyle}>
@@ -209,8 +209,8 @@ export function AssignmentProbabilityGauge({ result, strategy, strike, currentPr
             {/* Probability split bar */}
             <div style={{ marginBottom: 10 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                <span style={{ fontSize: 11, color: '#ef4444' }}>{probability.toFixed(1)}% assigned</span>
-                <span style={{ fontSize: 11, color: '#14b8a6' }}>{(100 - probability).toFixed(1)}% worthless</span>
+                <span style={{ fontSize: 11, color: '#ef4444' }}>{probability.toFixed(0)}% assigned</span>
+                <span style={{ fontSize: 11, color: '#14b8a6' }}>{(100 - probability).toFixed(0)}% worthless</span>
               </div>
               <div style={{ height: 5, borderRadius: 3, background: '#14b8a6', overflow: 'hidden' }}>
                 <div style={{ height: '100%', background: '#ef4444', width: `${probability}%`, borderRadius: 3 }} />
