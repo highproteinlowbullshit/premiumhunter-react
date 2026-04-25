@@ -45,6 +45,8 @@ class FinnhubWSManager {
   private fallbackIntervals = new Map<string, ReturnType<typeof setInterval>>();
   // Status listeners
   private statusListeners = new Set<StatusCallback>();
+  // Track last update time per ticker for throttling
+  private lastUpdateTime = new Map<string, number>();
 
   static getInstance(): FinnhubWSManager {
     if (!FinnhubWSManager._instance) {
@@ -161,6 +163,7 @@ class FinnhubWSManager {
       this.reconnectTimer = null;
     }
     this.reconnectAttempts = 0;
+    this.lastUpdateTime.clear();
     this.ws?.close();
     this.ws = null;
     this._setStatus('disconnected');
@@ -200,13 +203,19 @@ class FinnhubWSManager {
       };
       if (msg.type !== 'trade' || !msg.data?.length) return;
 
-      // Group by ticker, take last price per ticker
+      const now = Date.now();
+
+      // Group by ticker, take last price per ticker in this batch
       const byTicker = new Map<string, number>();
       for (const trade of msg.data) {
         byTicker.set(trade.s, trade.p);
       }
 
       byTicker.forEach((price, ticker) => {
+        // Throttle: skip if we emitted an update for this ticker within the last 1s
+        const lastUpdate = this.lastUpdateTime.get(ticker) ?? 0;
+        if (now - lastUpdate < 1000) return;
+        this.lastUpdateTime.set(ticker, now);
         this.subscribers.get(ticker)?.forEach((cb) => cb(price));
       });
     } catch {
