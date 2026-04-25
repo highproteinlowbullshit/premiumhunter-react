@@ -254,7 +254,7 @@ export function Navbar({ onOpenLeapsCalc }: NavbarProps) {
 // Icon components
 function PortfolioIcon() {
   return (
-    <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+    <svg width="15" height="15" viewBox="0 0 15 15" fill="none" style={{ display: 'block' }}>
       <circle cx="7.5" cy="7.5" r="6" stroke="currentColor" strokeWidth="1.2" />
       <path d="M7.5 7.5 L7.5 1.5 A6 6 0 0 1 13.5 7.5 Z" fill="currentColor" fillOpacity="0.3" stroke="currentColor" strokeWidth="1.1" />
       <path d="M7.5 7.5 L13.5 7.5 A6 6 0 0 1 7.5 13.5 Z" fill="currentColor" fillOpacity="0.15" stroke="currentColor" strokeWidth="1.1" />
@@ -264,7 +264,7 @@ function PortfolioIcon() {
 
 function GridIcon() {
   return (
-    <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+    <svg width="15" height="15" viewBox="0 0 15 15" fill="none" style={{ display: 'block' }}>
       <rect x="1" y="1" width="5.5" height="5.5" rx="1" stroke="currentColor" strokeWidth="1.2" />
       <rect x="8.5" y="1" width="5.5" height="5.5" rx="1" stroke="currentColor" strokeWidth="1.2" />
       <rect x="1" y="8.5" width="5.5" height="5.5" rx="1" stroke="currentColor" strokeWidth="1.2" />
@@ -275,7 +275,7 @@ function GridIcon() {
 
 function ListIcon() {
   return (
-    <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+    <svg width="15" height="15" viewBox="0 0 15 15" fill="none" style={{ display: 'block' }}>
       <line x1="3" y1="4" x2="12" y2="4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
       <line x1="3" y1="7.5" x2="12" y2="7.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
       <line x1="3" y1="11" x2="8" y2="11" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
@@ -288,23 +288,22 @@ function ListIcon() {
 
 function ScreenerIcon() {
   return (
-    <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
-      <rect x="1"   y="1.5" width="13" height="2.2" rx="1" stroke="currentColor" strokeWidth="1.1" />
-      <rect x="2.5" y="6"   width="10" height="2.2" rx="1" stroke="currentColor" strokeWidth="1.1" />
-      <rect x="4.5" y="10.5" width="6" height="2.2" rx="1" stroke="currentColor" strokeWidth="1.1" />
+    <svg width="15" height="15" viewBox="0 0 15 15" fill="none" style={{ display: 'block' }}>
+      <circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" strokeWidth="1.1" />
+      <line x1="9.8" y1="9.8" x2="13" y2="13" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
     </svg>
   );
 }
 
 function WheelIcon() {
   return (
-    <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
-      <circle cx="7.5" cy="7.5" r="5.5" stroke="currentColor" strokeWidth="1.2" />
+    <svg width="15" height="15" viewBox="0 0 15 15" fill="none" style={{ display: 'block' }}>
+      <circle cx="7.5" cy="7.5" r="6" stroke="currentColor" strokeWidth="1.2" />
       <circle cx="7.5" cy="7.5" r="1.5" fill="currentColor" />
-      <line x1="7.5" y1="2" x2="7.5" y2="6" stroke="currentColor" strokeWidth="1.2" />
-      <line x1="7.5" y1="9" x2="7.5" y2="13" stroke="currentColor" strokeWidth="1.2" />
-      <line x1="2" y1="7.5" x2="6" y2="7.5" stroke="currentColor" strokeWidth="1.2" />
-      <line x1="9" y1="7.5" x2="13" y2="7.5" stroke="currentColor" strokeWidth="1.2" />
+      <line x1="7.5" y1="1.5" x2="7.5" y2="6" stroke="currentColor" strokeWidth="1.2" />
+      <line x1="7.5" y1="9" x2="7.5" y2="13.5" stroke="currentColor" strokeWidth="1.2" />
+      <line x1="1.5" y1="7.5" x2="6" y2="7.5" stroke="currentColor" strokeWidth="1.2" />
+      <line x1="9" y1="7.5" x2="13.5" y2="7.5" stroke="currentColor" strokeWidth="1.2" />
     </svg>
   );
 }
@@ -378,7 +377,7 @@ function CalcIcon() {
 
 function HelpIcon() {
   return (
-    <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+    <svg width="15" height="15" viewBox="0 0 15 15" fill="none" style={{ display: 'block' }}>
       <circle cx="7.5" cy="7.5" r="6" stroke="currentColor" strokeWidth="1.2" />
       <path d="M5.5 5.5a2 2 0 0 1 3.9.7c0 1.3-1.9 1.8-1.9 3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
       <circle cx="7.5" cy="11" r="0.75" fill="currentColor" />
