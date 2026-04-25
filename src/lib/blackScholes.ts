@@ -217,12 +217,14 @@ export function calculateAssignmentProbabilitiesBatch(
 ): Map<string, AssignmentProbabilityResult> {
   const results = new Map<string, AssignmentProbabilityResult>();
   const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
   positions.forEach(position => {
     const spotPrice = priceMap.get(position.ticker);
     if (!spotPrice || spotPrice <= 0) return;
 
     const expiryDate = new Date(position.expiry);
+    expiryDate.setHours(0, 0, 0, 0);
     const daysToExpiry = Math.max(0, Math.ceil(
       (expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
     ));
