@@ -14,9 +14,9 @@ import { ErrorFallback } from './components/ErrorBoundary';
 import { ProtectedRoute, GuestRoute } from './components/ProtectedRoute';
 import { DemoBanner } from './components/DemoBanner';
 import { PageLoader } from './components/PageLoader';
+import { Dashboard } from './pages/Dashboard';
 
 const LeapsCalculator  = lazy(() => import('./components/LeapsCalculator').then(m => ({ default: m.LeapsCalculator })));
-const Dashboard        = lazy(() => import('./pages/Dashboard').then(m => ({ default: m.Dashboard })));
 const Watchlist        = lazy(() => import('./pages/Watchlist').then(m => ({ default: m.Watchlist })));
 const StockDetail      = lazy(() => import('./pages/StockDetail').then(m => ({ default: m.StockDetail })));
 const WheelTracker     = lazy(() => import('./pages/WheelTracker').then(m => ({ default: m.WheelTracker })));
