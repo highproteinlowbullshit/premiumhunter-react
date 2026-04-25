@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 
 interface DTEData {
   dte: number;
@@ -126,31 +127,24 @@ const pulseKeyframes = `
 `;
 
 export function DTEIndicator({ expiry, compact: _compact = true }: Props) {
-  const [tooltip, setTooltip] = useState(false);
-  const [tooltipPos, setTooltipPos] = useState({ top: 0, left: 0 });
+  const [tooltipPos, setTooltipPos] = useState<{ top: number; left: number } | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   const { dte, isExpired, isToday, expiryLabel } = calculateDTE(expiry);
   const zone = getZone(dte, isExpired, isToday);
   const tradingDays = countTradingDays(expiry);
   const hint = getZoneHint(dte, isToday, isExpired);
 
-  useEffect(() => {
-    if (!tooltip) return;
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setTooltip(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [tooltip]);
-
   const handleMouseEnter = () => {
     if (ref.current) {
       const rect = ref.current.getBoundingClientRect();
-      const left = Math.min(rect.left, window.innerWidth - 236);
-      setTooltipPos({ top: rect.bottom + 6, left });
+      setTooltipPos({
+        top: rect.bottom + 6,
+        left: Math.min(rect.left, window.innerWidth - 236),
+      });
     }
-    setTooltip(true);
   };
+
+  const handleMouseLeave = () => setTooltipPos(null);
 
   const pulseStyle = zone.pulse
     ? { animation: 'dte-pulse 1s ease-in-out infinite' }
@@ -171,7 +165,7 @@ export function DTEIndicator({ expiry, compact: _compact = true }: Props) {
         <div
           style={{ display: 'flex', flexDirection: 'column', gap: 1, cursor: 'default' }}
           onMouseEnter={handleMouseEnter}
-          onMouseLeave={() => setTooltip(false)}
+          onMouseLeave={handleMouseLeave}
         >
           {/* Main DTE pill */}
           <div style={{
@@ -198,10 +192,11 @@ export function DTEIndicator({ expiry, compact: _compact = true }: Props) {
           </span>
         </div>
 
-        {/* Tooltip */}
-        {tooltip && (
+        {/* Tooltip — portal escapes overflow/stacking constraints */}
+        {tooltipPos && createPortal(
           <div style={{
             position: 'fixed', top: tooltipPos.top, left: tooltipPos.left, zIndex: 9999,
+            pointerEvents: 'none',
             width: 220,
             background: 'rgba(10,22,40,0.98)',
             border: '1px solid rgba(0,229,196,0.2)',
@@ -223,7 +218,8 @@ export function DTEIndicator({ expiry, compact: _compact = true }: Props) {
             <p style={{ color: '#6a8fb0', fontSize: 11, lineHeight: 1.5, padding: '8px 10px', background: 'rgba(0,229,196,0.04)', borderRadius: 6, margin: 0 }}>
               {hint}
             </p>
-          </div>
+          </div>,
+          document.body
         )}
       </div>
     </>

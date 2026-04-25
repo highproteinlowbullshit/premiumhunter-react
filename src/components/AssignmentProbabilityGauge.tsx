@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import type { AssignmentProbabilityResult } from '../lib/blackScholes';
 
 interface Props {
@@ -89,27 +90,20 @@ function CircularGauge({ probability }: { probability: number }) {
 }
 
 export function AssignmentProbabilityGauge({ result, strategy, strike, currentPrice, compact: _compact = true }: Props) {
-  const [tooltip, setTooltip] = useState(false);
-  const [tooltipPos, setTooltipPos] = useState({ top: 0, left: 0 });
+  const [tooltipPos, setTooltipPos] = useState<{ top: number; left: number } | null>(null);
   const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!tooltip) return;
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setTooltip(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [tooltip]);
 
   const handleMouseEnter = () => {
     if (ref.current) {
       const rect = ref.current.getBoundingClientRect();
-      const left = Math.min(rect.left, window.innerWidth - 276);
-      setTooltipPos({ top: rect.bottom + 8, left });
+      setTooltipPos({
+        top: rect.bottom + 8,
+        left: Math.min(rect.left, window.innerWidth - 276),
+      });
     }
-    setTooltip(true);
   };
+
+  const handleMouseLeave = () => setTooltipPos(null);
 
   // Null/loading state
   if (!result || currentPrice === null) {
@@ -144,7 +138,7 @@ export function AssignmentProbabilityGauge({ result, strategy, strike, currentPr
         <div
           style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'default' }}
           onMouseEnter={handleMouseEnter}
-          onMouseLeave={() => setTooltip(false)}
+          onMouseLeave={handleMouseLeave}
           aria-label={`Assignment probability: ${probability}%, status: ${label}`}
           role="img"
         >
@@ -167,13 +161,14 @@ export function AssignmentProbabilityGauge({ result, strategy, strike, currentPr
           </span>
         </div>
 
-        {/* Tooltip */}
-        {tooltip && (
+        {/* Tooltip — rendered at body level to escape overflow/stacking constraints */}
+        {tooltipPos && createPortal(
           <div style={{
             position: 'fixed',
             top: tooltipPos.top,
             left: tooltipPos.left,
             zIndex: 9999,
+            pointerEvents: 'none',
             width: 260,
             background: 'rgba(10,22,40,0.99)',
             border: '1px solid rgba(0,229,196,0.2)',
@@ -243,7 +238,8 @@ export function AssignmentProbabilityGauge({ result, strategy, strike, currentPr
             <p style={{ fontSize: 9, color: '#2a4a6a', fontStyle: 'italic', margin: 0, textAlign: 'right' }}>
               Probability ≈ |Δ| · Black-Scholes · live prices
             </p>
-          </div>
+          </div>,
+          document.body
         )}
       </div>
     </>
