@@ -1,0 +1,330 @@
+import { useQuery } from '@tanstack/react-query'
+import { supabase } from '../lib/supabase'
+import { useAuth } from '../context/AuthContext'
+
+export interface TickerPerformanceData {
+  ticker: string
+  totalCycles: number
+  expiredWorthless: number
+  assignments: number
+  coveredCallCycles: number
+  totalPremiumCollected: number
+  totalCapitalGains: number
+  totalPnL: number
+  largestWin: number
+  largestLoss: number
+  averageCapitalDeployed: number
+  totalCapitalDeployed: number
+  returnOnCapital: number
+  annualisedReturn: number
+  winRate: number
+  firstTradeDate: string
+  lastTradeDate: string
+  averageDTE: number
+  totalDaysTraded: number
+  maxDrawdown: number
+  sharpeProxy: number
+  consistencyScore: number
+  recentTrend: 'improving' | 'stable' | 'declining'
+}
+
+export interface TickerPerformanceSummary {
+  tickers: TickerPerformanceData[]
+  bestAnnualisedReturn: TickerPerformanceData | null
+  bestWinRate: TickerPerformanceData | null
+  mostConsistent: TickerPerformanceData | null
+  highestVolume: TickerPerformanceData | null
+  totalPortfolioReturn: number
+  totalCapitalEverDeployed: number
+  portfolioAnnualisedReturn: number
+  portfolioWinRate: number
+  dataFromDate: string
+  dataToDate: string
+  totalCompletedTrades: number
+}
+
+interface WheelPositionRow {
+  id: string
+  ticker: string
+  strategy: string
+  strike: number
+  expiry: string
+  premium_collected: number
+  closing_price: number | null
+  contracts: number
+  opened_at: string
+  closed_at: string | null
+  status: string
+}
+
+interface AssignedLotRow {
+  ticker: string
+  total_premium_collected: number | null
+  realized_capital_gain: number | null
+  assignment_date: string | null
+  exit_date: string | null
+  gross_cost_basis: number | null
+  status: string
+}
+
+export function useTickerPerformance() {
+  const { user } = useAuth()
+
+  return useQuery<TickerPerformanceSummary>({
+    queryKey: ['ticker-performance', user?.id],
+    enabled: !!user,
+    staleTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    queryFn: async (): Promise<TickerPerformanceSummary> => {
+      const emptyState: TickerPerformanceSummary = {
+        tickers: [],
+        bestAnnualisedReturn: null,
+        bestWinRate: null,
+        mostConsistent: null,
+        highestVolume: null,
+        totalPortfolioReturn: 0,
+        totalCapitalEverDeployed: 0,
+        portfolioAnnualisedReturn: 0,
+        portfolioWinRate: 0,
+        dataFromDate: '',
+        dataToDate: '',
+        totalCompletedTrades: 0,
+      }
+
+      const [positionsResult, lotsResult] = await Promise.all([
+        (supabase
+          .from('wheel_positions')
+          .select('id, ticker, strategy, strike, expiry, premium_collected, closing_price, contracts, opened_at, closed_at, status')
+          .eq('user_id', user!.id)
+          .in('status', ['closed', 'expired', 'assigned'])) as unknown as Promise<{ data: WheelPositionRow[] | null; error: unknown }>,
+        (supabase
+          .from('assigned_share_lots')
+          .select('ticker, total_premium_collected, realized_capital_gain, assignment_date, exit_date, gross_cost_basis, status')
+          .eq('user_id', user!.id)
+          .neq('status', 'holding')) as unknown as Promise<{ data: AssignedLotRow[] | null; error: unknown }>,
+      ])
+
+      const positions = (positionsResult.data ?? []) as WheelPositionRow[]
+      const lots = (lotsResult.data ?? []) as AssignedLotRow[]
+
+      if (positions.length === 0) return emptyState
+
+      // Build capital gains map by ticker from assigned lots
+      const capitalGainsMap: Record<string, number> = {}
+      for (const lot of lots) {
+        if (lot.realized_capital_gain != null) {
+          capitalGainsMap[lot.ticker] = (capitalGainsMap[lot.ticker] ?? 0) + Number(lot.realized_capital_gain)
+        }
+      }
+
+      // Group positions by ticker
+      const byTicker: Record<string, WheelPositionRow[]> = {}
+      for (const pos of positions) {
+        if (!byTicker[pos.ticker]) byTicker[pos.ticker] = []
+        byTicker[pos.ticker].push(pos)
+      }
+
+      const tickerData: TickerPerformanceData[] = []
+
+      // Portfolio-level accumulators
+      let portTotalPnL = 0
+      let portTotalCapital = 0
+      let portTotalWins = 0
+      let portTotalTrades = 0
+
+      for (const [ticker, tickerPositions] of Object.entries(byTicker)) {
+        let totalPnL = 0
+        let totalCapital = 0
+        let expiredCount = 0
+        let assignmentCount = 0
+        let coveredCallCycles = 0
+        let wins = 0
+        let largestWin = 0
+        let largestLoss = 0
+        const monthlyReturns = new Map<string, number>()
+        const dteList: number[] = []
+        const pnlList: number[] = []
+
+        for (const pos of tickerPositions) {
+          const capital = pos.strike * pos.contracts * 100
+
+          let pnl: number
+          if (pos.status === 'expired') {
+            pnl = Number(pos.premium_collected) * Number(pos.contracts)
+            expiredCount++
+            wins++
+          } else if (pos.status === 'assigned') {
+            pnl = Number(pos.premium_collected) * Number(pos.contracts)
+            assignmentCount++
+            wins++
+          } else if (pos.closing_price !== null) {
+            pnl = (Number(pos.premium_collected) - Number(pos.closing_price)) * Number(pos.contracts)
+            if (pnl > 0) {
+              expiredCount++
+              wins++
+            }
+          } else {
+            pnl = 0
+          }
+
+          if (pos.strategy === 'CC') {
+            coveredCallCycles++
+          }
+
+          totalPnL += pnl
+          totalCapital += capital
+          pnlList.push(pnl)
+
+          if (pnl > largestWin) largestWin = pnl
+          if (pnl < largestLoss) largestLoss = pnl
+
+          const monthKey = (pos.closed_at ?? pos.expiry).slice(0, 7)
+          monthlyReturns.set(monthKey, (monthlyReturns.get(monthKey) ?? 0) + pnl)
+
+          const dte = Math.ceil(
+            (new Date(pos.expiry).getTime() - new Date(pos.opened_at).getTime()) / 86400000
+          )
+          if (dte > 0) dteList.push(dte)
+        }
+
+        const capitalGains = capitalGainsMap[ticker] ?? 0
+        const combinedPnL = totalPnL + capitalGains
+
+        const n = tickerPositions.length
+        const avgCapital = n > 0 ? totalCapital / n : 0
+
+        const sortedDates = tickerPositions.map(p => p.opened_at).sort()
+        const firstDate = sortedDates[0] ?? ''
+        const lastDate = sortedDates[sortedDates.length - 1] ?? ''
+        const totalDays = firstDate && lastDate
+          ? Math.max(1, Math.ceil((new Date(lastDate).getTime() - new Date(firstDate).getTime()) / 86400000))
+          : 1
+
+        const returnOnCapital = avgCapital > 0 ? (totalPnL / totalCapital) * 100 : 0
+        const annualisedReturn =
+          totalDays > 0 && avgCapital > 0
+            ? ((totalPnL / totalCapital) * (365 / totalDays)) * 100
+            : 0
+
+        const totalTrades = tickerPositions.length
+        const winRate = totalTrades > 0 ? (wins / totalTrades) * 100 : 0
+        const averageDTE = dteList.length > 0
+          ? dteList.reduce((a, b) => a + b, 0) / dteList.length
+          : 0
+
+        // Consistency / Sharpe
+        const monthValues = Array.from(monthlyReturns.values())
+        const avgMonthly = monthValues.length > 0
+          ? monthValues.reduce((a, b) => a + b, 0) / monthValues.length
+          : 0
+        const variance = monthValues.length > 1
+          ? monthValues.reduce((sum, v) => sum + Math.pow(v - avgMonthly, 2), 0) / (monthValues.length - 1)
+          : 0
+        const stdDev = Math.sqrt(variance)
+        const consistencyScore =
+          stdDev > 0 && avgMonthly > 0
+            ? Math.min(100, Math.max(0, 100 - (stdDev / avgMonthly) * 50))
+            : avgMonthly > 0
+            ? 100
+            : 0
+        const sharpeProxy = stdDev > 0 ? avgMonthly / stdDev : 0
+
+        // Max drawdown
+        let maxDrawdown = 0
+        let peak = 0
+        let running = 0
+        for (const p of pnlList) {
+          running += p
+          if (running > peak) peak = running
+          const dd = peak - running
+          if (dd > maxDrawdown) maxDrawdown = dd
+        }
+
+        // Recent trend — compare last 3 vs previous 3 months
+        const sortedMonths = Array.from(monthlyReturns.entries()).sort(([a], [b]) => a.localeCompare(b))
+        let recentTrend: 'improving' | 'stable' | 'declining' = 'stable'
+        if (sortedMonths.length >= 6) {
+          const recent3 = sortedMonths.slice(-3).map(([, v]) => v)
+          const prev3 = sortedMonths.slice(-6, -3).map(([, v]) => v)
+          const recentAvg = recent3.reduce((a, b) => a + b, 0) / 3
+          const prevAvg = prev3.reduce((a, b) => a + b, 0) / 3
+          if (prevAvg !== 0) {
+            const ratio = recentAvg / prevAvg
+            if (ratio > 1.1) recentTrend = 'improving'
+            else if (ratio < 0.9) recentTrend = 'declining'
+          } else if (recentAvg > 0) {
+            recentTrend = 'improving'
+          }
+        }
+
+        tickerData.push({
+          ticker,
+          totalCycles: totalTrades,
+          expiredWorthless: expiredCount,
+          assignments: assignmentCount,
+          coveredCallCycles,
+          totalPremiumCollected: Math.round(totalPnL * 100) / 100,
+          totalCapitalGains: Math.round(capitalGains * 100) / 100,
+          totalPnL: Math.round(combinedPnL * 100) / 100,
+          largestWin: Math.round(largestWin * 100) / 100,
+          largestLoss: Math.round(largestLoss * 100) / 100,
+          averageCapitalDeployed: Math.round(avgCapital * 100) / 100,
+          totalCapitalDeployed: Math.round(totalCapital * 100) / 100,
+          returnOnCapital: Math.round(returnOnCapital * 100) / 100,
+          annualisedReturn: Math.round(annualisedReturn * 100) / 100,
+          winRate: Math.round(winRate * 10) / 10,
+          firstTradeDate: firstDate,
+          lastTradeDate: lastDate,
+          averageDTE: Math.round(averageDTE),
+          totalDaysTraded: totalDays,
+          maxDrawdown: Math.round(maxDrawdown * 100) / 100,
+          sharpeProxy: Math.round(sharpeProxy * 100) / 100,
+          consistencyScore: Math.round(consistencyScore * 10) / 10,
+          recentTrend,
+        })
+
+        portTotalPnL += combinedPnL
+        portTotalCapital += totalCapital
+        portTotalWins += wins
+        portTotalTrades += totalTrades
+      }
+
+      // Sort by annualised return descending
+      tickerData.sort((a, b) => b.annualisedReturn - a.annualisedReturn)
+
+      const allDates = positions.map(p => p.opened_at).sort()
+      const dataFromDate = allDates[0] ?? ''
+      const dataToDate = allDates[allDates.length - 1] ?? ''
+      const totalPortDays = dataFromDate && dataToDate
+        ? Math.max(1, Math.ceil((new Date(dataToDate).getTime() - new Date(dataFromDate).getTime()) / 86400000))
+        : 1
+
+      const portfolioAnnualisedReturn =
+        portTotalCapital > 0
+          ? ((portTotalPnL / portTotalCapital) * (365 / totalPortDays)) * 100
+          : 0
+      const portfolioWinRate = portTotalTrades > 0 ? (portTotalWins / portTotalTrades) * 100 : 0
+
+      return {
+        tickers: tickerData,
+        bestAnnualisedReturn: tickerData[0] ?? null,
+        bestWinRate: tickerData.length > 0
+          ? [...tickerData].sort((a, b) => b.winRate - a.winRate)[0]
+          : null,
+        mostConsistent: tickerData.length > 0
+          ? [...tickerData].sort((a, b) => b.consistencyScore - a.consistencyScore)[0]
+          : null,
+        highestVolume: tickerData.length > 0
+          ? [...tickerData].sort((a, b) => b.totalCycles - a.totalCycles)[0]
+          : null,
+        totalPortfolioReturn: Math.round(portTotalPnL * 100) / 100,
+        totalCapitalEverDeployed: Math.round(portTotalCapital * 100) / 100,
+        portfolioAnnualisedReturn: Math.round(portfolioAnnualisedReturn * 100) / 100,
+        portfolioWinRate: Math.round(portfolioWinRate * 10) / 10,
+        dataFromDate,
+        dataToDate,
+        totalCompletedTrades: portTotalTrades,
+      }
+    },
+  })
+}

@@ -14,6 +14,8 @@ import { WebSocketStatus } from '../components/WebSocketStatus';
 import { usePortfolioEnhanced, type EnhancedTimeRange } from '../hooks/usePortfolioEnhanced';
 import { PortfolioBenchmarkChart } from '../components/PortfolioBenchmarkChart';
 import { AssignedSharesSection } from '../components/AssignedSharesSection';
+import { useTickerPerformance } from '../hooks/useTickerPerformance';
+import { TickerPerformanceTable } from '../components/TickerPerformanceTable';
 
 type Currency = 'USD' | 'SGD';
 const SGD_FALLBACK_RATE = 1.275; // fallback if Finnhub fetch fails
@@ -1119,6 +1121,7 @@ function RealPortfolio() {
   );
   const { prices: wsPrices, wsStatus } = useRealtimePrices(holdingTickers);
   const { data: enhanced } = usePortfolioEnhanced(enhancedTimeRange);
+  const { data: performanceSummary, isLoading: perfLoading } = useTickerPerformance();
 
   // Merge REST prices with WebSocket prices (WS takes precedence)
   const livePriceMap = useMemo(() => {
@@ -1461,6 +1464,12 @@ function RealPortfolio() {
           totalLotsPremiumCollected={enhanced?.totalLotsPremiumCollected ?? 0}
           orphanedAssignments={enhanced?.orphanedAssignments ?? 0}
           isLoading={!enhanced}
+        />
+
+        {/* Section C.6 — Ticker Performance League Table */}
+        <TickerPerformanceTable
+          summary={performanceSummary ?? null}
+          isLoading={perfLoading}
         />
 
         {/* Section D — Holdings Table */}
