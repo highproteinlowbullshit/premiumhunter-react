@@ -16,6 +16,7 @@ import { usePaperMode } from '../context/PaperModeContext';
 import { usePaperActions } from '../hooks/usePaperTrading';
 import { PaperTradeModal } from '../components/PaperModals';
 import { TopPicksSection } from '../components/TopPicksSection';
+import { EarningsBadge } from '../components/EarningsBadge';
 import { supabase } from '../lib/supabase';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -242,7 +243,12 @@ export function Screener() {
     const highIV  = filtered.filter((s) => s.ivRank != null && s.ivRank >= 70).length;
     const withIV  = filtered.filter((s) => s.ivRank != null);
     const avgIV   = withIV.length ? Math.round(withIV.reduce((a, s) => a + s.ivRank!, 0) / withIV.length) : 0;
-    return { total: filtered.length, avgIV, highIV };
+    const earningsUrgentCount = filtered.filter((s) => {
+      if (!s.earningsDate) return false;
+      const dte = Math.ceil((new Date(s.earningsDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+      return dte <= 14;
+    }).length;
+    return { total: filtered.length, avgIV, highIV, earningsUrgentCount };
   }, [filtered]);
 
   const isDirty = JSON.stringify(filters) !== JSON.stringify(DEFAULT_FILTERS);
@@ -368,7 +374,7 @@ export function Screener() {
               }}>
               <div className="overflow-x-auto">
                 <table className="w-full" style={{ borderCollapse: 'separate', borderSpacing: 0 }}>
-                  <StickyHeader filters={filters} set={set} />
+                  <StickyHeader filters={filters} set={set} earningsUrgentCount={stats.earningsUrgentCount} />
                   <tbody>
                     {filtered.map((stock, i) => (
                       <DesktopRow
@@ -727,9 +733,10 @@ function DualRangeSlider({
 // ─────────────────────────────────────────────────────────────────────────────
 // Sticky Table Header
 // ─────────────────────────────────────────────────────────────────────────────
-function StickyHeader({ filters, set }: {
+function StickyHeader({ filters, set, earningsUrgentCount }: {
   filters: Filters;
   set: <K extends keyof Filters>(k: K, v: Filters[K]) => void;
+  earningsUrgentCount: number;
 }) {
   const COLS = [
     { key: 'ticker',       label: 'Symbol'    },
@@ -740,7 +747,7 @@ function StickyHeader({ filters, set }: {
     { key: null,           label: 'IV/HV'     },
     { key: null,           label: 'HV 52w Range' },
     { key: 'volume',       label: 'Volume'    },
-    { key: null,           label: 'Earnings'  },
+    { key: null,           label: 'Earnings', danger: earningsUrgentCount },
     { key: null,           label: ''          }, // action
   ] as const;
 
@@ -757,13 +764,13 @@ function StickyHeader({ filters, set }: {
   return (
     <thead>
       <tr style={{ background: 'rgba(0,0,0,0.2)', borderBottom: '1px solid rgba(0,229,196,0.08)' }}>
-        {COLS.map(({ key, label }, i) => (
+        {COLS.map((col, i) => (
           <th
             key={i}
-            onClick={() => handleColSort(key)}
-            className={`text-left py-3 px-3 text-xs font-medium tracking-widest whitespace-nowrap select-none ${key ? 'cursor-pointer hover:text-[#e8f0fe]' : ''}`}
+            onClick={() => handleColSort(col.key)}
+            className={`text-left py-3 px-3 text-xs font-medium tracking-widest whitespace-nowrap select-none ${col.key ? 'cursor-pointer hover:text-[#e8f0fe]' : ''}`}
             style={{
-              color: filters.sortBy === key ? '#00e5c4' : '#4a6a8a',
+              color: filters.sortBy === col.key ? '#00e5c4' : '#4a6a8a',
               letterSpacing: '0.07em',
               fontFamily: 'DM Sans, sans-serif',
               transition: 'color 0.15s',
@@ -771,10 +778,21 @@ function StickyHeader({ filters, set }: {
               paddingRight: i === COLS.length - 1 ? '20px' : undefined,
             }}
           >
-            {label}
-            {filters.sortBy === key && (
-              <span className="ml-1">{filters.sortDir === 'desc' ? '↓' : '↑'}</span>
-            )}
+            <span className="inline-flex items-center gap-1.5">
+              {col.label}
+              {'danger' in col && col.danger > 0 && (
+                <span
+                  className="inline-flex items-center justify-center rounded-full text-[9px] font-bold"
+                  style={{ minWidth: 16, height: 16, padding: '0 4px', background: 'rgba(255,77,109,0.2)', color: '#ff4d6d', border: '1px solid rgba(255,77,109,0.35)' }}
+                  title={`${col.danger} stock${col.danger !== 1 ? 's' : ''} with earnings within 14 days`}
+                >
+                  {col.danger}
+                </span>
+              )}
+              {filters.sortBy === col.key && (
+                <span>{filters.sortDir === 'desc' ? '↓' : '↑'}</span>
+              )}
+            </span>
           </th>
         ))}
       </tr>
@@ -803,7 +821,6 @@ function DesktopRow({
   const ivColors = ivRankColors(stock.ivRank);
   const sectorColors = SECTOR_COLORS[stock.sector];
   const earningsDte = stock.earningsDate ? daysUntil(stock.earningsDate) : null;
-  const earningsUrgent = earningsDte !== null && earningsDte <= 14;
 
   return (
     <tr
@@ -927,19 +944,7 @@ function DesktopRow({
 
       {/* Earnings */}
       <td className="py-3.5 px-3">
-        {earningsDte !== null ? (
-          <span className="inline-flex items-center text-xs px-2 py-0.5 rounded-md font-medium"
-            style={{
-              color: earningsUrgent ? '#ff4d6d' : '#4a6a8a',
-              background: earningsUrgent ? 'rgba(255,77,109,0.1)' : 'transparent',
-              border: earningsUrgent ? '1px solid rgba(255,77,109,0.2)' : '1px solid transparent',
-              fontFamily: 'JetBrains Mono, monospace',
-            }}>
-            {earningsDte > 0 ? `${earningsDte}d` : 'Today'}
-          </span>
-        ) : (
-          <span className="text-xs" style={{ color: '#2e4a6a' }}>—</span>
-        )}
+        <EarningsBadge daysToEarnings={earningsDte} />
       </td>
 
       {/* Action */}
@@ -989,7 +994,6 @@ function MobileCard({
   const ivColors = ivRankColors(stock.ivRank);
   const sectorColors = SECTOR_COLORS[stock.sector];
   const earningsDte = stock.earningsDate ? daysUntil(stock.earningsDate) : null;
-  const earningsUrgent = earningsDte !== null && earningsDte <= 14;
 
   return (
     <div
@@ -1013,11 +1017,8 @@ function MobileCard({
                 style={{ color: sectorColors.text, background: sectorColors.bg, fontFamily: 'DM Sans, sans-serif', fontSize: '10px' }}>
                 {stock.sector}
               </span>
-              {earningsUrgent && (
-                <span className="text-xs px-1.5 py-0.5 rounded"
-                  style={{ color: '#ff4d6d', background: 'rgba(255,77,109,0.1)', fontFamily: 'JetBrains Mono, monospace', fontSize: '9px' }}>
-                  ER {earningsDte}d
-                </span>
+              {earningsDte !== null && earningsDte <= 30 && (
+                <EarningsBadge daysToEarnings={earningsDte} compact />
               )}
             </div>
             <p className="text-xs mt-0.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
