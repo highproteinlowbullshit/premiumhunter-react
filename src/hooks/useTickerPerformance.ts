@@ -26,6 +26,7 @@ export interface TickerPerformanceData {
   sharpeProxy: number
   consistencyScore: number
   recentTrend: 'improving' | 'stable' | 'declining'
+  monthlyBreakdown: Array<{ month: string; pnl: number }>
 }
 
 export interface TickerPerformanceSummary {
@@ -281,6 +282,9 @@ export function useTickerPerformance() {
           sharpeProxy: Math.round(sharpeProxy * 100) / 100,
           consistencyScore: Math.round(consistencyScore * 10) / 10,
           recentTrend,
+          monthlyBreakdown: Array.from(monthlyReturns.entries())
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([month, pnl]) => ({ month, pnl: Math.round(pnl * 100) / 100 })),
         })
 
         portTotalPnL += combinedPnL

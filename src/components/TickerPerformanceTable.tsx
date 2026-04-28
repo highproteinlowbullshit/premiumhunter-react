@@ -125,14 +125,12 @@ function LoadingSkeleton() {
 
 // ── Expanded row panel ─────────────────────────────────────────────────────────
 
-function buildMonthlyChartData(_ticker: TickerPerformanceData): Array<{ month: string; pnl: number }> {
-  // Monthly breakdown is not exposed in TickerPerformanceData — return empty.
-  return []
+function buildMonthlyChartData(ticker: TickerPerformanceData): Array<{ month: string; pnl: number }> {
+  return ticker.monthlyBreakdown
 }
 
 function ExpandedPanel({ ticker }: { ticker: TickerPerformanceData }) {
   const chartData = buildMonthlyChartData(ticker)
-  const hasChart = chartData.length > 0
 
   return (
     <tr>
@@ -145,17 +143,15 @@ function ExpandedPanel({ ticker }: { ticker: TickerPerformanceData }) {
         }}
       >
         <div style={{ padding: '16px 20px' }}>
-          {hasChart && (
-            <div style={{ marginBottom: 16 }}>
-              <ResponsiveContainer width="100%" height={80}>
-                <LineChart data={chartData} margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
-                  <XAxis dataKey="month" tick={{ fontFamily: 'DM Sans, sans-serif', fontSize: 10, fill: '#4a6a8a' }} axisLine={false} tickLine={false} />
-                  <Tooltip content={<MiniTooltip />} />
-                  <Line type="monotone" dataKey="pnl" stroke="#00e5c4" strokeWidth={1.5} dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          )}
+          <div style={{ marginBottom: 16 }}>
+            <ResponsiveContainer width="100%" height={80}>
+              <LineChart data={chartData} margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
+                <XAxis dataKey="month" tick={{ fontFamily: 'DM Sans, sans-serif', fontSize: 10, fill: '#4a6a8a' }} axisLine={false} tickLine={false} />
+                <Tooltip content={<MiniTooltip />} />
+                <Line type="monotone" dataKey="pnl" stroke="#00e5c4" strokeWidth={1.5} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20 }}>
             {[
               { label: 'Avg DTE at entry', value: `${ticker.averageDTE}d` },
@@ -496,7 +492,7 @@ export function TickerPerformanceTable({ summary, isLoading }: Props) {
                   {/* Cycles */}
                   <td style={cellStyle}>
                     <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 13, color: '#9ab4d4' }}>
-                      {t.totalCycles} CSP
+                      {t.totalCycles - t.coveredCallCycles} CSP
                     </div>
                     {t.coveredCallCycles > 0 && (
                       <div style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', fontSize: 10, marginTop: 2 }}>
