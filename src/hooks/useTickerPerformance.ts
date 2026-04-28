@@ -93,17 +93,22 @@ export function useTickerPerformance() {
       }
 
       const [positionsResult, lotsResult] = await Promise.all([
-        (supabase
+        supabase
           .from('wheel_positions')
           .select('id, ticker, strategy, strike, expiry, premium_collected, closing_price, contracts, opened_at, closed_at, status')
           .eq('user_id', user!.id)
-          .in('status', ['closed', 'expired', 'assigned'])) as unknown as Promise<{ data: WheelPositionRow[] | null; error: unknown }>,
-        (supabase
+          .in('status', ['closed', 'expired', 'assigned'])
+          .order('ticker', { ascending: true })
+          .order('opened_at', { ascending: true }),
+        supabase
           .from('assigned_share_lots')
           .select('ticker, total_premium_collected, realized_capital_gain, assignment_date, exit_date, gross_cost_basis, status')
           .eq('user_id', user!.id)
-          .neq('status', 'holding')) as unknown as Promise<{ data: AssignedLotRow[] | null; error: unknown }>,
+          .neq('status', 'holding'),
       ])
+
+      if (positionsResult.error) throw positionsResult.error
+      if (lotsResult.error) throw lotsResult.error
 
       const positions = (positionsResult.data ?? []) as WheelPositionRow[]
       const lots = (lotsResult.data ?? []) as AssignedLotRow[]
@@ -250,9 +255,9 @@ export function useTickerPerformance() {
           const recentAvg = recent3.reduce((a, b) => a + b, 0) / 3
           const prevAvg = prev3.reduce((a, b) => a + b, 0) / 3
           if (prevAvg !== 0) {
-            const ratio = recentAvg / prevAvg
-            if (ratio > 1.1) recentTrend = 'improving'
-            else if (ratio < 0.9) recentTrend = 'declining'
+            const threshold = Math.abs(prevAvg) * 0.1
+            if (recentAvg - prevAvg > threshold) recentTrend = 'improving'
+            else if (prevAvg - recentAvg > threshold) recentTrend = 'declining'
           } else if (recentAvg > 0) {
             recentTrend = 'improving'
           }

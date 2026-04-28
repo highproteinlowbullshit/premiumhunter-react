@@ -25,7 +25,9 @@ const SORT_OPTIONS: SortOption[] = [
 
 function fmt$(v: number, compact = false): string {
   if (compact && Math.abs(v) >= 1000) {
-    return `$${(v / 1000).toFixed(1)}k`
+    return v < 0
+      ? `-$${(Math.abs(v) / 1000).toFixed(1)}k`
+      : `$${(v / 1000).toFixed(1)}k`
   }
   return v < 0
     ? `-$${Math.abs(v).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
@@ -472,7 +474,7 @@ export function TickerPerformanceTable({ summary, isLoading }: Props) {
                       {t.totalPnL >= 0 ? '+' : ''}{fmt$(t.totalPnL, true)}
                     </div>
                     <div style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', fontSize: 10 }}>
-                      Premium: +{fmt$(t.totalPremiumCollected, true)}
+                      Premium: {t.totalPremiumCollected >= 0 ? '+' : ''}{fmt$(t.totalPremiumCollected, true)}
                     </div>
                     {t.totalCapitalGains > 0 && (
                       <div style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', fontSize: 10 }}>
