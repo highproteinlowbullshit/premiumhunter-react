@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { PositionTable } from '../components/PositionTable';
 import { ClosedPositionTable } from '../components/ClosedPositionTable';
+import { CycleGroupView } from '../components/CycleGroupView';
+import { useCycleGroups } from '../hooks/useCycleGroups';
 import { usePositions } from '../hooks/usePositions';
 import { usePaperMode } from '../context/PaperModeContext';
 import { PaperWheelTracker } from './PaperWheelTracker';
@@ -32,8 +34,10 @@ function RealWheelTracker() {
   const [assigningPosition, setAssigningPosition] = useState<WheelPosition | null>(null);
   const [deletingPosition, setDeletingPosition] = useState<WheelPosition | null>(null);
   const [cashBalance, setCashBalance] = useState<number | null>(null);
+  const [closedView, setClosedView] = useState<'list' | 'cycles'>('list');
   const { user } = useAuth();
   const { positions, openPositions, monthlyPnL, isLoading, addPosition, removePosition, closePosition, editPosition, assignPosition } = usePositions();
+  const cycleGroups = useCycleGroups(positions);
 
   // Build stable ticker list from open positions for WebSocket subscription
   const openTickers = useMemo(
@@ -230,9 +234,28 @@ function RealWheelTracker() {
                 </p>
               )}
             </div>
+            {/* View toggle */}
+            <div className="flex items-center gap-1 p-1 rounded-lg" style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(0,229,196,0.08)' }}>
+              {(['list', 'cycles'] as const).map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setClosedView(v)}
+                  className="px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-150"
+                  style={{
+                    fontFamily: 'DM Sans, sans-serif',
+                    color: closedView === v ? '#050d1a' : '#4a6a8a',
+                    background: closedView === v ? '#00e5c4' : 'transparent',
+                  }}
+                >
+                  {v === 'list' ? 'List' : 'Cycles'}
+                </button>
+              ))}
+            </div>
           </div>
           {isLoading ? (
             <SkeletonRows />
+          ) : closedView === 'cycles' ? (
+            <CycleGroupView groups={cycleGroups} isLoading={isLoading} />
           ) : (
             <ClosedPositionTable
               positions={closedPositions}
