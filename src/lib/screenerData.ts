@@ -19,6 +19,7 @@ export interface ScreenerStock {
   putCallSkew: number | null;     // (putIV − callIV) / atmIV; positive = puts pricier
   atmOpenInterest: number | null; // total ATM open interest (calls + puts)
   dataSource: 'live' | 'cached';
+  capitalRequired: number | null; // ~10% OTM CSP collateral for 1 contract ≈ price × 0.90 × 100
 }
 
 export const SECTORS: Array<'All' | Sector> = [

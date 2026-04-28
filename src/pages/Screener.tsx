@@ -11,6 +11,7 @@ import {
 } from '../lib/screenerData';
 import { useWatchlistContext } from '../context/WatchlistContext';
 import { useScreenerStream } from '../hooks/useMarketData';
+import { useScoringPreferences } from '../hooks/useScoringPreferences';
 import { usePaperMode } from '../context/PaperModeContext';
 import { usePaperActions } from '../hooks/usePaperTrading';
 import { PaperTradeModal } from '../components/PaperModals';
@@ -136,6 +137,11 @@ const DEFAULT_FILTERS: Filters = {
 // ─────────────────────────────────────────────────────────────────────────────
 // Main Page
 // ─────────────────────────────────────────────────────────────────────────────
+type StockWithAffordability = ScreenerStock & {
+  isAffordable: boolean | null;
+  contractsAffordable: number;
+};
+
 export function Screener() {
   const navigate = useNavigate();
   const { isWatched, addTicker, removeTicker } = useWatchlistContext();
@@ -147,6 +153,9 @@ export function Screener() {
   const [mounted, setMounted] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const { stocks, loadedCount, total, isLoading } = useScreenerStream();
+  const { prefs } = useScoringPreferences();
+  const capitalPerTrade = prefs.capitalPerTrade ?? 0;
+  const [filterAffordable, setFilterAffordable] = useState(false);
   const mobileScrollRef = useRef<HTMLDivElement>(null);
   const loading = isLoading && stocks.length === 0;
   const lastRun = useIVFreshness();
@@ -174,13 +183,29 @@ export function Screener() {
     setDebouncedSearch('');
   };
 
+  // ── Affordability enrichment ──────────────────────────────────────────────
+
+  const stocksEnriched = useMemo<StockWithAffordability[]>(() =>
+    stocks.map(s => {
+      const cap = s.capitalRequired ?? 0;
+      const isAffordable: boolean | null = capitalPerTrade > 0 && cap > 0
+        ? cap <= capitalPerTrade
+        : null;
+      const contractsAffordable: number = capitalPerTrade > 0 && cap > 0
+        ? Math.floor(capitalPerTrade / cap)
+        : 0;
+      return { ...s, isAffordable, contractsAffordable };
+    }),
+    [stocks, capitalPerTrade]
+  );
+
   // ── Filtered + sorted stocks ──────────────────────────────────────────────
   const filtered = useMemo(() => {
     const q = debouncedSearch.trim().toUpperCase();
     const priceMin = filters.priceMin !== '' ? Number(filters.priceMin) : 0;
     const priceMax = filters.priceMax !== '' ? Number(filters.priceMax) : Infinity;
 
-    return stocks.filter((s) => {
+    return stocksEnriched.filter((s) => {
       // Null = still loading: pass range filters (show row with '--'), but
       // exclude when the user has narrowed the range from its full extent.
       const ivRangeIsNarrowed = filters.ivRankMin > 0 || filters.ivRankMax < 100;
@@ -193,6 +218,7 @@ export function Screener() {
 
       if (filters.sector !== 'All' && s.sector !== filters.sector) return false;
       if (q && !s.ticker.includes(q) && !s.name.toUpperCase().includes(q)) return false;
+      if (filterAffordable && capitalPerTrade > 0 && s.isAffordable === false) return false;
       return true;
     }).sort((a, b) => {
       // Nulls sink to the bottom regardless of sort direction
@@ -201,8 +227,8 @@ export function Screener() {
       const cmp = (av as number | string) > (bv as number | string) ? 1 : (av as number | string) < (bv as number | string) ? -1 : 0;
       return filters.sortDir === 'desc' ? -cmp : cmp;
     });
-  }, [stocks, filters.ivRankMin, filters.ivRankMax, filters.priceMin, filters.priceMax,
-      filters.sector, filters.sortBy, filters.sortDir, debouncedSearch]);
+  }, [stocksEnriched, filters.ivRankMin, filters.ivRankMax, filters.priceMin, filters.priceMax,
+      filters.sector, filters.sortBy, filters.sortDir, debouncedSearch, filterAffordable, capitalPerTrade]);
 
   const mobileVirtualizer = useVirtualizer({
     count: filtered.length,
@@ -283,6 +309,43 @@ export function Screener() {
           isDirty={isDirty}
           mounted={mounted}
         />
+
+        {/* ── Affordability filter toggle ─────────────────────────────────── */}
+        <div style={{ marginTop: 8, paddingBottom: 4 }}>
+          {capitalPerTrade > 0 ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <button
+                onClick={() => setFilterAffordable(v => !v)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '5px 12px', borderRadius: 10, fontSize: 12, cursor: 'pointer',
+                  background: filterAffordable ? 'rgba(0,229,196,0.12)' : 'rgba(255,255,255,0.04)',
+                  border: filterAffordable ? '1px solid rgba(0,229,196,0.3)' : '1px solid rgba(255,255,255,0.08)',
+                  color: filterAffordable ? '#00e5c4' : '#4a6a8a',
+                  fontFamily: 'DM Sans, sans-serif', fontWeight: 600,
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
+                  <rect x="1.5" y="4.5" width="8" height="5.5" rx="1.5" stroke="currentColor" strokeWidth="1.1"/>
+                  <path d="M3.5 4.5V3a2 2 0 0 1 4 0v1.5" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round"/>
+                </svg>
+                {filterAffordable
+                  ? `Affordable with $${capitalPerTrade.toLocaleString()}`
+                  : 'Show all stocks'}
+              </button>
+              {filterAffordable && (
+                <span style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', fontSize: 11 }}>
+                  {filtered.length} affordable
+                </span>
+              )}
+            </div>
+          ) : (
+            <p style={{ color: '#2e4a6a', fontFamily: 'DM Sans, sans-serif', fontSize: 11, margin: 0 }}>
+              Set capital per trade in Risk Preferences to filter by account size
+            </p>
+          )}
+        </div>
       </div>
 
       {/* ── Top Picks ────────────────────────────────────────────────────── */}
@@ -317,6 +380,8 @@ export function Screener() {
                         onClick={() => navigate(`/stock/${stock.ticker}`)}
                         isPaperMode={isPaperMode}
                         onPaperTrade={() => setPaperTradeStock(stock)}
+                        isAffordable={(stock as StockWithAffordability).isAffordable}
+                        contractsAffordable={(stock as StockWithAffordability).contractsAffordable}
                       />
                     ))}
                   </tbody>
@@ -722,6 +787,7 @@ function StickyHeader({ filters, set }: {
 // ─────────────────────────────────────────────────────────────────────────────
 function DesktopRow({
   stock, isLast, watched, onToggleWatch, onClick, isPaperMode, onPaperTrade,
+  isAffordable, contractsAffordable,
 }: {
   stock: ScreenerStock;
   isLast: boolean;
@@ -730,6 +796,8 @@ function DesktopRow({
   onClick: () => void;
   isPaperMode: boolean;
   onPaperTrade: () => void;
+  isAffordable?: boolean | null;
+  contractsAffordable?: number;
 }) {
   const [hovered, setHovered] = useState(false);
   const ivColors = ivRankColors(stock.ivRank);
@@ -747,12 +815,16 @@ function DesktopRow({
         borderBottom: isLast ? 'none' : '1px solid rgba(0,229,196,0.05)',
         cursor: 'pointer',
         transition: 'background 0.12s ease',
+        opacity: isAffordable === false ? 0.45 : 1,
       }}
     >
       {/* Symbol */}
       <td className="py-3.5 pl-5 pr-3">
         <div>
-          <p className="text-sm font-bold" style={{ fontFamily: 'Syne, sans-serif', color: '#e8f0fe' }}>
+          <p className="text-sm font-bold" style={{ fontFamily: 'Syne, sans-serif', color: '#e8f0fe', display: 'flex', alignItems: 'center', gap: 4 }}>
+            {isAffordable === false && (
+              <span title={`Requires $${stock.capitalRequired?.toLocaleString()} — exceeds capital per trade ($${(contractsAffordable ?? 0) === 0 ? '0' : '?'})`} style={{ fontSize: 11, lineHeight: 1 }}>🔒</span>
+            )}
             {stock.ticker}
           </p>
           <p className="text-xs mt-0.5 max-w-[120px] truncate" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
@@ -780,6 +852,17 @@ function DesktopRow({
         }}>
           {stock.priceChange != null ? `${stock.priceChange >= 0 ? '+' : ''}${stock.priceChange.toFixed(2)}%` : '--'}
         </p>
+        {isAffordable !== false && contractsAffordable != null && contractsAffordable > 0 && (
+          <div style={{
+            display: 'inline-block', marginTop: 2, fontSize: 9, padding: '1px 5px', borderRadius: 8,
+            color: contractsAffordable === 1 ? '#f59e0b' : '#00e5c4',
+            background: contractsAffordable === 1 ? 'rgba(245,158,11,0.1)' : 'rgba(0,229,196,0.08)',
+            border: `1px solid ${contractsAffordable === 1 ? 'rgba(245,158,11,0.2)' : 'rgba(0,229,196,0.15)'}`,
+            fontFamily: 'JetBrains Mono, monospace',
+          }}>
+            {contractsAffordable >= 5 ? '5+' : contractsAffordable === 1 ? '1 only' : contractsAffordable} contracts
+          </div>
+        )}
       </td>
 
       {/* IV Rank — hero column */}

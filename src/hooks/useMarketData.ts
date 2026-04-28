@@ -114,6 +114,9 @@ export function useScreenerStream(): ScreenerStreamState {
             putCallSkew: row.put_call_skew ?? null,
             atmOpenInterest: row.atm_open_interest ?? null,
             dataSource: 'cached' as const,
+            capitalRequired: row.current_price != null && row.current_price > 0
+              ? Math.round(row.current_price * 0.90 * 100)
+              : null,
           };
         });
         if (!cancelledRef.current) {
@@ -159,6 +162,7 @@ export function useScreenerStream(): ScreenerStreamState {
               putCallSkew: null,
               atmOpenInterest: null,
               dataSource: 'live' as const,
+              capitalRequired: null,
             } satisfies ScreenerStock;
           });
           setStocks((prev) => {
