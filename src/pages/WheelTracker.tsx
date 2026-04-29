@@ -486,7 +486,7 @@ function ClosePositionModal({ position, onClose, onConfirm }: {
       {/* Closing price input */}
       <div className="mb-4">
         <label className="block text-xs mb-1.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
-          Closing Price <span style={{ color: '#2e4a6a' }}>(buy-back price per contract)</span>
+          Closing Price <span style={{ color: '#6a8fb0' }}>(buy-back price per contract)</span>
         </label>
         <div className="relative">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: '#4a6a8a' }}>$</span>
@@ -636,7 +636,7 @@ function EditPositionModal({ position, onClose, onSave }: {
         {/* Premium */}
         <div>
           <label className="block text-xs mb-1.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
-            Premium Collected <span style={{ color: '#2e4a6a' }}>(per contract)</span>
+            Premium Collected <span style={{ color: '#6a8fb0' }}>(per contract)</span>
           </label>
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: '#4a6a8a' }}>$</span>
@@ -1089,7 +1089,7 @@ function AddPositionModal({ cashBalance, lockedCollateral, openPositions, onClos
                 </button>
               ))}
             </div>
-            <p className="text-xs mt-1.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', lineHeight: 1.5 }}>
+            <p className="text-xs mt-1.5" style={{ color: '#9ab4d4', fontFamily: 'DM Sans, sans-serif', lineHeight: 1.5 }}>
               {form.strategy === 'CSP'
                 ? 'Cash Secured Put — you agree to buy 100 shares at the strike if assigned'
                 : 'Covered Call — you agree to sell your 100 shares at the strike if called away'}
@@ -1112,10 +1112,10 @@ function AddPositionModal({ cashBalance, lockedCollateral, openPositions, onClos
               />
             </div>
             {errors.strike && <p className="text-xs mt-1" style={{ color: '#ff4d6d', fontFamily: 'DM Sans, sans-serif' }}>{errors.strike}</p>}
-            <p className="text-xs mt-1.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', lineHeight: 1.5 }}>
+            <p className="text-xs mt-1.5" style={{ color: '#9ab4d4', fontFamily: 'DM Sans, sans-serif', lineHeight: 1.5 }}>
               The strike price of the option you sold
               <br />
-              <span style={{ color: '#2e4a6a' }}>
+              <span style={{ color: '#6a8fb0' }}>
                 {form.strategy === 'CSP' ? 'CSP: the price you agreed to buy shares at' : 'CC: the price your shares get called away at'}
               </span>
             </p>
@@ -1129,7 +1129,7 @@ function AddPositionModal({ cashBalance, lockedCollateral, openPositions, onClos
               className="w-full px-3 py-2.5 rounded-xl text-sm"
               style={inputStyle('contracts')}
             />
-            <p className="text-xs mt-1.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', lineHeight: 1.5 }}>
+            <p className="text-xs mt-1.5" style={{ color: '#9ab4d4', fontFamily: 'DM Sans, sans-serif', lineHeight: 1.5 }}>
               Each contract covers 100 shares.
             </p>
             {strike > 0 && contracts > 0 && (
@@ -1189,7 +1189,7 @@ function AddPositionModal({ cashBalance, lockedCollateral, openPositions, onClos
                 </>
               );
             })() : (
-              <p style={{ color: '#2a4060', fontFamily: 'DM Sans, sans-serif' }}>
+              <p style={{ color: '#6a8fb0', fontFamily: 'DM Sans, sans-serif' }}>
                 Enter ticker to check share holdings
               </p>
             )}
@@ -1206,7 +1206,7 @@ function AddPositionModal({ cashBalance, lockedCollateral, openPositions, onClos
             <div className="flex justify-between items-center mb-1.5">
               <span style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
                 Collateral required
-                <span style={{ color: '#2a4060', marginLeft: 4 }}>({contracts} × ${strike} × 100)</span>
+                <span style={{ color: '#6a8fb0', marginLeft: 4 }}>({contracts} × ${strike} × 100)</span>
               </span>
               <span style={{ color: insufficient ? '#ff4d6d' : '#00e5c4', fontFamily: 'JetBrains Mono, monospace', fontWeight: 700 }}>
                 ${collateral.toLocaleString()}
@@ -1241,7 +1241,7 @@ function AddPositionModal({ cashBalance, lockedCollateral, openPositions, onClos
               </>
             )}
             {cashBalance === null && (
-              <p style={{ color: '#2a4060', fontFamily: 'DM Sans, sans-serif', marginTop: 2 }}>
+              <p style={{ color: '#6a8fb0', fontFamily: 'DM Sans, sans-serif', marginTop: 2 }}>
                 Add a Cash holding in Portfolio to see balance here
               </p>
             )}
@@ -1259,7 +1259,7 @@ function AddPositionModal({ cashBalance, lockedCollateral, openPositions, onClos
             style={{ ...inputStyle('expiry'), colorScheme: 'dark' }}
           />
           {errors.expiry && <p className="text-xs mt-1" style={{ color: '#ff4d6d', fontFamily: 'DM Sans, sans-serif' }}>{errors.expiry}</p>}
-          <p className="text-xs mt-1.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', lineHeight: 1.5 }}>
+          <p className="text-xs mt-1.5" style={{ color: '#9ab4d4', fontFamily: 'DM Sans, sans-serif', lineHeight: 1.5 }}>
             The expiration date shown in your broker — always the third Friday of the month for monthly options
           </p>
         </div>
@@ -1267,7 +1267,7 @@ function AddPositionModal({ cashBalance, lockedCollateral, openPositions, onClos
         {/* Premium */}
         <div>
           <label className="block text-xs mb-1.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
-            Premium Collected <span style={{ color: '#2e4a6a' }}>(per contract)</span>
+            Premium Collected <span style={{ color: '#6a8fb0' }}>(per contract)</span>
           </label>
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: '#4a6a8a' }}>$</span>
@@ -1285,11 +1285,11 @@ function AddPositionModal({ cashBalance, lockedCollateral, openPositions, onClos
               Total: ${(Number(form.premium) * Number(form.contracts)).toFixed(0)}
             </p>
           )}
-          <p className="text-xs mt-1.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', lineHeight: 1.5 }}>
-            Enter the actual premium per share you received when your order was filled in your broker — check your order confirmation for the exact fill price.
+          <p className="text-xs mt-1.5" style={{ color: '#9ab4d4', fontFamily: 'DM Sans, sans-serif', lineHeight: 1.5 }}>
+            Enter the total premium collected per contract — this is the option price × 100 (since 1 contract = 100 shares). Check your order confirmation for the exact fill.
           </p>
-          <p className="text-xs mt-1" style={{ color: '#2e4a6a', fontFamily: 'DM Sans, sans-serif', fontStyle: 'italic', lineHeight: 1.5 }}>
-            Example: if you sold 1 contract and received $120 total, enter 1.20 (premium per share, not total)
+          <p className="text-xs mt-1" style={{ color: '#6a8fb0', fontFamily: 'DM Sans, sans-serif', fontStyle: 'italic', lineHeight: 1.5 }}>
+            Example: if your broker shows a fill price of $1.20/share, enter 120 (not 1.20)
           </p>
         </div>
 
