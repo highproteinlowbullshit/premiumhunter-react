@@ -462,9 +462,8 @@ function FeatureDetailSection() {
 
   return (
     <div>
-      {FEATURE_DETAILS.map((f, idx) => {
+      {FEATURE_DETAILS.map((f) => {
         const isExpanded = activeId === f.id;
-        const isFirst = idx === 0;
         return (
           <div
             key={f.id}
