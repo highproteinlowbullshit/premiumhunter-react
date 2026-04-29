@@ -145,10 +145,10 @@ export function ClosedPositionTable({ positions, onEdit, onRemove }: ClosedPosit
               {[
                 'Ticker', 'Strategy', 'Strike', 'Expiry', 'Premium', 'Close Cost', 'Real P&L', 'Return', 'Closed',
                 ...(hasActions ? [''] : []),
-              ].map((h) => (
+              ].map((h, i) => (
                 <th
                   key={h}
-                  className="text-left py-3 px-4 text-xs font-medium tracking-widest uppercase first:pl-0 last:pr-0"
+                  className={`text-left py-3 text-xs font-medium tracking-widest uppercase last:pr-0 ${i === 0 ? 'pl-5 pr-4' : 'px-4'}`}
                   style={{ color: '#4a6a8a', borderBottom: '1px solid rgba(0, 229, 196, 0.08)', letterSpacing: '0.08em' }}
                 >
                   {h}
@@ -170,7 +170,7 @@ export function ClosedPositionTable({ positions, onEdit, onRemove }: ClosedPosit
                   style={{ borderBottom: i < positions.length - 1 ? '1px solid rgba(0, 229, 196, 0.06)' : 'none' }}
                 >
                   {/* Ticker */}
-                  <td className="py-3.5 px-4 first:pl-0">
+                  <td className="py-3.5 pl-5 pr-4">
                     <div className="flex flex-col gap-0.5">
                       <span className="font-bold text-sm tracking-wide"
                         style={{ color: '#e8f0fe', fontFamily: 'Syne, sans-serif' }}>

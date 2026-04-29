@@ -250,7 +250,7 @@ export function PositionTable({
         <table className="w-full text-sm" style={{ fontFamily: 'DM Sans, sans-serif', borderCollapse: 'separate', borderSpacing: 0 }}>
           <thead>
             <tr>
-              <th className="text-left py-3 px-4 first:pl-0" style={thStyle}>Ticker</th>
+              <th className="text-left py-3 pl-5 pr-4" style={thStyle}>Ticker</th>
               <th className="text-left py-3 px-4" style={thStyle}>Strategy</th>
               <th className="text-left py-3 px-4" style={thStyle}>Strike</th>
               <th className="text-left py-3 px-4" style={thStyle}>Premium</th>
@@ -285,7 +285,7 @@ export function PositionTable({
                     ...rowStyle,
                   }}
                 >
-                  <td className="py-3.5 px-4 first:pl-0">
+                  <td className="py-3.5 pl-5 pr-4">
                     <div className="flex flex-col gap-0.5">
                       <span className="font-bold text-sm tracking-wide"
                         style={{ color: '#e8f0fe', fontFamily: 'Syne, sans-serif' }}>
