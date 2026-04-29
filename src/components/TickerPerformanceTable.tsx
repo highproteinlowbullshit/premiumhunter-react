@@ -253,9 +253,9 @@ export function TickerPerformanceTable({ summary, isLoading }: Props) {
   const bestTicker = sorted[0]
   const worstTicker = sorted[sorted.length - 1]
 
-  // Worst ticker for "review" card: lowest winRate with > 3 cycles
+  // Worst ticker for "review" card: lowest winRate with > 3 cycles, excluding high performers
   const reviewCandidate = [...summary.tickers]
-    .filter(t => t.totalCycles > 3)
+    .filter(t => t.totalCycles > 3 && t.winRate < 70)
     .sort((a, b) => a.winRate - b.winRate)[0] ?? null
 
   const rankLabel = (i: number) => {
