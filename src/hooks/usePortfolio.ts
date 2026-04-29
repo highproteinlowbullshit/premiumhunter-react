@@ -174,7 +174,8 @@ async function fetchPortfolioData(userId: string): Promise<PortfolioQueryResult>
     };
   }
 
-  // Fetch live prices via Finnhub
+  // Fetch prices — primary source: iv_snapshots (same DB, reliable nightly data).
+  // Fallback to Finnhub only for tickers absent from the screener universe.
   const nonCashHoldings = holdings.filter((h) => h.holdingType !== 'cash');
   const uniqueTickers = [...new Set(nonCashHoldings.map((h) => h.ticker))];
   const leapsTickers = [...new Set(
@@ -183,22 +184,47 @@ async function fetchPortfolioData(userId: string): Promise<PortfolioQueryResult>
       .map((h) => h.ticker)
   )];
 
-  const [quoteResults, ivResults] = await Promise.all([
-    Promise.allSettled(uniqueTickers.map((t) => getQuote(t))),
+  // iv_snapshots covers all 488 screener tickers with prices from the nightly cron.
+  // Query the last 3 days so weekends/holidays don't cause a fallback to Finnhub.
+  const threeDaysAgo = new Date(Date.now() - 3 * 86_400_000).toISOString().split('T')[0];
+  const [snapshotPriceResult, ivResults] = await Promise.all([
+    uniqueTickers.length > 0
+      ? supabase
+          .from('iv_snapshots')
+          .select('ticker, current_price')
+          .in('ticker', uniqueTickers)
+          .gte('snapshot_date', threeDaysAgo)
+          .eq('calculation_success', true)
+          .order('snapshot_date', { ascending: false })
+      : Promise.resolve({ data: [] as Array<{ ticker: string; current_price: number | null }>, error: null }),
     Promise.allSettled(leapsTickers.map((t) => getIVData(t))),
   ]);
 
+  // Build priceMap: first seen per ticker = most recent (ordered desc by date)
   const priceMap = new Map<string, { price: number | null; priceChangePct: number | null }>();
-  uniqueTickers.forEach((ticker, i) => {
-    const r = quoteResults[i];
-    if (r.status === 'fulfilled') {
-      const q = r.value;
-      const price = q.c > 0 ? q.c : (q.pc > 0 ? q.pc : null);
-      priceMap.set(ticker, { price, priceChangePct: q.dp });
-    } else {
-      priceMap.set(ticker, { price: null, priceChangePct: null });
+  if (!snapshotPriceResult.error && snapshotPriceResult.data) {
+    for (const row of snapshotPriceResult.data as Array<{ ticker: string; current_price: number | null }>) {
+      if (!priceMap.has(row.ticker)) {
+        priceMap.set(row.ticker, { price: row.current_price != null ? Number(row.current_price) : null, priceChangePct: null });
+      }
     }
-  });
+  }
+
+  // Finnhub fallback for tickers not found in iv_snapshots (e.g. non-screener tickers)
+  const missingTickers = uniqueTickers.filter((t) => !priceMap.has(t));
+  if (missingTickers.length > 0) {
+    const quoteResults = await Promise.allSettled(missingTickers.map((t) => getQuote(t)));
+    missingTickers.forEach((ticker, i) => {
+      const r = quoteResults[i];
+      if (r.status === 'fulfilled') {
+        const q = r.value;
+        const price = q.c > 0 ? q.c : (q.pc > 0 ? q.pc : null);
+        priceMap.set(ticker, { price, priceChangePct: q.dp ?? null });
+      } else {
+        priceMap.set(ticker, { price: null, priceChangePct: null });
+      }
+    });
+  }
 
   const volMap = new Map<string, number>();
   leapsTickers.forEach((ticker, i) => {
