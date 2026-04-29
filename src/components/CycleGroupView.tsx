@@ -81,11 +81,6 @@ function LegRow({ leg, isLast }: { leg: CycleLeg; isLast: boolean }) {
 function CycleCard({ cycle, defaultOpen }: { cycle: WheelCycle; defaultOpen?: boolean }) {
   const [expanded, setExpanded] = useState(defaultOpen ?? false);
 
-  const retColor = cycle.annualisedReturn == null ? '#4a6a8a'
-    : cycle.annualisedReturn >= 20 ? '#00d68f'
-    : cycle.annualisedReturn >= 10 ? '#f5c842'
-    : '#f97316';
-
   const cycleBorder = cycle.isComplete
     ? cycle.annualisedReturn != null && cycle.annualisedReturn >= 20
       ? 'rgba(0,214,143,0.2)'
@@ -99,53 +94,29 @@ function CycleCard({ cycle, defaultOpen }: { cycle: WheelCycle; defaultOpen?: bo
     >
       {/* Header row */}
       <button
-        className="w-full flex items-center gap-3 px-4 py-3 text-left"
+        className="w-full flex items-center gap-2 px-4 py-3 text-left"
         style={{ cursor: 'pointer', background: 'none', border: 'none' }}
         onClick={() => setExpanded((v) => !v)}
       >
-        {/* Status indicator */}
-        <span
-          className="text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap"
-          style={
-            cycle.isComplete
-              ? { color: '#00d68f', background: 'rgba(0,214,143,0.12)', border: '1px solid rgba(0,214,143,0.2)' }
-              : { color: '#f5c842', background: 'rgba(245,200,66,0.1)', border: '1px solid rgba(245,200,66,0.2)' }
-          }
-        >
-          {cycle.isComplete ? 'Complete' : 'Active'}
-        </span>
-
-        {/* Assignment badge */}
+        {/* Assignment badge — only when assigned */}
         {cycle.wasAssigned && (
-          <span className="text-[10px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap"
+          <span className="text-[10px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap flex-shrink-0"
             style={{ color: '#f97316', background: 'rgba(249,115,22,0.1)', border: '1px solid rgba(249,115,22,0.2)' }}>
             Assigned
           </span>
         )}
 
         {/* Date range */}
-        <span className="text-xs flex-1 min-w-0" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
+        <span className="text-xs flex-1 min-w-0 truncate" style={{ color: '#6a8fb0', fontFamily: 'DM Sans, sans-serif' }}>
           {fmtDate(cycle.openedAt)}
           {cycle.closedAt ? ` → ${fmtDate(cycle.closedAt)}` : ' → present'}
-          {cycle.daysHeld != null && <span style={{ color: '#2e4a6a' }}> ({cycle.daysHeld}d)</span>}
         </span>
 
-        {/* Metrics */}
-        <div className="flex items-center gap-4 flex-shrink-0">
-          <div className="text-right">
-            <p className="text-xs font-semibold tabular-nums" style={{ color: '#00d68f', fontFamily: 'JetBrains Mono, monospace' }}>
-              {fmtMoney(cycle.totalPremium)}
-            </p>
-            <p className="text-[10px]" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>premium</p>
-          </div>
-          {cycle.annualisedReturn != null && (
-            <div className="text-right">
-              <p className="text-xs font-semibold tabular-nums" style={{ color: retColor, fontFamily: 'JetBrains Mono, monospace' }}>
-                {cycle.annualisedReturn >= 0 ? '+' : ''}{cycle.annualisedReturn}%
-              </p>
-              <p className="text-[10px]" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>ann. return</p>
-            </div>
-          )}
+        {/* Premium + expand */}
+        <div className="flex items-center gap-3 flex-shrink-0">
+          <p className="text-xs font-semibold tabular-nums" style={{ color: '#00d68f', fontFamily: 'JetBrains Mono, monospace' }}>
+            {fmtMoney(cycle.totalPremium)}
+          </p>
           <span style={{ color: '#4a6a8a', fontSize: 12, transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
             ▾
           </span>
@@ -176,12 +147,6 @@ function CycleCard({ cycle, defaultOpen }: { cycle: WheelCycle; defaultOpen?: bo
 function TickerGroup({ group }: { group: CycleGroup }) {
   const [collapsed, setCollapsed] = useState(false);
 
-  const avgAnn = (() => {
-    const completed = group.cycles.filter((c) => c.annualisedReturn != null);
-    if (completed.length === 0) return null;
-    return Math.round(completed.reduce((s, c) => s + c.annualisedReturn!, 0) / completed.length * 10) / 10;
-  })();
-
   return (
     <div className="mb-6">
       {/* Ticker header */}
@@ -200,18 +165,6 @@ function TickerGroup({ group }: { group: CycleGroup }) {
         <span className="text-xs" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
           {group.completedCycles}/{group.totalCycles} cycles
         </span>
-        {avgAnn != null && (
-          <span
-            className="text-xs font-medium px-2 py-0.5 rounded"
-            style={{
-              color: avgAnn >= 20 ? '#00d68f' : avgAnn >= 10 ? '#f5c842' : '#f97316',
-              background: avgAnn >= 20 ? 'rgba(0,214,143,0.08)' : avgAnn >= 10 ? 'rgba(245,200,66,0.08)' : 'rgba(249,115,22,0.08)',
-              fontFamily: 'JetBrains Mono, monospace',
-            }}
-          >
-            avg {avgAnn >= 0 ? '+' : ''}{avgAnn}% ann.
-          </span>
-        )}
         <span style={{ color: '#4a6a8a', fontSize: 11, transform: collapsed ? 'rotate(-90deg)' : 'none', transition: 'transform 0.15s' }}>
           ▾
         </span>
@@ -257,8 +210,8 @@ export function CycleGroupView({ groups, isLoading }: CycleGroupViewProps) {
       {groups.map((g) => (
         <TickerGroup key={g.ticker} group={g} />
       ))}
-      <p className="text-[11px] text-center mt-2" style={{ color: '#2e4a6a', fontFamily: 'DM Sans, sans-serif' }}>
-        Cycles are reconstructed from your trade history. Annualised returns exclude capital gains from share lots.
+      <p className="text-[11px] text-center mt-2" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
+        Cycles are reconstructed from your trade history.
       </p>
     </div>
   );
