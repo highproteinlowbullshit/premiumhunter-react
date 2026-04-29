@@ -210,8 +210,11 @@ async function fetchPortfolioData(userId: string): Promise<PortfolioQueryResult>
     }
   }
 
-  // Finnhub fallback for tickers not found in iv_snapshots (e.g. non-screener tickers)
-  const missingTickers = uniqueTickers.filter((t) => !priceMap.has(t));
+  // Finnhub fallback for tickers absent from iv_snapshots OR whose price resolved to null
+  const missingTickers = uniqueTickers.filter((t) => {
+    const entry = priceMap.get(t);
+    return !entry || entry.price == null;
+  });
   if (missingTickers.length > 0) {
     const quoteResults = await Promise.allSettled(missingTickers.map((t) => getQuote(t)));
     missingTickers.forEach((ticker, i) => {
