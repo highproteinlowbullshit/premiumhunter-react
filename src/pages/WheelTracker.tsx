@@ -429,9 +429,10 @@ function ClosePositionModal({ position, onClose, onConfirm }: {
   const [error, setError] = useState('');
 
   const perContractPremium = position.premiumCollected / position.contracts;
+  const perSharePremium = perContractPremium / 100;
   const closingPriceNum = Number(closingPrice);
   const previewPnl = closingPrice && !isNaN(closingPriceNum)
-    ? position.premiumCollected - closingPriceNum * position.contracts
+    ? position.premiumCollected - closingPriceNum * 100 * position.contracts
     : null;
 
   const inputStyle = {
@@ -448,7 +449,7 @@ function ClosePositionModal({ position, onClose, onConfirm }: {
       setError('Enter a valid closing price');
       return;
     }
-    onConfirm(closingPriceNum);
+    onConfirm(closingPriceNum * 100);
   };
 
   return (
@@ -464,9 +465,9 @@ function ClosePositionModal({ position, onClose, onConfirm }: {
           <div>
             <p className="text-xs mb-1" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>Premium</p>
             <p className="text-sm font-semibold" style={{ color: '#00e5c4', fontFamily: 'JetBrains Mono, monospace' }}>
-              ${perContractPremium.toFixed(2)}
+              ${perSharePremium.toFixed(2)}
             </p>
-            <p className="text-xs" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>per contract</p>
+            <p className="text-xs" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>per share</p>
           </div>
           <div>
             <p className="text-xs mb-1" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>Contracts</p>
@@ -486,7 +487,7 @@ function ClosePositionModal({ position, onClose, onConfirm }: {
       {/* Closing price input */}
       <div className="mb-4">
         <label className="block text-xs mb-1.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
-          Closing Price <span style={{ color: '#6a8fb0' }}>(buy-back price per contract)</span>
+          Closing Price <span style={{ color: '#6a8fb0' }}>(buy-back price per share)</span>
         </label>
         <div className="relative">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: '#4a6a8a' }}>$</span>
@@ -497,7 +498,7 @@ function ClosePositionModal({ position, onClose, onConfirm }: {
             autoFocus
             value={closingPrice}
             onChange={(e) => { setClosingPrice(e.target.value); setError(''); }}
-            placeholder={`e.g. ${(perContractPremium * 0.25).toFixed(2)}`}
+            placeholder={`e.g. ${(perSharePremium * 0.25).toFixed(2)}`}
             className="w-full pl-7 pr-3 py-2.5 rounded-xl text-sm"
             style={inputStyle}
           />
@@ -550,10 +551,11 @@ function EditPositionModal({ position, onClose, onSave }: {
   onSave: (data: { strike: number; expiry: string; premiumCollected: number; contracts: number }) => void;
 }) {
   const perContractPremium = position.premiumCollected / position.contracts;
+  const perSharePremium = perContractPremium / 100;
   const [form, setForm] = useState({
     strike: String(position.strike),
     expiry: position.expiry,
-    premium: String(perContractPremium),
+    premium: String(perSharePremium),
     contracts: String(position.contracts),
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -582,7 +584,7 @@ function EditPositionModal({ position, onClose, onSave }: {
     onSave({
       strike: Number(form.strike),
       expiry: form.expiry,
-      premiumCollected: Number(form.premium),
+      premiumCollected: Number(form.premium) * 100,
       contracts: Number(form.contracts),
     });
   };
@@ -636,12 +638,12 @@ function EditPositionModal({ position, onClose, onSave }: {
         {/* Premium */}
         <div>
           <label className="block text-xs mb-1.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
-            Premium Collected <span style={{ color: '#6a8fb0' }}>(per contract)</span>
+            Premium Collected <span style={{ color: '#6a8fb0' }}>(per share · broker price)</span>
           </label>
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: '#4a6a8a' }}>$</span>
             <input
-              type="number" step="1" value={form.premium}
+              type="number" step="0.01" value={form.premium}
               onChange={(e) => setForm((f) => ({ ...f, premium: e.target.value }))}
               className="w-full pl-7 pr-3 py-2.5 rounded-xl text-sm"
               style={inputStyle('premium')}
@@ -650,7 +652,7 @@ function EditPositionModal({ position, onClose, onSave }: {
           {errors.premium && <p className="text-xs mt-1" style={{ color: '#ff4d6d', fontFamily: 'DM Sans, sans-serif' }}>{errors.premium}</p>}
           {form.premium && form.contracts && (
             <p className="text-xs mt-1" style={{ color: '#00e5c4', fontFamily: 'JetBrains Mono, monospace' }}>
-              Total: ${(Number(form.premium) * Number(form.contracts)).toFixed(0)}
+              Total: ${(Number(form.premium) * Number(form.contracts) * 100).toFixed(0)}
             </p>
           )}
         </div>
@@ -932,7 +934,7 @@ function AddPositionModal({ cashBalance, lockedCollateral, openPositions, onClos
   const freeCash = cashBalance !== null ? Math.max(0, cashBalance - lockedCollateral) : null;
 
   // Checklist integration
-  const premiumPerShare = Number(form.premium) / 100;
+  const premiumPerShare = Number(form.premium);
   const freeCashForChecklist = cashBalance !== null ? Math.max(0, cashBalance - lockedCollateral) : 0;
 
   const { result: checklistResult, isRunning, overriddenChecks, toggleOverride, resetOverrides, supplemental, prefsFetched } =
@@ -1018,7 +1020,7 @@ function AddPositionModal({ cashBalance, lockedCollateral, openPositions, onClos
       strategy: form.strategy,
       strike: Number(form.strike),
       expiry: form.expiry,
-      premiumCollected: Number(form.premium),
+      premiumCollected: Number(form.premium) * 100,
       contracts: Number(form.contracts),
       checklistSnapshot: checklistResult ?? undefined,
     });
@@ -1267,14 +1269,14 @@ function AddPositionModal({ cashBalance, lockedCollateral, openPositions, onClos
         {/* Premium */}
         <div>
           <label className="block text-xs mb-1.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
-            Premium Collected <span style={{ color: '#6a8fb0' }}>(per contract)</span>
+            Premium Collected <span style={{ color: '#6a8fb0' }}>(per share · broker price)</span>
           </label>
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: '#4a6a8a' }}>$</span>
             <input
               value={form.premium}
               onChange={(e) => setForm((f) => ({ ...f, premium: e.target.value }))}
-              placeholder="145.00" type="number" step="1"
+              placeholder="1.45" type="number" step="0.01"
               className="w-full pl-7 pr-3 py-2.5 rounded-xl text-sm"
               style={inputStyle('premium')}
             />
@@ -1282,14 +1284,14 @@ function AddPositionModal({ cashBalance, lockedCollateral, openPositions, onClos
           {errors.premium && <p className="text-xs mt-1" style={{ color: '#ff4d6d', fontFamily: 'DM Sans, sans-serif' }}>{errors.premium}</p>}
           {form.premium && form.contracts && (
             <p className="text-xs mt-1" style={{ color: '#00e5c4', fontFamily: 'JetBrains Mono, monospace' }}>
-              Total: ${(Number(form.premium) * Number(form.contracts)).toFixed(0)}
+              Total: ${(Number(form.premium) * Number(form.contracts) * 100).toFixed(0)}
             </p>
           )}
           <p className="text-xs mt-1.5" style={{ color: '#9ab4d4', fontFamily: 'DM Sans, sans-serif', lineHeight: 1.5 }}>
-            Enter the total premium collected per contract — this is the option price × 100 (since 1 contract = 100 shares). Check your order confirmation for the exact fill.
+            Enter the option price exactly as shown in your broker's option chain — this is the per-share price.
           </p>
           <p className="text-xs mt-1" style={{ color: '#6a8fb0', fontFamily: 'DM Sans, sans-serif', fontStyle: 'italic', lineHeight: 1.5 }}>
-            Example: if your broker shows a fill price of $1.20/share, enter 120 (not 1.20)
+            Example: if the option chain shows $1.20, enter 1.20 (not 120)
           </p>
         </div>
 

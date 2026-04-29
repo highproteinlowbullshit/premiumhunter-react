@@ -652,7 +652,7 @@ function OpenPaperPositionModal({ availableCash, onClose, onSubmit }: {
       strategy: form.strategy,
       strike: Number(form.strike),
       expiry: form.expiry,
-      premiumCollected: Number(form.premium) / 100,
+      premiumCollected: Number(form.premium),
       contracts,
       underlyingPriceAtEntry: spotPrice || Number(form.strike),
     });
@@ -720,24 +720,24 @@ function OpenPaperPositionModal({ availableCash, onClose, onSubmit }: {
         {/* Premium */}
         <div>
           <label className="block text-xs mb-1.5" style={{ color: A.muted, fontFamily: 'DM Sans, sans-serif' }}>
-            Premium Collected <span style={{ color: '#6a8fb0' }}>(per contract)</span>
+            Premium Collected <span style={{ color: '#6a8fb0' }}>(per share · broker price)</span>
           </label>
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: A.muted }}>$</span>
-            <input type="number" step="1" value={form.premium} onChange={(e) => setForm((f) => ({ ...f, premium: e.target.value }))}
-              placeholder="145.00" className="w-full pl-7 pr-3 py-2.5 rounded-xl text-sm" style={inputStyle('premium')} />
+            <input type="number" step="0.01" value={form.premium} onChange={(e) => setForm((f) => ({ ...f, premium: e.target.value }))}
+              placeholder="1.45" className="w-full pl-7 pr-3 py-2.5 rounded-xl text-sm" style={inputStyle('premium')} />
           </div>
           {form.premium && form.contracts && (
             <p className="text-xs mt-1" style={{ color: A.amber, fontFamily: 'JetBrains Mono, monospace' }}>
-              Total: ${(Number(form.premium) * Number(form.contracts)).toFixed(0)}
+              Total: ${(Number(form.premium) * Number(form.contracts) * 100).toFixed(0)}
             </p>
           )}
           {errors.premium && <p className="text-xs mt-1" style={{ color: '#ff4d6d' }}>{errors.premium}</p>}
           <p className="text-xs mt-1.5" style={{ color: '#9ab4d4', fontFamily: 'DM Sans, sans-serif', lineHeight: 1.5 }}>
-            Enter the total premium collected per contract — this is the option price × 100 (since 1 contract = 100 shares).
+            Enter the option price exactly as shown in your broker's option chain — this is the per-share price.
           </p>
           <p className="text-xs mt-1" style={{ color: '#6a8fb0', fontFamily: 'DM Sans, sans-serif', fontStyle: 'italic', lineHeight: 1.5 }}>
-            Example: if your broker shows a fill price of $1.45/share, enter 145 (not 1.45)
+            Example: if the option chain shows $1.45, enter 1.45 (not 145)
           </p>
         </div>
 
@@ -786,7 +786,7 @@ function PaperCloseModal({ position, onClose, onConfirm, estimateClosePrice }: {
   useEffect(() => {
     estimateClosePrice(position).then((est) => {
       setBsEstimate(est);
-      if (est !== null && est > 0) setClosingPremium(String(+(est * 100).toFixed(2)));
+      if (est !== null && est > 0) setClosingPremium(String(est));
       setLoadingBS(false);
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -794,13 +794,13 @@ function PaperCloseModal({ position, onClose, onConfirm, estimateClosePrice }: {
 
   const premNum = Number(closingPremium);
   const realizedPnl = closingPremium && !isNaN(premNum)
-    ? (position.premiumCollected * 100 - premNum) * position.contracts
+    ? (position.premiumCollected - premNum) * position.contracts * 100
     : null;
   const totalPremium = position.premiumCollected * position.contracts * 100;
 
   const handleConfirm = () => {
     if (!closingPremium || isNaN(premNum) || premNum < 0) { setError('Enter a valid option price'); return; }
-    onConfirm(premNum / 100);
+    onConfirm(premNum);
   };
 
   return (
@@ -811,7 +811,7 @@ function PaperCloseModal({ position, onClose, onConfirm, estimateClosePrice }: {
           <div>
             <p className="text-xs mb-1" style={{ color: A.muted, fontFamily: 'DM Sans, sans-serif' }}>Premium Received</p>
             <p className="text-sm font-semibold" style={{ color: A.amber, fontFamily: 'JetBrains Mono, monospace' }}>${totalPremium.toFixed(0)}</p>
-            <p className="text-xs" style={{ color: A.muted, fontFamily: 'DM Sans, sans-serif' }}>${(position.premiumCollected * 100).toFixed(2)}/contract</p>
+            <p className="text-xs" style={{ color: A.muted, fontFamily: 'DM Sans, sans-serif' }}>${position.premiumCollected.toFixed(2)}/sh</p>
           </div>
           <div>
             <p className="text-xs mb-1" style={{ color: A.muted, fontFamily: 'DM Sans, sans-serif' }}>Contracts</p>
@@ -835,18 +835,18 @@ function PaperCloseModal({ position, onClose, onConfirm, estimateClosePrice }: {
         <div className="rounded-lg px-4 py-2.5 mb-4 flex justify-between items-center text-xs"
           style={{ background: A.amberBg, border: `1px solid ${A.amberBorder}` }}>
           <span style={{ color: A.muted, fontFamily: 'DM Sans, sans-serif' }}>Black-Scholes estimate</span>
-          <span style={{ color: A.amber, fontFamily: 'JetBrains Mono, monospace', fontWeight: 700 }}>${(bsEstimate * 100).toFixed(2)}/contract</span>
+          <span style={{ color: A.amber, fontFamily: 'JetBrains Mono, monospace', fontWeight: 700 }}>${bsEstimate.toFixed(2)}/sh</span>
         </div>
       )}
 
       {/* Closing price input */}
       <div className="mb-4">
         <label className="block text-xs mb-1.5" style={{ color: A.muted, fontFamily: 'DM Sans, sans-serif' }}>
-          Buy-Back Price <span style={{ color: '#6a8fb0' }}>(per contract)</span>
+          Buy-Back Price <span style={{ color: '#6a8fb0' }}>(per share · broker price)</span>
         </label>
         <div className="relative">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: A.muted }}>$</span>
-          <input type="number" step="1" min="0" autoFocus
+          <input type="number" step="0.01" min="0" autoFocus
             value={closingPremium}
             onChange={(e) => { setClosingPremium(e.target.value); setError(''); }}
             className="w-full pl-7 pr-3 py-2.5 rounded-xl text-sm"
