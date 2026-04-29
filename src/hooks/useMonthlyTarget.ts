@@ -88,7 +88,7 @@ export function useMonthlyTarget() {
         .select('premium_collected, closing_price, contracts, closed_at, expiry, status')
         .eq('user_id', user!.id)
         .in('status', ['closed', 'assigned', 'expired'])
-        .gte('closed_at', thirteenMonthsAgo.toISOString());
+        .or(`closed_at.gte.${thirteenMonthsAgo.toISOString()},closed_at.is.null`);
 
       // Bucket realized P&L by month
       const earnedByMonth = new Map<string, number>();

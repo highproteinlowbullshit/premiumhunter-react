@@ -116,21 +116,17 @@ export function usePaperActions() {
 
     if (error) { showToast('Failed to open paper position', 'error'); return error.message; }
 
-    // Deduct collateral for CSP; update premium collected
+    // Deduct collateral for CSP; credit premium collected
     const collateral = data.strategy === 'CSP' ? data.strike * data.contracts * 100 : 0;
     const premiumTotal = data.premiumCollected * data.contracts * 100;
-    await supabase.rpc('paper_open_position', {
-      p_user_id: user.id,
-      p_collateral: collateral,
-      p_premium: premiumTotal,
-    }).then(async () => {
-      // Fallback: direct update if RPC not available
-    });
-
-    // Direct update (works without RPC)
+    const { data: acctNow } = await supabase
+      .from('paper_accounts')
+      .select('current_cash, total_premium_collected')
+      .eq('user_id', user.id)
+      .single();
     await supabase.from('paper_accounts').update({
-      current_cash: (await supabase.from('paper_accounts').select('current_cash').eq('user_id', user.id).single().then(r => Number(r.data?.current_cash ?? 0))) - collateral,
-      total_premium_collected: (await supabase.from('paper_accounts').select('total_premium_collected').eq('user_id', user.id).single().then(r => Number(r.data?.total_premium_collected ?? 0))) + premiumTotal,
+      current_cash: Number(acctNow?.current_cash ?? 0) - collateral,
+      total_premium_collected: Number(acctNow?.total_premium_collected ?? 0) + premiumTotal,
     }).eq('user_id', user.id);
 
     showToast(`Paper position opened: ${data.ticker} ${data.strategy}`, 'success');
@@ -202,7 +198,7 @@ export function usePaperActions() {
   const assignPaperPosition = useCallback(async (id: string): Promise<void> => {
     if (!user) return;
 
-    const { data: pos } = await supabase.from('paper_positions').select('strategy, ticker, strike').eq('id', id).single();
+    const { data: pos } = await supabase.from('paper_positions').select('strategy, ticker, strike, contracts').eq('id', id).single();
     if (!pos) return;
 
     await supabase.from('paper_positions').update({
@@ -210,7 +206,22 @@ export function usePaperActions() {
       closed_at: new Date().toISOString(),
     }).eq('id', id);
 
+    // Update account: increment trade count; for CC assignments return the strike proceeds as cash
+    const { data: acct } = await supabase
+      .from('paper_accounts')
+      .select('current_cash, trades_total')
+      .eq('user_id', user.id)
+      .single();
+
     const strategy = pos.strategy as string;
+    // CC assignment: shares called away → receive strike × contracts × 100 in cash
+    const cashDelta = strategy === 'CC' ? Number(pos.strike) * Number(pos.contracts) * 100 : 0;
+
+    await supabase.from('paper_accounts').update({
+      trades_total: Number(acct?.trades_total ?? 0) + 1,
+      current_cash: Number(acct?.current_cash ?? 0) + cashDelta,
+    }).eq('user_id', user.id);
+
     if (strategy === 'CSP') {
       showToast(`Assigned — you now hold virtual shares of ${pos.ticker} at $${pos.strike}. Sell covered calls to continue the wheel.`, 'success');
     } else {

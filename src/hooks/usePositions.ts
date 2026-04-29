@@ -274,6 +274,8 @@ export function usePositions() {
       }
 
       void queryClient.invalidateQueries({ queryKey: ['monthly-target'] });
+      void queryClient.invalidateQueries({ queryKey: ['monthly-pnl'] });
+      void queryClient.invalidateQueries({ queryKey: ['ticker-performance'] });
 
       // For CC closed early (Buy To Close), deduct the BTC cost from cash holdings.
       if (position?.strategy === 'CC' && closingPrice > 0) {
@@ -350,6 +352,8 @@ export function usePositions() {
       }
 
       void queryClient.invalidateQueries({ queryKey: ['monthly-target'] });
+      void queryClient.invalidateQueries({ queryKey: ['monthly-pnl'] });
+      void queryClient.invalidateQueries({ queryKey: ['ticker-performance'] });
 
       if (data.strategy === 'CSP') {
         const premiumPerShare = (data.premiumCollected / data.contracts) / 100;
@@ -511,10 +515,16 @@ export function usePositions() {
   // ── Derived values ──────────────────────────────────────────────────────────
   const openPositions = positions.filter((p) => p.status === 'open');
 
-  // Monthly avg P&L: total realized from closed trades ÷ months elapsed since first trade
-  const closedOnly = positions.filter((p) => p.status === 'closed');
+  // Monthly avg P&L: total realized from all completed trades ÷ months elapsed since first trade
+  const closedOnly = positions.filter((p) => p.status === 'closed' || p.status === 'assigned' || p.status === 'expired');
   const totalRealized = closedOnly.reduce(
-    (acc, p) => acc + (p.premiumCollected - p.currentPrice * p.contracts),
+    (acc, p) => {
+      // assigned/expired: full premium kept (currentPrice is 0 for these statuses)
+      const pnl = p.status === 'assigned' || p.status === 'expired'
+        ? p.premiumCollected
+        : p.premiumCollected - p.currentPrice * p.contracts;
+      return acc + pnl;
+    },
     0
   );
   const monthlyPnL = (() => {
