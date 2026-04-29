@@ -631,7 +631,7 @@ function EditPositionModal({ position, onClose, onSave }: {
               type="date" value={form.expiry}
               onChange={(e) => setForm((f) => ({ ...f, expiry: e.target.value }))}
               className="w-full min-w-0 px-3 py-2.5 rounded-xl text-sm"
-              style={{ ...inputStyle('expiry'), colorScheme: 'dark' }}
+              style={{ ...inputStyle('expiry'), colorScheme: 'dark', maxWidth: '100%', boxSizing: 'border-box' as const }}
             />
           </div>
           {errors.expiry && <p className="text-xs mt-1" style={{ color: '#ff4d6d', fontFamily: 'DM Sans, sans-serif' }}>{errors.expiry}</p>}
@@ -1261,7 +1261,7 @@ function AddPositionModal({ cashBalance, lockedCollateral, openPositions, onClos
               onChange={(e) => setForm((f) => ({ ...f, expiry: e.target.value }))}
               type="date"
               className="w-full min-w-0 px-3 py-2.5 rounded-xl text-sm"
-              style={{ ...inputStyle('expiry'), colorScheme: 'dark' }}
+              style={{ ...inputStyle('expiry'), colorScheme: 'dark', maxWidth: '100%', boxSizing: 'border-box' as const }}
             />
           </div>
           {errors.expiry && <p className="text-xs mt-1" style={{ color: '#ff4d6d', fontFamily: 'DM Sans, sans-serif' }}>{errors.expiry}</p>}
