@@ -712,8 +712,10 @@ function OpenPaperPositionModal({ availableCash, onClose, onSubmit }: {
         {/* Expiry */}
         <div>
           <label className="block text-xs mb-1.5" style={{ color: A.muted, fontFamily: 'DM Sans, sans-serif' }}>Expiration Date</label>
-          <input type="date" value={form.expiry} onChange={(e) => setForm((f) => ({ ...f, expiry: e.target.value }))}
-            className="w-full px-3 py-2.5 rounded-xl text-sm" style={{ ...inputStyle('expiry'), colorScheme: 'dark' }} />
+          <div className="w-full overflow-hidden">
+            <input type="date" value={form.expiry} onChange={(e) => setForm((f) => ({ ...f, expiry: e.target.value }))}
+              className="w-full min-w-0 px-3 py-2.5 rounded-xl text-sm" style={{ ...inputStyle('expiry'), colorScheme: 'dark' }} />
+          </div>
           {errors.expiry && <p className="text-xs mt-1" style={{ color: '#ff4d6d' }}>{errors.expiry}</p>}
         </div>
 
@@ -1026,8 +1028,10 @@ function PaperEditModal({ position, onClose, onSave }: {
         </div>
         <div>
           <label className="block text-xs mb-1.5" style={{ color: A.muted, fontFamily: 'DM Sans, sans-serif' }}>Expiration Date</label>
-          <input type="date" value={form.expiry} onChange={(e) => setForm((f) => ({ ...f, expiry: e.target.value }))}
-            className="w-full px-3 py-2.5 rounded-xl text-sm" style={{ ...inputStyle('expiry'), colorScheme: 'dark' }} />
+          <div className="w-full overflow-hidden">
+            <input type="date" value={form.expiry} onChange={(e) => setForm((f) => ({ ...f, expiry: e.target.value }))}
+              className="w-full min-w-0 px-3 py-2.5 rounded-xl text-sm" style={{ ...inputStyle('expiry'), colorScheme: 'dark' }} />
+          </div>
           {errors.expiry && <p className="text-xs mt-1" style={{ color: '#ff4d6d' }}>{errors.expiry}</p>}
         </div>
         <div>
