@@ -273,6 +273,8 @@ export function usePositions() {
         return;
       }
 
+      void queryClient.invalidateQueries({ queryKey: ['monthly-target'] });
+
       // For CC closed early (Buy To Close), deduct the BTC cost from cash holdings.
       if (position?.strategy === 'CC' && closingPrice > 0) {
         const btcCost = closingPrice * position.contracts;
@@ -346,6 +348,8 @@ export function usePositions() {
         await queryClient.invalidateQueries({ queryKey: qKey });
         return;
       }
+
+      void queryClient.invalidateQueries({ queryKey: ['monthly-target'] });
 
       if (data.strategy === 'CSP') {
         const premiumPerShare = (data.premiumCollected / data.contracts) / 100;
