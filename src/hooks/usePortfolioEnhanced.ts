@@ -272,7 +272,7 @@ export function usePortfolioEnhanced(timeRange: EnhancedTimeRange) {
           );
           if (daysHeld > 0 && gross > 0) {
             const r = Number(lot.total_lot_return) / gross;
-            lotAnnualisedReturn = Math.round((Math.pow(1 + r, 365 / daysHeld) - 1) * 1000) / 10;
+            lotAnnualisedReturn = Math.round(r * (365 / daysHeld) * 1000) / 10;
           }
         }
 

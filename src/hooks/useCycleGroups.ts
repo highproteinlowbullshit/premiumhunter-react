@@ -74,7 +74,7 @@ function buildCycles(positions: WheelPosition[]): WheelCycle[] {
         const msHeld = new Date(closedAt).getTime() - new Date(openedAt).getTime();
         daysHeld = Math.max(1, Math.ceil(msHeld / 86_400_000));
         const r = totalPremium / capitalDeployed;
-        annualisedReturn = Math.round((Math.pow(1 + r, 365 / daysHeld) - 1) * 1000) / 10;
+        annualisedReturn = Math.round(r * (365 / daysHeld) * 1000) / 10;
       }
 
       cycles.push({
