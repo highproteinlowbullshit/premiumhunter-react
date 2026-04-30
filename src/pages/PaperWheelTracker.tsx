@@ -574,7 +574,7 @@ function PaperModalShell({ title, subtitle, onClose, children }: { title: string
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: 'rgba(2,8,19,0.85)', backdropFilter: 'blur(8px)' }}
       onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="w-full max-w-md rounded-2xl p-6"
+      <div className="w-full max-w-md rounded-2xl p-4 sm:p-6"
         style={{ background: 'rgba(10,22,40,0.98)', border: `1px solid ${A.amberBorder}`, boxShadow: '0 32px 80px rgba(0,0,0,0.6)' }}>
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -666,7 +666,7 @@ function OpenPaperPositionModal({ availableCash, onClose, onSubmit }: {
     <PaperModalShell title="Open Paper Trade" subtitle="Virtual position · no real money" onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Ticker + Strategy */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3 items-start">
           <div>
             <label className="block text-xs mb-1.5" style={{ color: A.muted, fontFamily: 'DM Sans, sans-serif' }}>Ticker</label>
             <input value={form.ticker} placeholder="AAPL"
@@ -687,25 +687,45 @@ function OpenPaperPositionModal({ availableCash, onClose, onSubmit }: {
                 </button>
               ))}
             </div>
+            <p className="text-xs mt-1.5" style={{ color: '#9ab4d4', fontFamily: 'DM Sans, sans-serif', lineHeight: 1.5 }}>
+              {form.strategy === 'CSP'
+                ? 'Cash Secured Put — you agree to buy 100 shares at the strike if assigned'
+                : 'Covered Call — you agree to sell your 100 shares at the strike if called away'}
+            </p>
           </div>
         </div>
 
         {/* Strike + Contracts */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3 items-start">
           <div>
-            <label className="block text-xs mb-1.5" style={{ color: A.muted, fontFamily: 'DM Sans, sans-serif' }}>Strike</label>
+            <label className="block text-xs mb-1.5" style={{ color: A.muted, fontFamily: 'DM Sans, sans-serif' }}>Strike Price</label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: A.muted }}>$</span>
               <input type="number" step="0.5" value={form.strike} onChange={(e) => setForm((f) => ({ ...f, strike: e.target.value }))}
                 className="w-full pl-7 pr-3 py-2.5 rounded-xl text-sm" style={inputStyle('strike')} />
             </div>
             {errors.strike && <p className="text-xs mt-1" style={{ color: '#ff4d6d' }}>{errors.strike}</p>}
+            <p className="text-xs mt-1.5" style={{ color: '#9ab4d4', fontFamily: 'DM Sans, sans-serif', lineHeight: 1.5 }}>
+              The strike price of the option you sold
+              <br />
+              <span style={{ color: '#6a8fb0' }}>
+                {form.strategy === 'CSP' ? 'CSP: the price you agreed to buy shares at' : 'CC: the price your shares get called away at'}
+              </span>
+            </p>
           </div>
           <div>
             <label className="block text-xs mb-1.5" style={{ color: A.muted, fontFamily: 'DM Sans, sans-serif' }}>Contracts</label>
             <input type="number" min="1" value={form.contracts} onChange={(e) => setForm((f) => ({ ...f, contracts: e.target.value }))}
               className="w-full px-3 py-2.5 rounded-xl text-sm" style={inputStyle('contracts')} />
             {errors.contracts && <p className="text-xs mt-1" style={{ color: '#ff4d6d' }}>{errors.contracts}</p>}
+            <p className="text-xs mt-1.5" style={{ color: '#9ab4d4', fontFamily: 'DM Sans, sans-serif', lineHeight: 1.5 }}>
+              Each contract covers 100 shares.
+            </p>
+            {strike > 0 && contracts > 0 && (
+              <p className="text-xs mt-0.5" style={{ color: '#00e5c4', fontFamily: 'DM Sans, sans-serif' }}>
+                Capital required: ${(strike * contracts * 100).toLocaleString()}
+              </p>
+            )}
           </div>
         </div>
 
@@ -717,6 +737,9 @@ function OpenPaperPositionModal({ availableCash, onClose, onSubmit }: {
               className="w-full min-w-0 px-3 py-2.5 rounded-xl text-sm" style={{ ...inputStyle('expiry'), colorScheme: 'dark', maxWidth: '100%', boxSizing: 'border-box' as const }} />
           </div>
           {errors.expiry && <p className="text-xs mt-1" style={{ color: '#ff4d6d' }}>{errors.expiry}</p>}
+          <p className="text-xs mt-1.5" style={{ color: '#9ab4d4', fontFamily: 'DM Sans, sans-serif', lineHeight: 1.5 }}>
+            The expiration date shown in your broker — always the third Friday of the month for monthly options
+          </p>
         </div>
 
         {/* Premium */}
@@ -736,10 +759,10 @@ function OpenPaperPositionModal({ availableCash, onClose, onSubmit }: {
           )}
           {errors.premium && <p className="text-xs mt-1" style={{ color: '#ff4d6d' }}>{errors.premium}</p>}
           <p className="text-xs mt-1.5" style={{ color: '#9ab4d4', fontFamily: 'DM Sans, sans-serif', lineHeight: 1.5 }}>
-            Enter the option price exactly as shown in your broker's option chain — this is the per-share price.
+            Enter the actual premium per share you received when your order was filled in your broker — check your order confirmation for the exact fill price.
           </p>
-          <p className="text-xs mt-1" style={{ color: '#6a8fb0', fontFamily: 'DM Sans, sans-serif', fontStyle: 'italic', lineHeight: 1.5 }}>
-            Example: if the option chain shows $1.45, enter 1.45 (not 145)
+          <p className="text-[11px] mt-1" style={{ color: '#6a8fb0', fontFamily: 'DM Sans, sans-serif', fontStyle: 'italic', lineHeight: 1.5 }}>
+            Example: if you sold 1 contract and received $120 total, enter 1.20 (premium per share, not total)
           </p>
         </div>
 
