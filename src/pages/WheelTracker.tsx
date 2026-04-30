@@ -1292,10 +1292,10 @@ function AddPositionModal({ cashBalance, lockedCollateral, openPositions, onClos
             </p>
           )}
           <p className="text-xs mt-1.5" style={{ color: '#9ab4d4', fontFamily: 'DM Sans, sans-serif', lineHeight: 1.5 }}>
-            Enter the option price exactly as shown in your broker's option chain — this is the per-share price.
+            Enter the actual premium per share you received when your order was filled in your broker — check your order confirmation for the exact fill price.
           </p>
-          <p className="text-xs mt-1" style={{ color: '#6a8fb0', fontFamily: 'DM Sans, sans-serif', fontStyle: 'italic', lineHeight: 1.5 }}>
-            Example: if the option chain shows $1.20, enter 1.20 (not 120)
+          <p className="text-[11px] mt-1" style={{ color: '#6a8fb0', fontFamily: 'DM Sans, sans-serif', fontStyle: 'italic', lineHeight: 1.5 }}>
+            Example: if you sold 1 contract and received $120 total, enter 1.20 (premium per share, not total)
           </p>
         </div>
 
