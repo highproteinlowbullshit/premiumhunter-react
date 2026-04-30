@@ -1036,7 +1036,7 @@ function PaperEditModal({ position, onClose, onSave }: {
         </div>
         <div>
           <label className="block text-xs mb-1.5" style={{ color: A.muted, fontFamily: 'DM Sans, sans-serif' }}>
-            Option Price <span style={{ color: '#2e4a6a' }}>(per share)</span>
+            Option Price <span style={{ color: '#6a8fb0' }}>(per share · broker price)</span>
           </label>
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: A.muted }}>$</span>
@@ -1044,6 +1044,12 @@ function PaperEditModal({ position, onClose, onSave }: {
               className="w-full pl-7 pr-3 py-2.5 rounded-xl text-sm" style={inputStyle('premium')} />
           </div>
           {errors.premium && <p className="text-xs mt-1" style={{ color: '#ff4d6d' }}>{errors.premium}</p>}
+          <p className="text-xs mt-1.5" style={{ color: '#9ab4d4', fontFamily: 'DM Sans, sans-serif', lineHeight: 1.5 }}>
+            Enter the actual premium per share you received when your order was filled in your broker — check your order confirmation for the exact fill price.
+          </p>
+          <p className="text-[11px] mt-1" style={{ color: '#6a8fb0', fontFamily: 'DM Sans, sans-serif', fontStyle: 'italic', lineHeight: 1.5 }}>
+            Example: if you sold 1 contract and received $120 total, enter 1.20 (premium per share, not total)
+          </p>
         </div>
         <div className="flex gap-3 pt-2">
           <button type="button" onClick={onClose}

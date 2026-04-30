@@ -657,6 +657,12 @@ function EditPositionModal({ position, onClose, onSave }: {
               Total: ${(Number(form.premium) * Number(form.contracts) * 100).toFixed(0)}
             </p>
           )}
+          <p className="text-xs mt-1.5" style={{ color: '#9ab4d4', fontFamily: 'DM Sans, sans-serif', lineHeight: 1.5 }}>
+            Enter the actual premium per share you received when your order was filled in your broker — check your order confirmation for the exact fill price.
+          </p>
+          <p className="text-[11px] mt-1" style={{ color: '#6a8fb0', fontFamily: 'DM Sans, sans-serif', fontStyle: 'italic', lineHeight: 1.5 }}>
+            Example: if you sold 1 contract and received $120 total, enter 1.20 (premium per share, not total)
+          </p>
         </div>
 
         <div className="flex gap-3 pt-2">
