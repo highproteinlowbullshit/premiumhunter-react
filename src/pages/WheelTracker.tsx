@@ -392,7 +392,7 @@ function ModalShell({ title, subtitle, onClose, children, wide = false }: {
       onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="min-h-full flex items-center justify-center p-4"
         onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className={`w-full ${wide ? 'max-w-4xl' : 'max-w-md'} rounded-2xl p-6`}
+      <div className={`w-full ${wide ? 'max-w-4xl' : 'max-w-md'} rounded-2xl p-4 sm:p-6`}
         style={{
           background: 'rgba(10, 22, 40, 0.98)',
           border: '1px solid rgba(0,229,196,0.2)',
@@ -1061,7 +1061,7 @@ function AddPositionModal({ cashBalance, lockedCollateral, openPositions, onClos
         {/* Left: form */}
         <form onSubmit={handleSubmit} className="space-y-4 flex-1 min-w-0">
         {/* Ticker + Strategy */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3 items-start">
           <div>
             <label className="block text-xs mb-1.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>Ticker</label>
             <input
@@ -1108,7 +1108,7 @@ function AddPositionModal({ cashBalance, lockedCollateral, openPositions, onClos
         </div>
 
         {/* Strike + Contracts */}
-        <div className="grid grid-cols-2 gap-3 items-end">
+        <div className="grid grid-cols-2 gap-3 items-start">
           <div>
             <label className="block text-xs mb-1.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>Strike Price</label>
             <div className="relative">
@@ -1318,9 +1318,9 @@ function AddPositionModal({ cashBalance, lockedCollateral, openPositions, onClos
 
           {/* Account balance prompt */}
           {prefsFetched && supplemental.accountBalance === 0 && (
-            <div className="rounded-lg px-3 py-2.5 text-xs flex items-center gap-2"
+            <div className="rounded-lg px-3 py-2.5 text-xs flex flex-wrap items-center gap-2"
               style={{ background: 'rgba(0,198,245,0.06)', border: '1px solid rgba(0,198,245,0.12)' }}>
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="flex-shrink-0">
                 <circle cx="6" cy="6" r="5" stroke="#00c6f5" strokeWidth="1.2" />
                 <path d="M6 5v4M6 4v-.5" stroke="#00c6f5" strokeWidth="1.2" strokeLinecap="round" />
               </svg>
@@ -1330,7 +1330,7 @@ function AddPositionModal({ cashBalance, lockedCollateral, openPositions, onClos
               <input
                 type="number"
                 placeholder="100000"
-                className="px-2 py-0.5 rounded text-xs ml-1"
+                className="px-2 py-0.5 rounded text-xs"
                 style={{ background: 'rgba(0,198,245,0.08)', border: '1px solid rgba(0,198,245,0.2)', color: '#00c6f5', fontFamily: 'JetBrains Mono, monospace', width: 90, outline: 'none' }}
                 onBlur={(e) => {
                   const v = Number(e.target.value);
