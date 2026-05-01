@@ -522,7 +522,7 @@ function FilterControls({
   onReset: () => void;
   isDirty: boolean;
   mounted: boolean;
-  searchRef: React.RefObject<HTMLInputElement>;
+  searchRef: React.RefObject<HTMLInputElement | null>;
 }) {
   const panelStyle = {
     background: 'rgba(13,27,53,0.6)',
