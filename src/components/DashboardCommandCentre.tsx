@@ -2,7 +2,7 @@ import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AlertTriangle, Search, Trophy, Lightbulb, BarChart2,
-  Calendar, Flame, Check, Award,
+  Calendar, Flame, Award,
 } from 'lucide-react';
 import { usePaperMode } from '../context/PaperModeContext';
 import type { DashboardIntelligence } from '../hooks/useDashboardIntelligence';
