@@ -6,6 +6,7 @@ import {
   ResponsiveContainer,
   Tooltip,
 } from 'recharts'
+import { Trophy, Scale, AlertTriangle } from 'lucide-react'
 import type { TickerPerformanceSummary, TickerPerformanceData } from '../hooks/useTickerPerformance'
 import { EmptyState } from './ui/EmptyState'
 
@@ -179,7 +180,7 @@ function ExpandedPanel({ ticker }: { ticker: TickerPerformanceData }) {
 
 // ── Insight card ───────────────────────────────────────────────────────────────
 
-function InsightCard({ icon, title, ticker }: { icon: string; title: string; ticker: TickerPerformanceData | null }) {
+function InsightCard({ icon, title, ticker }: { icon: React.ReactNode; title: string; ticker: TickerPerformanceData | null }) {
   if (!ticker) return null
   return (
     <div
@@ -193,7 +194,7 @@ function InsightCard({ icon, title, ticker }: { icon: string; title: string; tic
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-        <span style={{ fontSize: 14 }}>{icon}</span>
+        <div style={{ color: '#4a6a8a', display: 'flex' }}>{icon}</div>
         <span style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', fontSize: 11, fontWeight: 600 }}>{title}</span>
       </div>
       <div style={{ color: '#e8f0fe', fontFamily: 'Syne, sans-serif', fontSize: 16, fontWeight: 700, marginBottom: 4 }}>
@@ -240,7 +241,7 @@ export function TickerPerformanceTable({ summary, isLoading }: Props) {
   if (!summary || summary.tickers.length === 0) {
     return (
       <EmptyState
-        icon="🏆"
+        icon={<Trophy size={36} strokeWidth={1.5} />}
         title="No completed cycles yet"
         description="Close your first position to start tracking per-ticker win rate, premium collected, and annualised return."
       />
@@ -267,12 +268,7 @@ export function TickerPerformanceTable({ summary, isLoading }: Props) {
     .filter(t => t.totalCycles > 3 && t.winRate < 70)
     .sort((a, b) => a.winRate - b.winRate)[0] ?? null
 
-  const rankLabel = (i: number) => {
-    if (i === 0) return '🥇'
-    if (i === 1) return '🥈'
-    if (i === 2) return '🥉'
-    return `#${i + 1}`
-  }
+  const rankLabel = (i: number) => `#${i + 1}`
 
   const trendArrow = (trend: TickerPerformanceData['recentTrend']) => {
     if (trend === 'improving') return <span style={{ color: '#00e5c4', marginLeft: 4 }}>↑</span>
@@ -531,10 +527,10 @@ export function TickerPerformanceTable({ summary, isLoading }: Props) {
       {/* Insight cards */}
       <div style={{ padding: '16px 20px 0 20px' }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
-          <InsightCard icon="🏆" title="Best annualised return" ticker={summary.bestAnnualisedReturn} />
-          <InsightCard icon="⚖️" title="Most consistent" ticker={summary.mostConsistent} />
+          <InsightCard icon={<Trophy size={14} strokeWidth={1.8} />} title="Best annualised return" ticker={summary.bestAnnualisedReturn} />
+          <InsightCard icon={<Scale size={14} strokeWidth={1.8} />} title="Most consistent" ticker={summary.mostConsistent} />
           {reviewCandidate && (
-            <InsightCard icon="⚠️" title="Review (low win rate)" ticker={reviewCandidate} />
+            <InsightCard icon={<AlertTriangle size={14} strokeWidth={1.8} />} title="Review (low win rate)" ticker={reviewCandidate} />
           )}
         </div>
 

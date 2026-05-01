@@ -4,6 +4,7 @@ import { IVChart } from '../components/IVChart';
 import { IVBadge } from '../components/IVBadge';
 import { useStockDetailData } from '../hooks/useMarketData';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { TrendingUp, Minus } from 'lucide-react';
 
 export function StockDetail() {
   const { ticker = '' } = useParams<{ ticker: string }>();
@@ -216,7 +217,10 @@ export function StockDetail() {
                   background: stock.ivRank >= 60 ? 'rgba(0,229,196,0.1)' : 'rgba(245,200,66,0.1)',
                   border: stock.ivRank >= 60 ? '1px solid rgba(0,229,196,0.2)' : '1px solid rgba(245,200,66,0.2)',
                 }}>
-                <span style={{ fontSize: '18px' }}>{stock.ivRank >= 60 ? '🟢' : '🟡'}</span>
+                {stock.ivRank >= 60
+                  ? <TrendingUp size={18} color="#00e5c4" strokeWidth={2} />
+                  : <Minus size={18} color="#f5c842" strokeWidth={2} />
+                }
               </div>
               <div>
                 <p className="font-semibold text-sm"

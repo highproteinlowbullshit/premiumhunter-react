@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { AlertTriangle, Check } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, Tooltip as RechartsTooltip,
   ResponsiveContainer, ReferenceLine,
@@ -775,8 +776,9 @@ export function LeapsCalculator({
                 <>
                   {/* Warning badges */}
                   {isDeepOTM && (
-                    <div style={{ background: 'rgba(255,140,66,0.08)', border: '1px solid rgba(255,140,66,0.2)', borderRadius: 5, color: '#ff8c42', fontFamily: 'DM Sans, sans-serif', fontSize: 10, padding: '4px 8px', marginBottom: 8 }}>
-                      ⚠ Deep OTM — option value near zero at this price
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(255,140,66,0.08)', border: '1px solid rgba(255,140,66,0.2)', borderRadius: 5, color: '#ff8c42', fontFamily: 'DM Sans, sans-serif', fontSize: 10, padding: '4px 8px', marginBottom: 8 }}>
+                      <AlertTriangle size={10} strokeWidth={2} />
+                      Deep OTM — option value near zero at this price
                     </div>
                   )}
                   {isExpiredSim && (
@@ -894,7 +896,7 @@ export function LeapsCalculator({
                     onClick={() => setCompareAll((v) => !v)}
                     style={{ background: compareAll ? 'rgba(0,229,196,0.1)' : 'transparent', border: `1px solid ${compareAll ? 'rgba(0,229,196,0.3)' : 'rgba(0,229,196,0.1)'}`, borderRadius: 4, color: compareAll ? '#00e5c4' : '#4a6a8a', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', fontSize: 9, padding: '2px 7px' }}
                   >
-                    {compareAll ? '✓ Comparing all' : 'Compare all'}
+                    {compareAll ? <><Check size={9} strokeWidth={2.5} style={{ display: 'inline', verticalAlign: 'middle' }} /> Comparing all</> : 'Compare all'}
                   </button>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>

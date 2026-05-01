@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { ClipboardList } from 'lucide-react';
 import type { WheelPosition } from '../types';
 import type { AssignmentProbabilityResult } from '../lib/blackScholes';
 import { DTEIndicator } from './DTEIndicator';
@@ -145,7 +146,7 @@ export function PositionTable({
   if (!positions.length) {
     return (
       <EmptyState
-        icon="📋"
+        icon={<ClipboardList size={36} strokeWidth={1.5} />}
         title="No open positions"
         description="Log a CSP or Covered Call to start tracking your premium income."
         action={onOpenAdd ? { label: 'Add position  (N)', onClick: onOpenAdd } : undefined}

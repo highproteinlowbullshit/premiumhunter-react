@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { FileText, Check } from 'lucide-react';
 import { usePaperMode } from '../context/PaperModeContext';
 import { blackScholes, yearsToExpiry } from '../lib/blackScholes';
 import type { OpenPaperPositionData } from '../types';
@@ -45,7 +46,7 @@ export function WelcomeModal() {
     <ModalShell title="Welcome to Paper Trading" onClose={dismissWelcome}>
       <div className="rounded-xl p-4 mb-5"
         style={{ background: 'rgba(245,200,66,0.08)', border: '1px solid rgba(245,200,66,0.2)' }}>
-        <div className="text-4xl text-center mb-3">📄</div>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}><FileText size={40} color="#f5c842" strokeWidth={1.5} /></div>
         <p className="text-sm text-center leading-relaxed" style={{ color: '#c9a227', fontFamily: 'DM Sans, sans-serif' }}>
           You have been given <strong>$100,000 in virtual cash</strong> to practice the wheel strategy.
           Trade with confidence — none of this affects your real money.
@@ -59,7 +60,7 @@ export function WelcomeModal() {
           'Switch back to real mode at any time',
         ].map((item) => (
           <li key={item} className="flex items-start gap-2 text-sm" style={{ color: '#9ab4d4', fontFamily: 'DM Sans, sans-serif' }}>
-            <span style={{ color: '#f5c842', flexShrink: 0 }}>✓</span>
+            <Check size={14} color="#f5c842" style={{ flexShrink: 0, marginTop: 1 }} />
             {item}
           </li>
         ))}

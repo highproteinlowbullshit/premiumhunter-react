@@ -1,5 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+  AlertTriangle, Target, Trophy, Lightbulb, BarChart2,
+  Calendar, Flame, Check, Award,
+} from 'lucide-react';
 import { usePaperMode } from '../context/PaperModeContext';
 import type { DashboardIntelligence } from '../hooks/useDashboardIntelligence';
 
@@ -28,27 +32,25 @@ function Skel({ w, h, r = 6 }: { w: number | string; h: number; r?: number }) {
 
 // ── Zone 1: Greeting bar ───────────────────────────────────────────────────────
 
-function HealthPopover({ factors, score, label, onClose }: {
+function HealthPopover({ factors, score, label, onClose, wrapperRef }: {
   factors: DashboardIntelligence['portfolioHealthFactors'];
   score: number;
   label: string;
   onClose: () => void;
+  wrapperRef: React.RefObject<HTMLDivElement | null>;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
-
   useEffect(() => {
     function handler(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) onClose();
     }
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [onClose]);
+  }, [onClose, wrapperRef]);
 
   const labelColor = score >= 85 ? '#00e5c4' : score >= 70 ? '#00e5c4' : score >= 50 ? '#f5c842' : '#ff4d6d';
 
   return (
     <div
-      ref={ref}
       style={{
         position: 'absolute', top: 'calc(100% + 8px)', right: 0, zIndex: 100,
         background: 'rgba(5,13,26,0.98)', border: '1px solid rgba(0,229,196,0.2)',
@@ -79,6 +81,7 @@ function HealthPopover({ factors, score, label, onClose }: {
 
 function GreetingBar({ d, isPaper }: { d: DashboardIntelligence; isPaper: boolean }) {
   const [healthOpen, setHealthOpen] = useState(false);
+  const healthWrapperRef = useRef<HTMLDivElement>(null);
 
   const dotColor = d.isMarketOpen ? '#00d68f'
     : (d.marketStatus === 'Pre-market' || d.marketStatus === 'After-hours') ? '#f5c842'
@@ -117,8 +120,9 @@ function GreetingBar({ d, isPaper }: { d: DashboardIntelligence; isPaper: boolea
             <span style={{ fontSize: 11, color: '#f5c842', fontFamily: 'DM Sans, sans-serif' }}>{d.marketOpensIn}</span>
           )}
           {d.isExpiryFriday && (
-            <span style={{ fontSize: 11, color: '#f5c842', background: 'rgba(245,200,66,0.1)', border: '1px solid rgba(245,200,66,0.25)', borderRadius: 20, padding: '2px 8px', fontFamily: 'DM Sans, sans-serif' }}>
-              📅 Expiry Friday
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#f5c842', background: 'rgba(245,200,66,0.1)', border: '1px solid rgba(245,200,66,0.25)', borderRadius: 20, padding: '2px 8px', fontFamily: 'DM Sans, sans-serif' }}>
+              <Calendar size={10} strokeWidth={2} />
+              Expiry Friday
             </span>
           )}
           {isPaper && (
@@ -130,7 +134,7 @@ function GreetingBar({ d, isPaper }: { d: DashboardIntelligence; isPaper: boolea
       </div>
 
       {/* Right: health pill */}
-      <div style={{ position: 'relative' }}>
+      <div ref={healthWrapperRef} style={{ position: 'relative' }}>
         <button
           onClick={() => setHealthOpen(o => !o)}
           style={{
@@ -153,6 +157,7 @@ function GreetingBar({ d, isPaper }: { d: DashboardIntelligence; isPaper: boolea
             score={d.portfolioHealthScore}
             label={d.portfolioHealthLabel}
             onClose={() => setHealthOpen(false)}
+            wrapperRef={healthWrapperRef}
           />
         )}
       </div>
@@ -162,13 +167,14 @@ function GreetingBar({ d, isPaper }: { d: DashboardIntelligence; isPaper: boolea
 
 // ── Zone 2: Primary insight card ───────────────────────────────────────────────
 
-const INSIGHT_ICONS = {
-  warning: '⚠️',
-  opportunity: '🎯',
-  achievement: '🏆',
-  suggestion: '💡',
-  neutral: '📊',
-};
+function InsightIcon({ type, size = 18 }: { type: string; size?: number }) {
+  const props = { size, strokeWidth: 1.8 };
+  if (type === 'warning') return <AlertTriangle {...props} />;
+  if (type === 'opportunity') return <Target {...props} />;
+  if (type === 'achievement') return <Trophy {...props} />;
+  if (type === 'suggestion') return <Lightbulb {...props} />;
+  return <BarChart2 {...props} />;
+}
 
 const INSIGHT_COLORS = {
   warning: { border: '#ff4d6d', bg: 'rgba(255,77,109,0.05)' },
@@ -193,9 +199,9 @@ function PrimaryInsightCard({ insight, isPaper }: {
       border: `1px solid ${c.border}40`,
       borderLeftWidth: 3,
     }}>
-      <span style={{ fontSize: 20, flexShrink: 0, lineHeight: 1.2, marginTop: 1 }}>
-        {INSIGHT_ICONS[insight.type]}
-      </span>
+      <div style={{ flexShrink: 0, color: c.border, marginTop: 1 }}>
+        <InsightIcon type={insight.type} size={18} />
+      </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: 'var(--ph-text-1)', fontFamily: 'DM Sans, sans-serif', lineHeight: 1.4 }}>
           {isPaper ? `(Paper) ${insight.headline}` : insight.headline}
@@ -276,9 +282,7 @@ function QuickStatsRow({ d, isPaper }: { d: DashboardIntelligence; isPaper: bool
     : d.currentWinStreak >= 3 ? '#00e5c4'
     : 'var(--ph-text-2)';
 
-  const streakVal = d.currentWinStreak >= 2
-    ? `🔥 ${d.currentWinStreak}`
-    : `${d.currentWinStreak}`;
+  const streakVal = `${d.currentWinStreak}`;
 
   return (
     <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4, marginBottom: 12 }}>
@@ -346,7 +350,14 @@ function QuickStatsRow({ d, isPaper }: { d: DashboardIntelligence; isPaper: bool
         sub={d.longestWinStreak > 0 ? `best: ${d.longestWinStreak}` : undefined}
         color={streakColor}
         isPaper={isPaper}
-      />
+      >
+        {d.currentWinStreak >= 2 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 3, marginTop: 2 }}>
+            <Flame size={10} color={streakColor} strokeWidth={2} />
+            <span style={{ fontSize: 9, color: streakColor, fontFamily: 'DM Sans, sans-serif' }}>active streak</span>
+          </div>
+        )}
+      </StatPill>
     </div>
   );
 }
@@ -381,7 +392,9 @@ function SecondaryInsightsRow({ insights }: { insights: DashboardIntelligence['s
           fontFamily: 'DM Sans, sans-serif',
           whiteSpace: 'nowrap',
         }}>
-          <span>{ins.icon}</span>
+          <div style={{ color: chipBorder(ins.type).replace('0.25)', '0.8)'), display: 'flex' }}>
+            <InsightIcon type={ins.type} size={12} />
+          </div>
           <span>{ins.text}</span>
         </div>
       ))}
@@ -421,8 +434,9 @@ function PositionsColumn({ d }: { d: DashboardIntelligence }) {
       ) : (
         <>
           {allComfortable && (
-            <p style={{ margin: '0 0 10px', fontSize: 12, color: '#00d68f', fontFamily: 'DM Sans, sans-serif' }}>
-              ✓ All {d.openPositionCount} positions are comfortable
+            <p style={{ margin: '0 0 10px', fontSize: 12, color: '#00d68f', fontFamily: 'DM Sans, sans-serif', display: 'flex', alignItems: 'center', gap: 5 }}>
+              <Check size={12} strokeWidth={2.5} />
+              All {d.openPositionCount} positions are comfortable
             </p>
           )}
 
@@ -446,7 +460,7 @@ function PositionsColumn({ d }: { d: DashboardIntelligence }) {
               {top3.length > 0 && <div style={{ height: 1, background: 'rgba(0,229,196,0.06)', margin: '8px 0' }} />}
               {near.map((p, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
-                  <span style={{ fontSize: 12 }}>⚠</span>
+                  <AlertTriangle size={12} color={p.status === 'itm' ? '#ff4d6d' : '#f5c842'} strokeWidth={2} style={{ flexShrink: 0 }} />
                   <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ph-text-1)', fontFamily: 'JetBrains Mono, monospace' }}>{p.ticker}</span>
                   <span style={{ fontSize: 11, color: p.status === 'itm' ? '#ff4d6d' : '#f5c842', fontFamily: 'DM Sans, sans-serif' }}>
                     {p.distancePercent.toFixed(1)}% from strike
@@ -518,7 +532,10 @@ function ScreenerPulseColumn({ d }: { d: DashboardIntelligence }) {
       {/* Earnings warnings */}
       {d.earningsThisWeek.length > 0 && (
         <div style={{ padding: '6px 10px', background: 'rgba(255,77,109,0.06)', border: '1px solid rgba(255,77,109,0.15)', borderRadius: 8, marginBottom: 8 }}>
-          <div style={{ fontSize: 11, color: '#ff4d6d', fontFamily: 'DM Sans, sans-serif', marginBottom: 2 }}>⚠ Earnings this week:</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#ff4d6d', fontFamily: 'DM Sans, sans-serif', marginBottom: 2 }}>
+            <AlertTriangle size={10} strokeWidth={2} />
+            Earnings this week:
+          </div>
           <div style={{ fontSize: 12, color: 'var(--ph-text-2)', fontFamily: 'JetBrains Mono, monospace' }}>
             {d.earningsThisWeek.map(e => e.ticker).join(', ')}
           </div>
@@ -591,7 +608,7 @@ function MilestoneToast({ milestone, onDismiss }: {
       boxShadow: '0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(245,200,66,0.1)',
       minWidth: 280, maxWidth: 400,
     }}>
-      <span style={{ fontSize: 24 }}>🏆</span>
+      <Award size={24} color="#f5c842" strokeWidth={1.5} style={{ flexShrink: 0 }} />
       <div style={{ flex: 1 }}>
         <div style={{ fontSize: 11, fontWeight: 600, color: '#f5c842', fontFamily: 'DM Sans, sans-serif', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 2 }}>
           New milestone!

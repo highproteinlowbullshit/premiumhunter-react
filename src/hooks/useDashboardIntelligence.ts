@@ -127,7 +127,6 @@ export interface DashboardIntelligence {
   secondaryInsights: Array<{
     type: 'opportunity' | 'warning' | 'achievement' | 'suggestion';
     text: string;
-    icon: string;
   }>;
 
   dataAsOf: string;
@@ -277,7 +276,7 @@ function primaryInsight(d: DashboardIntelligence): DashboardIntelligence['primar
   if (newMs) {
     return {
       type: 'achievement',
-      headline: `🎉 ${newMs.label}`,
+      headline: newMs.label,
       detail: 'You just hit a new milestone in your wheel strategy journey. Keep compounding.',
       action: null,
     };
@@ -380,13 +379,12 @@ function secondaryInsights(d: DashboardIntelligence): DashboardIntelligence['sec
 
   const critical = d.expiringThisWeek.filter(p => p.urgency === 'critical' || p.urgency === 'urgent');
   if (critical.length > 0) {
-    out.push({ type: 'warning', icon: '⏰', text: `${critical.length} position${critical.length > 1 ? 's' : ''} expiring within ${critical[0].dte} days` });
+    out.push({ type: 'warning', text: `${critical.length} position${critical.length > 1 ? 's' : ''} expiring within ${critical[0].dte} days` });
   }
 
   if (d.thisMonth.positionsClosed >= 3) {
     out.push({
       type: d.thisMonth.winRate >= 70 ? 'achievement' : d.thisMonth.winRate >= 50 ? 'suggestion' : 'warning',
-      icon: d.thisMonth.winRate >= 70 ? '✅' : d.thisMonth.winRate >= 50 ? '📊' : '⚠️',
       text: `${d.thisMonth.winRate.toFixed(0)}% win rate this month (${d.thisMonth.positionsWon}/${d.thisMonth.positionsClosed} trades)`,
     });
   }
@@ -394,7 +392,6 @@ function secondaryInsights(d: DashboardIntelligence): DashboardIntelligence['sec
   if (d.momChange !== null) {
     out.push({
       type: d.momChange >= 0 ? 'achievement' : 'suggestion',
-      icon: d.momChange >= 0 ? '📈' : '📉',
       text: d.momChange >= 0
         ? `${d.momChange.toFixed(0)}% more premium than last month`
         : `${Math.abs(d.momChange).toFixed(0)}% less premium than last month`,
@@ -402,15 +399,15 @@ function secondaryInsights(d: DashboardIntelligence): DashboardIntelligence['sec
   }
 
   if (d.watchlistBestOpportunity) {
-    out.push({ type: 'opportunity', icon: '⭐', text: `${d.watchlistBestOpportunity.ticker} on your watchlist: IV rank ${d.watchlistBestOpportunity.ivRank}` });
+    out.push({ type: 'opportunity', text: `${d.watchlistBestOpportunity.ticker} on your watchlist: IV rank ${d.watchlistBestOpportunity.ivRank}` });
   }
 
   if (d.surgingIVCount >= 3) {
-    out.push({ type: 'opportunity', icon: '🚀', text: `${d.surgingIVCount} stocks with elevated IV in screener` });
+    out.push({ type: 'opportunity', text: `${d.surgingIVCount} stocks with elevated IV in screener` });
   }
 
   if (d.consecutiveProfitableMonths >= 3) {
-    out.push({ type: 'achievement', icon: '🔥', text: `${d.consecutiveProfitableMonths} consecutive profitable months` });
+    out.push({ type: 'achievement', text: `${d.consecutiveProfitableMonths} consecutive profitable months` });
   }
 
   return out.slice(0, 4);
@@ -629,14 +626,14 @@ export function useDashboardIntelligence() {
       const checks: Array<{ type: DashboardIntelligence['milestones'][0]['type']; label: string; achieved: boolean }> = [
         { type: 'first_trade', label: 'First trade logged', achieved: allTime.length >= 1 },
         { type: 'tenth_trade', label: '10 trades completed', achieved: allTime.length >= 10 },
-        { type: 'hundredth_trade', label: '100 trades completed 🎯', achieved: allTime.length >= 100 },
+        { type: 'hundredth_trade', label: '100 trades completed', achieved: allTime.length >= 100 },
         { type: 'total_premium_500', label: '$500 total premium collected', achieved: atPremium >= 500 },
         { type: 'total_premium_1000', label: '$1,000 total premium collected', achieved: atPremium >= 1000 },
         { type: 'total_premium_5000', label: '$5,000 total premium milestone', achieved: atPremium >= 5000 },
-        { type: 'total_premium_10000', label: '$10,000 total premium collected 🎉', achieved: atPremium >= 10000 },
-        { type: 'total_premium_50000', label: '$50,000 total premium collected 🏆', achieved: atPremium >= 50000 },
-        { type: 'win_streak_5', label: '5-trade win streak 🔥', achieved: longestStreak >= 5 },
-        { type: 'win_streak_10', label: '10-trade win streak 💎', achieved: longestStreak >= 10 },
+        { type: 'total_premium_10000', label: '$10,000 total premium collected', achieved: atPremium >= 10000 },
+        { type: 'total_premium_50000', label: '$50,000 total premium collected', achieved: atPremium >= 50000 },
+        { type: 'win_streak_5', label: '5-trade win streak', achieved: longestStreak >= 5 },
+        { type: 'win_streak_10', label: '10-trade win streak', achieved: longestStreak >= 10 },
       ];
 
       const milestones: DashboardIntelligence['milestones'] = checks

@@ -17,6 +17,7 @@ import { AssignedSharesSection } from '../components/AssignedSharesSection';
 import { useTickerPerformance } from '../hooks/useTickerPerformance';
 import { TickerPerformanceTable } from '../components/TickerPerformanceTable';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { Banknote, TrendingUp, RefreshCw, AlertTriangle, CheckCircle, X } from 'lucide-react';
 import { EmptyState } from '../components/ui/EmptyState';
 
 type Currency = 'USD' | 'SGD';
@@ -380,7 +381,7 @@ function AddHoldingModal({ onClose, onSubmit, livePrices, totalCashBalance }: Ad
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontSize: 14 }}>💵</span>
+                <Banknote size={14} color="#9ab4d4" strokeWidth={1.8} />
                 <span style={{ color: '#e8f0fe', fontSize: 13, fontFamily: 'DM Sans, sans-serif', fontWeight: 600 }}>
                   Cash Impact
                 </span>
@@ -403,7 +404,7 @@ function AddHoldingModal({ onClose, onSubmit, livePrices, totalCashBalance }: Ad
               </p>
               {wouldOverdraw && (
                 <p style={{ color: '#f5c842', fontSize: 11, fontFamily: 'DM Sans, sans-serif', margin: 0 }}>
-                  ⚠ This would overdraw your cash balance.
+                  <AlertTriangle size={11} strokeWidth={2} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />This would overdraw your cash balance.
                 </p>
               )}
               <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
@@ -635,7 +636,7 @@ function EditHoldingModal({ holding, onClose, onSubmit, totalCashBalance = 0 }: 
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontSize: 14 }}>💵</span>
+                <Banknote size={14} color="#9ab4d4" strokeWidth={1.8} />
                 <span style={{ color: '#e8f0fe', fontSize: 13, fontFamily: 'DM Sans, sans-serif', fontWeight: 600 }}>
                   Cash Impact
                 </span>
@@ -660,7 +661,7 @@ function EditHoldingModal({ holding, onClose, onSubmit, totalCashBalance = 0 }: 
               </p>
               {wouldOverdraw && (
                 <p style={{ color: '#f5c842', fontSize: 11, fontFamily: 'DM Sans, sans-serif', margin: 0 }}>
-                  ⚠ This would overdraw your cash balance.
+                  <AlertTriangle size={11} strokeWidth={2} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />This would overdraw your cash balance.
                 </p>
               )}
               {noCashHolding && doAdjustCash && cashDelta > 0 && (
@@ -863,7 +864,7 @@ function CloseHoldingModal({ holding, onClose, onSubmit, totalCashBalance = 0 }:
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontSize: 14 }}>💵</span>
+                <Banknote size={14} color="#9ab4d4" strokeWidth={1.8} />
                 <span style={{ color: '#e8f0fe', fontSize: 13, fontFamily: 'DM Sans, sans-serif', fontWeight: 600 }}>
                   Cash Impact
                 </span>
@@ -952,7 +953,11 @@ function CspCoveragePanel({ totalCash, cspObligation, cspUsedPct, totalCSPContra
     ? 'Fully Cash Secured'
     : '';
 
-  const statusIcon = isUncovered ? '✗' : isTight ? '⚠' : '✓';
+  const StatusIcon = isUncovered
+    ? <X size={13} color="#ff4d6d" strokeWidth={2.5} />
+    : isTight
+    ? <AlertTriangle size={13} color="#f5c842" strokeWidth={2} />
+    : <CheckCircle size={13} color="#00d68f" strokeWidth={2} />;
 
   return (
     <div
@@ -972,6 +977,7 @@ function CspCoveragePanel({ totalCash, cspObligation, cspUsedPct, totalCSPContra
           {!isLoading && (
             <span
               style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
                 background: `${statusColor}18`,
                 border: `1px solid ${statusColor}40`,
                 color: statusColor,
@@ -982,7 +988,7 @@ function CspCoveragePanel({ totalCash, cspObligation, cspUsedPct, totalCSPContra
                 fontWeight: 700,
               }}
             >
-              {statusIcon} {statusLabel}
+              {StatusIcon} {statusLabel}
             </span>
           )}
         </div>
@@ -1537,7 +1543,7 @@ function RealPortfolio() {
             </div>
           ) : holdingsWithPrice.length === 0 ? (
             <EmptyState
-              icon="📈"
+              icon={<TrendingUp size={36} strokeWidth={1.5} />}
               title="No holdings yet"
               description="Track stocks, cash, and assigned shares to see your total portfolio value and performance."
               action={{ label: 'Add your first holding', onClick: () => setShowAddModal(true) }}
@@ -1893,7 +1899,7 @@ function RealPortfolio() {
 
           {openPositions.length === 0 ? (
             <EmptyState
-              icon="🎡"
+              icon={<RefreshCw size={36} strokeWidth={1.5} />}
               title="No open wheel positions"
               description="Wheel positions you log in the Tracker will appear here."
               action={{ label: 'Go to Tracker', onClick: () => navigate('/wheel') }}

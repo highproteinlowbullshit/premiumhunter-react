@@ -4,6 +4,8 @@ interface ErrorStateProps {
   compact?: boolean;
 }
 
+import { AlertTriangle } from 'lucide-react';
+
 export function ErrorState({ message = 'Failed to load data', onRetry, compact = false }: ErrorStateProps) {
   return (
     <div style={{
@@ -11,7 +13,7 @@ export function ErrorState({ message = 'Failed to load data', onRetry, compact =
       justifyContent: 'center', gap: 12, padding: compact ? '16px' : '40px',
       color: 'var(--ph-text-3)',
     }}>
-      <span style={{ fontSize: compact ? 20 : 32 }}>⚠️</span>
+      <AlertTriangle size={compact ? 20 : 32} strokeWidth={1.5} color="#f5c842" />
       <p style={{ margin: 0, fontSize: 13, textAlign: 'center', fontFamily: 'DM Sans, sans-serif', color: 'var(--ph-text-2)' }}>
         {message}
       </p>

@@ -1,18 +1,22 @@
+import { Inbox } from 'lucide-react';
+
 interface EmptyStateProps {
-  icon?: string;
+  icon?: React.ReactNode;
   title: string;
   description?: string;
   action?: { label: string; onClick: () => void };
   secondaryAction?: { label: string; onClick: () => void };
 }
 
-export function EmptyState({ icon = '📭', title, description, action, secondaryAction }: EmptyStateProps) {
+export function EmptyState({ icon, title, description, action, secondaryAction }: EmptyStateProps) {
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', alignItems: 'center',
       justifyContent: 'center', gap: 12, padding: '48px 24px', textAlign: 'center',
     }}>
-      <span style={{ fontSize: 36 }}>{icon}</span>
+      <div style={{ color: 'var(--ph-text-3)', opacity: 0.7 }}>
+        {icon ?? <Inbox size={36} strokeWidth={1.5} />}
+      </div>
       <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: 'var(--ph-text-1)', fontFamily: 'Syne, sans-serif' }}>
         {title}
       </h3>

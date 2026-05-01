@@ -1,3 +1,4 @@
+import { BarChart2 } from 'lucide-react';
 import { IS_DEMO_MODE } from '../lib/marketData';
 
 export function DemoBanner() {
@@ -17,7 +18,7 @@ export function DemoBanner() {
         whiteSpace: 'nowrap',
       }}
     >
-      <span style={{ fontSize: '14px' }}>📊</span>
+      <BarChart2 size={14} style={{ flexShrink: 0 }} />
       <span>
         Demo mode — add{' '}
         <code

@@ -1,4 +1,4 @@
-// src/components/TradeChecklist.tsx
+import { CheckCircle, AlertTriangle, XCircle } from 'lucide-react';
 import type { ChecklistResult, CheckResult, CheckStatus } from '../lib/tradeChecklist';
 
 interface TradeChecklistProps {
@@ -218,10 +218,10 @@ export function TradeChecklist({ result, overriddenChecks, onToggleOverride, isL
           transition: 'background 0.3s ease, border-color 0.3s ease',
         }}
       >
-        <p className="text-xs font-semibold" style={{ color: bannerColor, fontFamily: 'DM Sans, sans-serif' }}>
-          {overallStatus === 'clear' && '✓ All checks passed'}
-          {overallStatus === 'warnings' && `⚠ Proceed with caution — ${result.warnCount + result.failCount} issue(s)`}
-          {overallStatus === 'blocked' && '✗ Trade blocked'}
+        <p className="text-xs font-semibold" style={{ color: bannerColor, fontFamily: 'DM Sans, sans-serif', display: 'flex', alignItems: 'center', gap: 5 }}>
+          {overallStatus === 'clear' && <><CheckCircle size={12} strokeWidth={2.5} />All checks passed</>}
+          {overallStatus === 'warnings' && <><AlertTriangle size={12} strokeWidth={2} />Proceed with caution — {result.warnCount + result.failCount} issue(s)</>}
+          {overallStatus === 'blocked' && <><XCircle size={12} strokeWidth={2.5} />Trade blocked</>}
         </p>
         {!canProceed && criticalFails.length > 0 && (
           <ul className="mt-1 space-y-0.5">

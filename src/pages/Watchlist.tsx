@@ -9,6 +9,7 @@ import { fetchWatchlistStock } from '../lib/marketData';
 import type { SortOption, IVDataPoint } from '../types';
 import type { WatchlistStockData } from '../lib/marketData';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { ClipboardList } from 'lucide-react';
 import { EmptyState } from '../components/ui/EmptyState';
 
 type SortField = SortOption['field'];
@@ -277,7 +278,7 @@ export function Watchlist() {
           {/* Table rows */}
           {sortedEntries.length === 0 ? (
             <EmptyState
-              icon="📋"
+              icon={<ClipboardList size={36} strokeWidth={1.5} />}
               title="Your watchlist is empty"
               description="Track IV rank, price, and trends for the tickers you care about."
               action={{ label: 'Add a ticker', onClick: () => inputRef.current?.focus() }}

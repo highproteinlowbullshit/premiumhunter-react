@@ -187,7 +187,7 @@ export function MonthlyTargetTracker() {
     if (!confettiFiredRef.current && progress?.progressPercent != null && progress.progressPercent >= 100 && progress.target !== null) {
       confettiFiredRef.current = true;
       setShowConfetti(true);
-      showToast('🎉 Monthly income target reached!', 'success');
+      showToast('Monthly income target reached!', 'success');
       setTimeout(() => setShowConfetti(false), 2500);
     }
   }, [progress?.progressPercent, progress?.target, showToast]);

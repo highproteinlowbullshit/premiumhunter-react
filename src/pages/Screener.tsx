@@ -20,6 +20,7 @@ import { TopPicksSection } from '../components/TopPicksSection';
 import { EarningsBadge } from '../components/EarningsBadge';
 import { supabase } from '../lib/supabase';
 import { Tooltip } from '../components/ui/Tooltip';
+import { Lock } from 'lucide-react';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // IV data freshness
@@ -893,7 +894,7 @@ function DesktopRow({
         <div>
           <p className="text-sm font-bold" style={{ fontFamily: 'Syne, sans-serif', color: '#e8f0fe', display: 'flex', alignItems: 'center', gap: 4 }}>
             {isAffordable === false && (
-              <span title={`Requires $${stock.capitalRequired?.toLocaleString()} — exceeds capital per trade ($${(contractsAffordable ?? 0) === 0 ? '0' : '?'})`} style={{ fontSize: 11, lineHeight: 1 }}>🔒</span>
+              <Lock size={11} color="#4a6a8a" strokeWidth={2} style={{ flexShrink: 0 }} />
             )}
             {stock.ticker}
           </p>

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { AlertTriangle } from 'lucide-react';
 import { usePaperMode } from '../context/PaperModeContext';
 
 export function PaperBanner() {
@@ -27,7 +28,7 @@ export function PaperBanner() {
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span style={{ color: '#f5c842', fontSize: 14 }}>⚠</span>
+        <AlertTriangle size={14} color="#f5c842" strokeWidth={2} />
         <span style={{ color: '#c9a227', fontFamily: 'DM Sans, sans-serif', fontSize: 13 }}>
           You are in <strong>Paper Trading Mode</strong> — positions here use virtual money and do not affect your real portfolio.
         </span>
