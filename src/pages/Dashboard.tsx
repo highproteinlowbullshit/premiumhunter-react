@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { IVBadge, IVLabel } from '../components/IVBadge';
@@ -10,6 +10,8 @@ import { usePaperMode } from '../context/PaperModeContext';
 import { PaperDashboard } from './PaperDashboard';
 import { MonthlyPnLChart } from '../components/MonthlyPnLChart';
 import { MonthlyTargetCompact } from '../components/MonthlyTargetTracker';
+import { useDashboardIntelligence } from '../hooks/useDashboardIntelligence';
+import { DashboardCommandCentre } from '../components/DashboardCommandCentre';
 import type { StockTicker, IVDataPoint, WheelPosition } from '../types';
 
 export function Dashboard() {
@@ -19,39 +21,14 @@ export function Dashboard() {
   return <RealDashboard />;
 }
 
-function getGreeting(): string {
-  const h = new Date().getHours();
-  if (h < 12) return 'Good morning';
-  if (h < 17) return 'Good afternoon';
-  return 'Good evening';
-}
-
-function getMarketStatus(): { isOpen: boolean; label: string } {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/New_York',
-    hour: 'numeric', minute: 'numeric', hour12: false, weekday: 'short',
-  }).formatToParts(new Date());
-  const weekday = parts.find(p => p.type === 'weekday')?.value ?? '';
-  const hour = parseInt(parts.find(p => p.type === 'hour')?.value ?? '0');
-  const minute = parseInt(parts.find(p => p.type === 'minute')?.value ?? '0');
-  const isWeekday = !['Sat', 'Sun'].includes(weekday);
-  const afterOpen = hour > 9 || (hour === 9 && minute >= 30);
-  const isOpen = isWeekday && afterOpen && hour < 16;
-  return { isOpen, label: isOpen ? 'Market Open' : 'Market Closed' };
-}
 
 function RealDashboard() {
   const navigate = useNavigate();
   const [mounted, setMounted] = useState(false);
-  const [dismissed, setDismissed] = useState(() => !!localStorage.getItem('onboarding_dismissed'));
   const { openPositions, monthlyPnL } = usePositions();
   const { tickers } = useWatchlistContext();
   const { data: liveData, isLoading } = useWatchlistData(tickers);
-
-  const handleDismissOnboarding = useCallback(() => {
-    localStorage.setItem('onboarding_dismissed', '1');
-    setDismissed(true);
-  }, []);
+  const { data: intelligence, isLoading: intelligenceLoading } = useDashboardIntelligence();
 
   useEffect(() => {
     setMounted(true);
@@ -65,11 +42,6 @@ function RealDashboard() {
     return () => clearTimeout(t);
   }, []);
 
-  const marketStatus = getMarketStatus();
-  const expiringCount = openPositions.filter(p => {
-    const dte = Math.ceil((new Date(p.expiry).getTime() - Date.now()) / 86400000);
-    return dte >= 0 && dte <= 7;
-  }).length;
   const totalPremium = openPositions.reduce((acc, p) => acc + p.premiumCollected, 0);
 
   const displayStocks: StockTicker[] = tickers.map((t, i) => {
@@ -85,77 +57,11 @@ function RealDashboard() {
     <div className="min-h-screen mesh-bg pt-24 pb-12 px-4 sm:px-6">
       <div className="max-w-7xl mx-auto">
 
-        {/* Header */}
-        <div
-          className="mb-8"
-          style={{
-            opacity: mounted ? 1 : 0,
-            transform: mounted ? 'none' : 'translateY(16px)',
-            transition: 'opacity 0.5s ease, transform 0.5s ease',
-          }}
-        >
-          <div className="flex items-center gap-3 mb-3">
-            <div className="h-px flex-1" style={{ background: 'linear-gradient(90deg, rgba(0,229,196,0.3), transparent)' }} />
-            <span className="text-xs font-medium tracking-widest uppercase"
-              style={{ color: 'var(--ph-text-3)', fontFamily: 'JetBrains Mono, monospace' }}>
-              Live Dashboard
-            </span>
-            <div className="w-2 h-2 rounded-full animate-pulse-glow" style={{ background: '#00e5c4' }} />
-          </div>
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <h1 className="text-3xl sm:text-4xl font-bold"
-                style={{ fontFamily: 'Syne, sans-serif', color: 'var(--ph-text-1)', letterSpacing: '-0.02em' }}>
-                {getGreeting()}
-              </h1>
-              <div className="flex flex-wrap items-center gap-2 mt-1.5">
-                <p className="text-sm" style={{ color: 'var(--ph-text-3)', fontFamily: 'DM Sans, sans-serif' }}>
-                  {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                </p>
-                <span className="text-xs px-2 py-0.5 rounded-full"
-                  style={{
-                    background: marketStatus.isOpen ? 'rgba(0,214,143,0.12)' : 'rgba(74,106,138,0.15)',
-                    color: marketStatus.isOpen ? '#00d68f' : '#6a8fb0',
-                    fontFamily: 'DM Sans, sans-serif',
-                  }}>
-                  {marketStatus.label}
-                </span>
-                {expiringCount > 0 && (
-                  <button
-                    onClick={() => navigate('/wheel')}
-                    className="text-xs px-2 py-0.5 rounded-full transition-opacity hover:opacity-80"
-                    style={{ background: 'rgba(255,77,109,0.12)', color: '#ff4d6d', fontFamily: 'DM Sans, sans-serif', border: 'none', cursor: 'pointer' }}>
-                    {expiringCount} expiring within 7d →
-                  </button>
-                )}
-              </div>
-            </div>
-            <div className="flex gap-2 flex-wrap">
-              <button
-                onClick={() => navigate('/screener')}
-                className="text-xs px-3 py-2 rounded-xl transition-all hover:opacity-80"
-                style={{ background: 'rgba(0,229,196,0.08)', color: '#00e5c4', border: '1px solid rgba(0,229,196,0.2)', fontFamily: 'DM Sans, sans-serif' }}>
-                Screen for opportunities →
-              </button>
-              <button
-                onClick={() => navigate('/wheel')}
-                className="text-xs px-3 py-2 rounded-xl transition-all hover:opacity-80"
-                style={{ background: 'rgba(0,229,196,0.05)', color: '#9ab4d4', border: '1px solid rgba(0,229,196,0.1)', fontFamily: 'DM Sans, sans-serif' }}>
-                Log a trade →
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Onboarding card — shown only when no positions, no watchlist, not dismissed */}
-        {!dismissed && openPositions.length === 0 && tickers.length === 0 && (
-          <OnboardingCard
-            onDismiss={handleDismissOnboarding}
-            onScreen={() => navigate('/screener')}
-            onWatchlist={() => navigate('/watchlist')}
-            onTrade={() => navigate('/wheel')}
-          />
-        )}
+        {/* Morning Command Centre */}
+        <DashboardCommandCentre
+          data={intelligence ?? null}
+          isLoading={intelligenceLoading}
+        />
 
         {/* Monthly Premium Income Chart */}
         <MonthlyPnLChart />
