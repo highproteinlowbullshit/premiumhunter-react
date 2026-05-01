@@ -9,6 +9,7 @@ import { fetchWatchlistStock } from '../lib/marketData';
 import type { SortOption, IVDataPoint } from '../types';
 import type { WatchlistStockData } from '../lib/marketData';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { EmptyState } from '../components/ui/EmptyState';
 
 type SortField = SortOption['field'];
 
@@ -275,21 +276,12 @@ export function Watchlist() {
 
           {/* Table rows */}
           {sortedEntries.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 gap-3">
-              <div className="w-14 h-14 rounded-full flex items-center justify-center"
-                style={{ background: 'rgba(0,229,196,0.06)', border: '1px solid rgba(0,229,196,0.12)' }}>
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                  <circle cx="12" cy="12" r="9" stroke="#00e5c4" strokeWidth="1.5" strokeOpacity="0.4" />
-                  <path d="M8 12h8M12 8v8" stroke="#00e5c4" strokeWidth="1.5" strokeLinecap="round" strokeOpacity="0.4" />
-                </svg>
-              </div>
-              <p className="text-sm" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
-                Your watchlist is empty
-              </p>
-              <p className="text-xs" style={{ color: '#2e4a6a', fontFamily: 'DM Sans, sans-serif' }}>
-                Add a ticker above to get started
-              </p>
-            </div>
+            <EmptyState
+              icon="📋"
+              title="Your watchlist is empty"
+              description="Track IV rank, price, and trends for the tickers you care about."
+              action={{ label: 'Add a ticker', onClick: () => inputRef.current?.focus() }}
+            />
           ) : (
             <div>
               {sortedEntries.map((entry, i) => (

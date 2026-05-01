@@ -605,7 +605,7 @@ function PaperModalShell({ title, subtitle, onClose, children }: { title: string
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: 'rgba(2,8,19,0.85)', backdropFilter: 'blur(8px)' }}
       onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="w-full max-w-md rounded-2xl p-4 sm:p-6"
+      <div className="modal-enter w-full max-w-md rounded-2xl p-4 sm:p-6"
         style={{ background: 'rgba(10,22,40,0.98)', border: `1px solid ${A.amberBorder}`, boxShadow: '0 32px 80px rgba(0,0,0,0.6)' }}>
         <div className="flex items-center justify-between mb-6">
           <div>

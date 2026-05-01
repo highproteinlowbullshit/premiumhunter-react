@@ -406,7 +406,7 @@ function ModalShell({ title, subtitle, onClose, children, wide = false }: {
       onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="min-h-full flex items-center justify-center p-4"
         onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className={`w-full ${wide ? 'max-w-4xl' : 'max-w-md'} rounded-2xl p-4 sm:p-6`}
+      <div className={`modal-enter w-full ${wide ? 'max-w-4xl' : 'max-w-md'} rounded-2xl p-4 sm:p-6`}
         style={{
           background: 'rgba(10, 22, 40, 0.98)',
           border: '1px solid rgba(0,229,196,0.2)',

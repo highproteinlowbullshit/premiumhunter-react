@@ -17,6 +17,7 @@ import { AssignedSharesSection } from '../components/AssignedSharesSection';
 import { useTickerPerformance } from '../hooks/useTickerPerformance';
 import { TickerPerformanceTable } from '../components/TickerPerformanceTable';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { EmptyState } from '../components/ui/EmptyState';
 
 type Currency = 'USD' | 'SGD';
 const SGD_FALLBACK_RATE = 1.275; // fallback if Finnhub fetch fails
@@ -1518,27 +1519,12 @@ function RealPortfolio() {
               Loading holdings...
             </div>
           ) : holdingsWithPrice.length === 0 ? (
-            <div style={{ padding: '48px 20px', textAlign: 'center' }}>
-              <div style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', fontSize: 14, marginBottom: 16 }}>
-                No open holdings yet
-              </div>
-              <button
-                onClick={() => setShowAddModal(true)}
-                style={{
-                  background: 'rgba(0,229,196,0.1)',
-                  border: '1px solid rgba(0,229,196,0.2)',
-                  borderRadius: 8,
-                  color: '#00e5c4',
-                  fontFamily: 'DM Sans, sans-serif',
-                  fontSize: 14,
-                  fontWeight: 600,
-                  padding: '10px 20px',
-                  cursor: 'pointer',
-                }}
-              >
-                Add Your First Holding
-              </button>
-            </div>
+            <EmptyState
+              icon="📈"
+              title="No holdings yet"
+              description="Track stocks, cash, and assigned shares to see your total portfolio value and performance."
+              action={{ label: 'Add your first holding', onClick: () => setShowAddModal(true) }}
+            />
           ) : (
             <>
               {/* Desktop Table */}
@@ -1889,9 +1875,12 @@ function RealPortfolio() {
           </div>
 
           {openPositions.length === 0 ? (
-            <div style={{ padding: '24px 20px', textAlign: 'center', color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', fontSize: 14 }}>
-              No open wheel positions
-            </div>
+            <EmptyState
+              icon="🎡"
+              title="No open wheel positions"
+              description="Wheel positions you log in the Tracker will appear here."
+              action={{ label: 'Go to Tracker', onClick: () => navigate('/wheel') }}
+            />
           ) : (
             <>
               <div style={{ overflowX: 'auto' }}>
