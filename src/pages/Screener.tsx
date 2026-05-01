@@ -151,10 +151,17 @@ export function Screener() {
   const { isPaperMode, paperAccount } = usePaperMode();
   const { openPaperPosition } = usePaperActions();
   const [paperTradeStock, setPaperTradeStock] = useState<ScreenerStock | null>(null);
-  const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
+  const [filters, setFilters] = useState<Filters>(() => {
+    try {
+      const saved = localStorage.getItem('ph-screener-filters');
+      if (saved) return { ...DEFAULT_FILTERS, ...(JSON.parse(saved) as Partial<Filters>) };
+    } catch { /* ignore */ }
+    return DEFAULT_FILTERS;
+  });
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [mounted, setMounted] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const searchRef = useRef<HTMLInputElement>(null);
   const { stocks, loadedCount, total, isLoading } = useScreenerStream();
   const { prefs } = useScoringPreferences();
   const capitalPerTrade = prefs.capitalPerTrade ?? 0;
@@ -168,6 +175,24 @@ export function Screener() {
   useEffect(() => {
     const t = setTimeout(() => { void import('./StockDetail'); }, 1000);
     return () => clearTimeout(t);
+  }, []);
+
+  // Persist filters to localStorage
+  useEffect(() => {
+    try { localStorage.setItem('ph-screener-filters', JSON.stringify(filters)); } catch { /* ignore */ }
+  }, [filters]);
+
+  // '/' shortcut to focus search
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== '/') return;
+      if (e.target instanceof HTMLInputElement) return;
+      if (e.target instanceof HTMLTextAreaElement) return;
+      e.preventDefault();
+      searchRef.current?.focus();
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
   }, []);
 
   // Debounce search input 300ms
@@ -526,10 +551,11 @@ function FilterControls({
             </svg>
           </div>
           <input
+            ref={searchRef}
             type="text"
             value={filters.search}
             onChange={(e) => set('search', e.target.value)}
-            placeholder="Search ticker or name…"
+            placeholder="Search tickers… (/)"
             className="w-full pl-9 pr-4 py-2.5 rounded-xl text-sm"
             style={inputStyle}
             onFocus={(e) => (e.target.style.borderColor = 'rgba(0,229,196,0.3)')}

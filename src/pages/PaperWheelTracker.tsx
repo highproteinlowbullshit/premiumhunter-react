@@ -22,6 +22,25 @@ function getDTE(expiry: string): number {
   return Math.max(0, Math.ceil((new Date(expiry).getTime() - Date.now()) / 86_400_000));
 }
 
+function getNextMonthlyExpiries(n = 4): string[] {
+  const today = new Date();
+  const result: string[] = [];
+  let year = today.getFullYear();
+  let month = today.getMonth();
+  while (result.length < n) {
+    const dow = new Date(year, month, 1).getDay();
+    const thirdFriday = new Date(year, month, ((5 - dow + 7) % 7) + 15);
+    if (thirdFriday > today) result.push(thirdFriday.toISOString().split('T')[0]);
+    if (++month > 11) { month = 0; year++; }
+  }
+  return result;
+}
+
+function fmtExpiryShort(iso: string): string {
+  const [, m, d] = iso.split('-');
+  return `${'JanFebMarAprMayJunJulAugSepOctNovDec'.slice((+m - 1) * 3, (+m - 1) * 3 + 3)} ${+d}`;
+}
+
 export function PaperWheelTracker() {
   const [mounted, setMounted] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -38,6 +57,18 @@ export function PaperWheelTracker() {
   const { refreshAccount } = usePaperMode();
 
   useEffect(() => { setMounted(true); }, []);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== 'n' && e.key !== 'N') return;
+      if (e.target instanceof HTMLInputElement) return;
+      if (e.target instanceof HTMLTextAreaElement) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      setShowAddModal(true);
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
 
   const reload = useCallback(() => {
     reloadAccount();
@@ -669,7 +700,7 @@ function OpenPaperPositionModal({ availableCash, onClose, onSubmit }: {
         <div className="grid grid-cols-2 gap-3 items-start">
           <div>
             <label className="block text-xs mb-1.5" style={{ color: A.muted, fontFamily: 'DM Sans, sans-serif' }}>Ticker</label>
-            <input value={form.ticker} placeholder="AAPL"
+            <input autoFocus value={form.ticker} placeholder="AAPL"
               onChange={(e) => setForm((f) => ({ ...f, ticker: e.target.value.toUpperCase() }))}
               onBlur={(e) => fetchSpot(e.target.value)}
               className="w-full px-3 py-2.5 rounded-xl text-sm" style={inputStyle('ticker')} />
@@ -737,6 +768,21 @@ function OpenPaperPositionModal({ availableCash, onClose, onSubmit }: {
               className="w-full min-w-0 px-3 py-2.5 rounded-xl text-sm" style={{ ...inputStyle('expiry'), colorScheme: 'dark', maxWidth: '100%', boxSizing: 'border-box' as const }} />
           </div>
           {errors.expiry && <p className="text-xs mt-1" style={{ color: '#ff4d6d' }}>{errors.expiry}</p>}
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            {getNextMonthlyExpiries().map((iso) => (
+              <button
+                key={iso} type="button" data-no-min-h
+                onClick={() => setForm((f) => ({ ...f, expiry: iso }))}
+                className="px-2.5 py-1 rounded-lg text-xs transition-all"
+                style={{
+                  background: form.expiry === iso ? 'rgba(245,200,66,0.12)' : 'rgba(5,13,26,0.6)',
+                  color: form.expiry === iso ? '#f5c842' : '#6a8fb0',
+                  border: `1px solid ${form.expiry === iso ? 'rgba(245,200,66,0.3)' : 'rgba(0,229,196,0.1)'}`,
+                  fontFamily: 'DM Sans, sans-serif',
+                }}
+              >{fmtExpiryShort(iso)}</button>
+            ))}
+          </div>
           <p className="text-xs mt-1.5" style={{ color: '#9ab4d4', fontFamily: 'DM Sans, sans-serif', lineHeight: 1.5 }}>
             The expiration date shown in your broker — always the third Friday of the month for monthly options
           </p>
