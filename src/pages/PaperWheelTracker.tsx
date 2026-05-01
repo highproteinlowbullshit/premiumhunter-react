@@ -599,7 +599,8 @@ function PaperModalShell({ title, subtitle, onClose, children }: { title: string
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
+    document.body.style.overflow = 'hidden';
+    return () => { document.removeEventListener('keydown', handler); document.body.style.overflow = ''; };
   }, [onClose]);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"

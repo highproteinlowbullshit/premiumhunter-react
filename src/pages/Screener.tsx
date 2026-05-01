@@ -19,6 +19,7 @@ import { PaperTradeModal } from '../components/PaperModals';
 import { TopPicksSection } from '../components/TopPicksSection';
 import { EarningsBadge } from '../components/EarningsBadge';
 import { supabase } from '../lib/supabase';
+import { Tooltip } from '../components/ui/Tooltip';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // IV data freshness
@@ -779,6 +780,18 @@ function StickyHeader({ filters, set, earningsUrgentCount }: {
     { key: null,           label: ''          }, // action
   ] as const;
 
+  const COL_TIPS: Record<string, string> = {
+    'Symbol':        'Ticker symbol. Click to open the stock detail page.',
+    'Sector':        'Stock sector classification for filtering.',
+    'Price':         'Current stock price. Updates every 60 seconds.',
+    'IV Rank':       'Where current IV sits relative to the past 52 weeks. 0 = historically cheap, 100 = historically expensive. Above 50 is generally good for selling premium.',
+    'IV%ile':        'Percentage of days over the past year with lower IV than today. 90th percentile means IV is higher than on 90% of past days.',
+    'IV/HV':         'Implied Volatility ÷ 30-day Historical Volatility. Above 1.3 means options are expensive relative to actual stock movement — ideal for selling premium.',
+    'HV 52w Range':  '30-day Historical Volatility compared to its 52-week range. Shows how extreme current realized volatility is.',
+    'Volume':        "Today's trading volume. Higher volume means tighter bid-ask spreads on options.",
+    'Earnings':      'Days until next earnings. Red = within 7 days (avoid — IV crush risk). Amber = within 14 days (caution).',
+  };
+
   const handleColSort = (key: string | null) => {
     if (!key) return;
     if (filters.sortBy === key) {
@@ -807,7 +820,17 @@ function StickyHeader({ filters, set, earningsUrgentCount }: {
             }}
           >
             <span className="inline-flex items-center gap-1.5">
-              {col.label}
+              {COL_TIPS[col.label] ? (
+                <Tooltip content={COL_TIPS[col.label]} position="bottom" maxWidth={280}>
+                  <span className="inline-flex items-center gap-1">
+                    {col.label}
+                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ opacity: 0.4 }}>
+                      <circle cx="5" cy="5" r="4.5" stroke="currentColor" strokeWidth="1" />
+                      <path d="M5 4v3M5 3h.01" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
+                    </svg>
+                  </span>
+                </Tooltip>
+              ) : col.label}
               {'danger' in col && col.danger > 0 && (
                 <span
                   className="inline-flex items-center justify-center rounded-full text-[9px] font-bold"

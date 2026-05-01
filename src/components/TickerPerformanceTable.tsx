@@ -7,6 +7,7 @@ import {
   Tooltip,
 } from 'recharts'
 import type { TickerPerformanceSummary, TickerPerformanceData } from '../hooks/useTickerPerformance'
+import { EmptyState } from './ui/EmptyState'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -236,7 +237,15 @@ export function TickerPerformanceTable({ summary, isLoading }: Props) {
   const [expandedTicker, setExpandedTicker] = useState<string | null>(null)
 
   if (isLoading) return <LoadingSkeleton />
-  if (!summary || summary.tickers.length === 0) return null
+  if (!summary || summary.tickers.length === 0) {
+    return (
+      <EmptyState
+        icon="🏆"
+        title="No completed cycles yet"
+        description="Close your first position to start tracking per-ticker win rate, premium collected, and annualised return."
+      />
+    )
+  }
 
   // Sort
   const sorted = [...summary.tickers].sort((a, b) => {

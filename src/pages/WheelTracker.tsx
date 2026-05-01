@@ -226,6 +226,7 @@ function RealWheelTracker() {
               onEdit={setEditingPosition}
               onAssign={setAssigningPosition}
               highlightTicker={recentTicker}
+              onOpenAdd={() => setShowAddModal(true)}
             />
           )}
         </div>
@@ -402,7 +403,8 @@ function ModalShell({ title, subtitle, onClose, children, wide = false }: {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
+    document.body.style.overflow = 'hidden';
+    return () => { document.removeEventListener('keydown', handler); document.body.style.overflow = ''; };
   }, [onClose]);
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto"

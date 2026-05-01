@@ -61,6 +61,10 @@
   --ph-navbar-mobile-bg: rgba(5, 13, 26, 0.98);
   /* Inputs */
   --ph-input-bg: rgba(5, 13, 26, 0.8);
+  /* Transitions */
+  --transition-fast:   0.12s ease;
+  --transition-normal: 0.2s ease;
+  --transition-slow:   0.35s ease;
 }
 
 

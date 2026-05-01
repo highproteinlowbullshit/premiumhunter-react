@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { IVBadge, IVLabel } from '../components/IVBadge';
@@ -43,9 +43,15 @@ function getMarketStatus(): { isOpen: boolean; label: string } {
 function RealDashboard() {
   const navigate = useNavigate();
   const [mounted, setMounted] = useState(false);
+  const [dismissed, setDismissed] = useState(() => !!localStorage.getItem('onboarding_dismissed'));
   const { openPositions, monthlyPnL } = usePositions();
   const { tickers } = useWatchlistContext();
   const { data: liveData, isLoading } = useWatchlistData(tickers);
+
+  const handleDismissOnboarding = useCallback(() => {
+    localStorage.setItem('onboarding_dismissed', '1');
+    setDismissed(true);
+  }, []);
 
   useEffect(() => {
     setMounted(true);
@@ -140,6 +146,16 @@ function RealDashboard() {
             </div>
           </div>
         </div>
+
+        {/* Onboarding card — shown only when no positions, no watchlist, not dismissed */}
+        {!dismissed && openPositions.length === 0 && tickers.length === 0 && (
+          <OnboardingCard
+            onDismiss={handleDismissOnboarding}
+            onScreen={() => navigate('/screener')}
+            onWatchlist={() => navigate('/watchlist')}
+            onTrade={() => navigate('/wheel')}
+          />
+        )}
 
         {/* Monthly Premium Income Chart */}
         <MonthlyPnLChart />
@@ -523,6 +539,137 @@ function WheelSummaryPanel({ openPositions, monthlyPnL, totalPremium, onNavigate
             ${totalPremium.toFixed(0)}
           </p>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ——————————————————————————————————
+// Onboarding Card Component
+// ——————————————————————————————————
+interface OnboardingCardProps {
+  onDismiss: () => void;
+  onScreen: () => void;
+  onWatchlist: () => void;
+  onTrade: () => void;
+}
+
+const ONBOARDING_STEPS = [
+  {
+    number: '01',
+    title: 'Find high-IV opportunities',
+    desc: 'Use the Screener to filter stocks by IV Rank, IV Percentile, and earnings schedule.',
+    cta: 'Open Screener',
+    action: 'screen' as const,
+    color: '#00e5c4',
+    bg: 'rgba(0,229,196,0.06)',
+    border: 'rgba(0,229,196,0.15)',
+  },
+  {
+    number: '02',
+    title: 'Build your watchlist',
+    desc: "Save tickers you're tracking to your watchlist for quick IV monitoring on this dashboard.",
+    cta: 'Add Tickers',
+    action: 'watchlist' as const,
+    color: '#00c6f5',
+    bg: 'rgba(0,198,245,0.06)',
+    border: 'rgba(0,198,245,0.15)',
+  },
+  {
+    number: '03',
+    title: 'Log your first trade',
+    desc: 'Track CSPs and Covered Calls in the Wheel Tracker to monitor premium income over time.',
+    cta: 'Log a Trade',
+    action: 'trade' as const,
+    color: '#a78bfa',
+    bg: 'rgba(167,139,250,0.06)',
+    border: 'rgba(167,139,250,0.15)',
+  },
+];
+
+function OnboardingCard({ onDismiss, onScreen, onWatchlist, onTrade }: OnboardingCardProps) {
+  const actionMap = { screen: onScreen, watchlist: onWatchlist, trade: onTrade };
+
+  return (
+    <div
+      className="rounded-2xl mb-8 p-6 sm:p-8"
+      style={{
+        background: 'var(--ph-surface-60)',
+        border: '1px solid rgba(0,229,196,0.2)',
+        backdropFilter: 'blur(12px)',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(0,229,196,0.08)',
+      }}
+    >
+      <div className="flex items-start justify-between gap-4 mb-6">
+        <div>
+          <h2
+            className="text-xl font-bold mb-1"
+            style={{ fontFamily: 'Syne, sans-serif', color: 'var(--ph-text-1)', letterSpacing: '-0.01em' }}
+          >
+            Welcome to Premium Hunter 👋
+          </h2>
+          <p className="text-sm" style={{ color: 'var(--ph-text-3)', fontFamily: 'DM Sans, sans-serif' }}>
+            Three steps to start collecting premium income with the wheel strategy.
+          </p>
+        </div>
+        <button
+          onClick={onDismiss}
+          className="shrink-0 text-xs px-3 py-1.5 rounded-lg transition-opacity hover:opacity-70"
+          style={{
+            color: 'var(--ph-text-3)',
+            background: 'var(--ph-overlay)',
+            border: '1px solid var(--ph-border-row)',
+            fontFamily: 'DM Sans, sans-serif',
+            cursor: 'pointer',
+          }}
+        >
+          Dismiss
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {ONBOARDING_STEPS.map((step) => (
+          <div
+            key={step.number}
+            className="rounded-xl p-4 flex flex-col gap-3"
+            style={{ background: step.bg, border: `1px solid ${step.border}` }}
+          >
+            <div className="flex items-center gap-2">
+              <span
+                className="text-xs font-bold"
+                style={{ color: step.color, fontFamily: 'JetBrains Mono, monospace' }}
+              >
+                {step.number}
+              </span>
+              <div className="h-px flex-1" style={{ background: step.border }} />
+            </div>
+            <p
+              className="text-sm font-semibold leading-snug"
+              style={{ color: 'var(--ph-text-1)', fontFamily: 'DM Sans, sans-serif' }}
+            >
+              {step.title}
+            </p>
+            <p
+              className="text-xs leading-relaxed flex-1"
+              style={{ color: 'var(--ph-text-3)', fontFamily: 'DM Sans, sans-serif' }}
+            >
+              {step.desc}
+            </p>
+            <button
+              onClick={actionMap[step.action]}
+              className="text-xs px-3 py-2 rounded-lg transition-opacity hover:opacity-80 self-start"
+              style={{
+                color: step.color,
+                background: 'rgba(5,13,26,0.5)',
+                border: `1px solid ${step.border}`,
+                fontFamily: 'DM Sans, sans-serif',
+                cursor: 'pointer',
+              }}
+            >
+              {step.cta} →
+            </button>
+          </div>
+        ))}
       </div>
     </div>
   );

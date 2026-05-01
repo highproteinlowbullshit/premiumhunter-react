@@ -3,6 +3,7 @@ import type { WheelPosition } from '../types';
 import type { AssignmentProbabilityResult } from '../lib/blackScholes';
 import { DTEIndicator } from './DTEIndicator';
 import { AssignmentProbabilityGauge } from './AssignmentProbabilityGauge';
+import { EmptyState } from './ui/EmptyState';
 
 interface PositionTableProps {
   positions: WheelPosition[];
@@ -19,6 +20,7 @@ interface PositionTableProps {
   onClose?: (position: WheelPosition) => void;
   onEdit?: (position: WheelPosition) => void;
   onAssign?: (position: WheelPosition) => void;
+  onOpenAdd?: () => void;
 }
 
 interface LivePnl {
@@ -128,7 +130,7 @@ function SortHeader({ label, current, sortKey, onSort }: {
 
 export function PositionTable({
   positions, livePrices, probabilities, probabilitySummary,
-  onRemove, onClose, onEdit, onAssign, highlightTicker,
+  onRemove, onClose, onEdit, onAssign, highlightTicker, onOpenAdd,
 }: PositionTableProps) {
   const [sortKey, setSortKey] = useState<SortKey>(() => {
     const saved = localStorage.getItem('ph-position-sort');
@@ -142,22 +144,12 @@ export function PositionTable({
 
   if (!positions.length) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 gap-3">
-        <div className="w-12 h-12 rounded-full flex items-center justify-center"
-          style={{ background: 'rgba(0, 229, 196, 0.08)', border: '1px solid rgba(0, 229, 196, 0.15)' }}>
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-            <circle cx="10" cy="10" r="8" stroke="#00e5c4" strokeWidth="1.5" strokeOpacity="0.5" />
-            <circle cx="10" cy="10" r="2.5" fill="#00e5c4" fillOpacity="0.5" />
-            <line x1="10" y1="2" x2="10" y2="7.5" stroke="#00e5c4" strokeWidth="1.5" strokeOpacity="0.5" />
-            <line x1="10" y1="12.5" x2="10" y2="18" stroke="#00e5c4" strokeWidth="1.5" strokeOpacity="0.5" />
-            <line x1="2" y1="10" x2="7.5" y2="10" stroke="#00e5c4" strokeWidth="1.5" strokeOpacity="0.5" />
-            <line x1="12.5" y1="10" x2="18" y2="10" stroke="#00e5c4" strokeWidth="1.5" strokeOpacity="0.5" />
-          </svg>
-        </div>
-        <p className="text-sm" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
-          No open positions
-        </p>
-      </div>
+      <EmptyState
+        icon="📋"
+        title="No open positions"
+        description="Log a CSP or Covered Call to start tracking your premium income."
+        action={onOpenAdd ? { label: 'Add position  (N)', onClick: onOpenAdd } : undefined}
+      />
     );
   }
 
