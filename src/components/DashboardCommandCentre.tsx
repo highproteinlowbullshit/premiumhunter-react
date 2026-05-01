@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { usePaperMode } from '../context/PaperModeContext';
 import type { DashboardIntelligence } from '../hooks/useDashboardIntelligence';
+import { PositionsIntelligenceCard } from './PositionsIntelligenceCard';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -677,7 +678,7 @@ export function DashboardCommandCentre({ data: d, isLoading }: Props) {
       {/* Zone 5 */}
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'stretch' }}>
         <div style={{ flex: '1 1 260px', display: 'flex', flexDirection: 'column' }}>
-          <PositionsColumn d={d} />
+          <PositionsIntelligenceCard d={d} />
         </div>
         <div style={{ flex: '1 1 260px', display: 'flex', flexDirection: 'column' }}>
           <ScreenerPulseColumn d={d} />

@@ -2,8 +2,34 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { usePaperMode } from '../context/PaperModeContext';
+import { blackScholes, calculatePositionGreeks } from '../lib/blackScholes';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
+
+export interface PositionSnapshot {
+  id: string;
+  ticker: string;
+  strategy: 'CSP' | 'CC';
+  strike: number;
+  expiry: string;
+  contracts: number;
+  premiumCollected: number; // total dollars (premium × contracts)
+
+  dte: number;
+  urgency: 'today' | 'critical' | 'urgent' | 'watch' | 'ok';
+
+  currentPrice: number | null;
+  distancePercent: number | null;
+  moneyness: 'itm' | 'near' | 'watch' | 'safe' | 'unknown';
+
+  dailyTheta: number | null; // positive = daily income for seller
+  delta: number | null; // seller-perspective delta
+
+  openedAt: string | null;
+  openedDaysAgo: number | null;
+
+  ivSource: 'live' | 'cached' | 'estimated';
+}
 
 export interface DashboardIntelligence {
   greeting: string;
@@ -108,6 +134,16 @@ export interface DashboardIntelligence {
     ivTrend: string;
   } | null;
 
+  positions: PositionSnapshot[];
+  positionsSummary: {
+    itmCount: number;
+    nearCount: number;
+    urgentExpiryCount: number;
+    totalDailyTheta: number;
+    avgDelta: number | null;
+    avgDTE: number;
+  };
+
   portfolioHealthScore: number;
   portfolioHealthLabel: string;
   portfolioHealthFactors: Array<{
@@ -206,6 +242,17 @@ function calcPnl(pos: {
   if (pos.status === 'expired') return pos.premium_collected * pos.contracts;
   if (pos.closing_price !== null) return (pos.premium_collected - pos.closing_price) * pos.contracts;
   return pos.premium_collected * pos.contracts; // assigned
+}
+
+function getDefaultIV(ticker: string): number {
+  const highIVMap: Record<string, number> = {
+    TSLA: 0.65, NVDA: 0.55, AMD: 0.55, MARA: 0.90, COIN: 0.75,
+    HOOD: 0.70, PLTR: 0.60, SMCI: 0.80, GME: 0.85, AMC: 0.90,
+    RIVN: 0.75, LCID: 0.80, SOFI: 0.65, UPST: 0.80, RBLX: 0.60,
+    SPY: 0.18, QQQ: 0.22, IWM: 0.25, AAPL: 0.28, MSFT: 0.28,
+    META: 0.40, AMZN: 0.35, GOOGL: 0.30,
+  };
+  return highIVMap[ticker.toUpperCase()] ?? 0.35;
 }
 
 // ── Portfolio health ───────────────────────────────────────────────────────────
@@ -442,7 +489,7 @@ export function useDashboardIntelligence() {
       ] = await Promise.all([
         supabase
           .from(positionsTable)
-          .select('id, ticker, strategy, strike, expiry, premium_collected, contracts')
+          .select('id, ticker, strategy, strike, expiry, premium_collected, contracts, opened_at')
           .eq('user_id', user!.id)
           .eq('status', 'open'),
 
@@ -508,49 +555,153 @@ export function useDashboardIntelligence() {
       const ivMap = new Map(ivSnaps.map(s => [s.ticker, s]));
       const openTickers = new Set(open.map(p => p.ticker));
 
-      // ── Expiring positions ─────────────────────────────────────────────────
-      const expiringThisWeek = open
-        .map(pos => {
-          const dte = Math.ceil((new Date(pos.expiry).getTime() - now.getTime()) / 86400000);
-          const urgency: 'today' | 'critical' | 'urgent' | 'watch' | null =
-            dte === 0 ? 'today' : dte <= 2 ? 'critical' : dte <= 6 ? 'urgent' : dte <= 7 ? 'watch' : null;
-          if (!urgency) return null;
-          return {
-            ticker: pos.ticker as string,
-            strategy: pos.strategy as 'CSP' | 'CC',
-            strike: Number(pos.strike),
-            expiry: pos.expiry as string,
-            dte,
-            premiumCollected: Number(pos.premium_collected) * Number(pos.contracts),
-            contracts: Number(pos.contracts),
-            urgency,
-          };
-        })
-        .filter(Boolean)
-        .sort((a, b) => a!.dte - b!.dte) as DashboardIntelligence['expiringThisWeek'];
+      // ── Per-position IV (sequential — needs open tickers) ──────────────────
+      const posIVRes = open.length > 0
+        ? await supabase
+            .from('iv_snapshots')
+            .select('ticker, current_iv, current_price')
+            .in('ticker', [...openTickers])
+            .eq('snapshot_date', todayStr)
+            .eq('calculation_success', true)
+        : { data: [] };
+      const posIVMap = new Map(
+        (posIVRes.data ?? []).map(r => [r.ticker, r])
+      );
 
-      // ── Near-strike positions ──────────────────────────────────────────────
-      const positionsNearStrike = open
+      // ── Enriched positions ─────────────────────────────────────────────────
+      const urgencyOrder = { today: 0, critical: 1, urgent: 2, watch: 3, ok: 4 };
+      const positions: PositionSnapshot[] = open
         .map(pos => {
-          const iv = ivMap.get(pos.ticker);
-          if (!iv?.current_price) return null;
-          const price = Number(iv.current_price);
+          const dte = Math.ceil((new Date(pos.expiry as string).getTime() - now.getTime()) / 86400000);
+          const urgency: PositionSnapshot['urgency'] =
+            dte <= 0 ? 'today' : dte <= 2 ? 'critical' : dte <= 6 ? 'urgent' : dte <= 7 ? 'watch' : 'ok';
+
+          const posIV = posIVMap.get(pos.ticker as string);
+          const screenIV = ivMap.get(pos.ticker as string);
+          const currentPrice = posIV?.current_price
+            ? Number(posIV.current_price)
+            : screenIV?.current_price
+            ? Number(screenIV.current_price)
+            : null;
+
+          const rawIV = posIV?.current_iv ? Number(posIV.current_iv) : null;
+          const ivValue = rawIV ?? getDefaultIV(pos.ticker as string);
+          const ivSource: PositionSnapshot['ivSource'] = rawIV
+            ? (posIV?.current_iv ? 'cached' : 'estimated')
+            : 'estimated';
+
           const strike = Number(pos.strike);
-          const distPct = Math.abs((price - strike) / price) * 100;
-          const isITM = pos.strategy === 'CSP' ? price < strike : price > strike;
-          const status: 'itm' | 'near' | 'watch' | null =
-            isITM ? 'itm' : distPct < 3 ? 'near' : distPct < 8 ? 'watch' : null;
-          if (!status) return null;
+
+          let distancePercent: number | null = null;
+          let moneyness: PositionSnapshot['moneyness'] = 'unknown';
+          let dailyTheta: number | null = null;
+          let delta: number | null = null;
+
+          if (currentPrice !== null && currentPrice > 0) {
+            const distPct = Math.abs((currentPrice - strike) / currentPrice) * 100;
+            distancePercent = Math.round(distPct * 10) / 10;
+            const isITM = (pos.strategy as string) === 'CSP' ? currentPrice < strike : currentPrice > strike;
+            moneyness = isITM ? 'itm' : distPct < 3 ? 'near' : distPct < 8 ? 'watch' : 'safe';
+
+            if (dte > 0) {
+              try {
+                const greeks = calculatePositionGreeks({
+                  positionId: pos.id as string,
+                  ticker: pos.ticker as string,
+                  strategy: pos.strategy as 'CSP' | 'CC',
+                  strike,
+                  expiry: pos.expiry as string,
+                  contracts: Number(pos.contracts),
+                  currentPrice,
+                  impliedVolatility: ivValue,
+                  ivSource: 'supabase_cache',
+                });
+                dailyTheta = Math.round(greeks.dollarThetaToday * 100) / 100;
+                delta = Math.round(greeks.sellerDelta * 1000) / 1000;
+              } catch {
+                // BS may fail near expiry or with edge inputs
+              }
+            }
+          }
+
+          const openedAt = (pos.opened_at as string | null) ?? null;
+          const openedDaysAgo = openedAt
+            ? Math.floor((now.getTime() - new Date(openedAt).getTime()) / 86400000)
+            : null;
+
           return {
+            id: pos.id as string,
             ticker: pos.ticker as string,
             strategy: pos.strategy as 'CSP' | 'CC',
             strike,
-            currentPrice: price,
-            distancePercent: Math.round(distPct * 10) / 10,
-            status,
-          };
+            expiry: pos.expiry as string,
+            contracts: Number(pos.contracts),
+            premiumCollected: Number(pos.premium_collected) * Number(pos.contracts),
+            dte,
+            urgency,
+            currentPrice,
+            distancePercent,
+            moneyness,
+            dailyTheta,
+            delta,
+            openedAt,
+            openedDaysAgo,
+            ivSource,
+          } satisfies PositionSnapshot;
         })
-        .filter(Boolean) as DashboardIntelligence['positionsNearStrike'];
+        .sort((a, b) =>
+          urgencyOrder[a.urgency] !== urgencyOrder[b.urgency]
+            ? urgencyOrder[a.urgency] - urgencyOrder[b.urgency]
+            : a.dte - b.dte
+        );
+
+      // ── Derived expiring / near-strike arrays (consumed by insight fns) ────
+      const expiringThisWeek = positions
+        .filter(p => p.urgency !== 'ok')
+        .map(p => ({
+          ticker: p.ticker,
+          strategy: p.strategy,
+          strike: p.strike,
+          expiry: p.expiry,
+          dte: p.dte,
+          premiumCollected: p.premiumCollected,
+          contracts: p.contracts,
+          urgency: p.urgency as 'today' | 'critical' | 'urgent' | 'watch',
+        })) as DashboardIntelligence['expiringThisWeek'];
+
+      const positionsNearStrike = positions
+        .filter(p => p.moneyness !== 'safe' && p.moneyness !== 'unknown' && p.currentPrice !== null)
+        .map(p => ({
+          ticker: p.ticker,
+          strategy: p.strategy,
+          strike: p.strike,
+          currentPrice: p.currentPrice!,
+          distancePercent: p.distancePercent ?? 0,
+          status: p.moneyness as 'itm' | 'near' | 'watch',
+        })) as DashboardIntelligence['positionsNearStrike'];
+
+      // ── Positions summary ──────────────────────────────────────────────────
+      const itmPositions = positions.filter(p => p.moneyness === 'itm');
+      const nearPositions = positions.filter(p => p.moneyness === 'near');
+      const urgentPositions = positions.filter(p => p.urgency === 'today' || p.urgency === 'critical' || p.urgency === 'urgent');
+      const thetaPositions = positions.filter(p => p.dailyTheta !== null);
+      const deltaPositions = positions.filter(p => p.delta !== null);
+      const totalDailyTheta = thetaPositions.reduce((s, p) => s + p.dailyTheta!, 0);
+      const avgDelta = deltaPositions.length > 0
+        ? deltaPositions.reduce((s, p) => s + p.delta!, 0) / deltaPositions.length
+        : null;
+      const avgDTE = positions.length > 0
+        ? Math.round(positions.reduce((s, p) => s + p.dte, 0) / positions.length)
+        : 0;
+
+      const positionsSummary: DashboardIntelligence['positionsSummary'] = {
+        itmCount: itmPositions.length,
+        nearCount: nearPositions.length,
+        urgentExpiryCount: urgentPositions.length,
+        totalDailyTheta: Math.round(totalDailyTheta * 100) / 100,
+        avgDelta: avgDelta !== null ? Math.round(avgDelta * 1000) / 1000 : null,
+        avgDTE,
+      };
 
       const totalPremiumAtRisk = open.reduce(
         (s, p) => s + Number(p.premium_collected) * Number(p.contracts), 0,
@@ -748,6 +899,9 @@ export function useDashboardIntelligence() {
         watchlistBestOpportunity: bestWL
           ? { ticker: bestWL.ticker, ivRank: bestWL.iv_rank ?? 0, ivTrend: 'elevated' }
           : null,
+
+        positions,
+        positionsSummary,
 
         portfolioHealthScore: healthScore,
         portfolioHealthLabel: healthLabel,

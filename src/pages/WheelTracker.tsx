@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { PositionTable } from '../components/PositionTable';
 import { ClosedPositionTable } from '../components/ClosedPositionTable';
 import { CycleGroupView } from '../components/CycleGroupView';
@@ -40,6 +41,7 @@ function RealWheelTracker() {
   const [deletingPosition, setDeletingPosition] = useState<WheelPosition | null>(null);
   const [cashBalance, setCashBalance] = useState<number | null>(null);
   const [closedView, setClosedView] = useState<'list' | 'cycles'>('list');
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const { positions, openPositions, monthlyPnL, isLoading, addPosition, removePosition, closePosition, editPosition, assignPosition } = usePositions();
   const cycleGroups = useCycleGroups(positions);
@@ -93,6 +95,18 @@ function RealWheelTracker() {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    const highlightId = searchParams.get('highlight');
+    if (!highlightId) return;
+    const el = document.getElementById(`position-${highlightId}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.style.transition = 'box-shadow 0.3s';
+    el.style.boxShadow = '0 0 0 2px #00e5c4, 0 0 12px rgba(0,229,196,0.3)';
+    const t = setTimeout(() => { el.style.boxShadow = ''; }, 2500);
+    return () => clearTimeout(t);
+  }, [searchParams, openPositions]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {

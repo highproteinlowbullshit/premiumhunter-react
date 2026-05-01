@@ -169,7 +169,7 @@ export function PositionTable({
           const sp = livePrices?.get(pos.ticker);
 
           return (
-            <div key={pos.id} className="rounded-xl p-4"
+            <div key={pos.id} id={`position-${pos.id}`} className="rounded-xl p-4"
               style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(0,229,196,0.08)', ...rowBorderStyle(pos, probabilities) }}>
               {/* Row 1: ticker + badges */}
               <div className="flex items-center gap-2 mb-3">
@@ -284,6 +284,7 @@ export function PositionTable({
               return (
                 <tr
                   key={pos.id}
+                  id={`position-${pos.id}`}
                   className="stock-row-hover group"
                   style={{
                     borderBottom: !isLastRow ? '1px solid rgba(0, 229, 196, 0.06)' : 'none',
