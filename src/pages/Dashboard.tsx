@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { IVBadge, IVLabel } from '../components/IVBadge';
 import { IVSparkline } from '../components/IVChart';
-import { usePositions } from '../hooks/usePositions';
 import { useWatchlistContext } from '../context/WatchlistContext';
 import { useWatchlistData } from '../hooks/useMarketData';
 import { usePaperMode } from '../context/PaperModeContext';
@@ -14,7 +13,7 @@ import { useDashboardIntelligence } from '../hooks/useDashboardIntelligence';
 import { DashboardCommandCentre } from '../components/DashboardCommandCentre';
 import { PortfolioGreeksDashboard } from '../components/PortfolioGreeksDashboard';
 import { usePortfolioGreeks } from '../hooks/usePortfolioGreeks';
-import type { StockTicker, IVDataPoint, WheelPosition } from '../types';
+import type { StockTicker, IVDataPoint } from '../types';
 
 export function Dashboard() {
   usePageTitle('Dashboard');
@@ -27,7 +26,6 @@ export function Dashboard() {
 function RealDashboard() {
   const navigate = useNavigate();
   const [mounted, setMounted] = useState(false);
-  const { openPositions, monthlyPnL } = usePositions();
   const { tickers } = useWatchlistContext();
   const { data: liveData, isLoading } = useWatchlistData(tickers);
   const { data: intelligence, isLoading: intelligenceLoading } = useDashboardIntelligence();
@@ -44,8 +42,6 @@ function RealDashboard() {
     }, 2000);
     return () => clearTimeout(t);
   }, []);
-
-  const totalPremium = openPositions.reduce((acc, p) => acc + p.premiumCollected, 0);
 
   const displayStocks: StockTicker[] = tickers.map((t, i) => {
     const live = liveData?.[i]?.stock;
@@ -120,19 +116,8 @@ function RealDashboard() {
           ))}
         </div>
 
-        {/* Recent Activity / IV Heatmap Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* IV Rank Summary */}
-          <IVRankPanel stocks={displayStocks} />
-
-          {/* Quick Wheel Summary */}
-          <WheelSummaryPanel
-            openPositions={openPositions}
-            monthlyPnL={monthlyPnL}
-            totalPremium={totalPremium}
-            onNavigate={() => navigate('/wheel')}
-          />
-        </div>
+        {/* IV Rank Summary */}
+        <IVRankPanel stocks={displayStocks} />
       </div>
     </div>
   );
@@ -353,104 +338,6 @@ function IVRankPanel({ stocks }: { stocks: StockTicker[] }) {
             <span className="text-xs" style={{ color: 'var(--ph-text-3)', fontFamily: 'DM Sans, sans-serif' }}>{label}</span>
           </div>
         ))}
-      </div>
-    </div>
-  );
-}
-
-// ——————————————————————————————————
-// Wheel Summary Panel
-// ——————————————————————————————————
-interface WheelSummaryPanelProps {
-  openPositions: WheelPosition[];
-  monthlyPnL: number;
-  totalPremium: number;
-  onNavigate: () => void;
-}
-
-function WheelSummaryPanel({ openPositions, monthlyPnL, totalPremium, onNavigate }: WheelSummaryPanelProps) {
-  const month = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-  const preview = openPositions.slice(0, 3);
-
-  return (
-    <div className="rounded-xl p-5"
-      style={{
-        background: 'var(--ph-surface-60)',
-        border: '1px solid var(--ph-border-md)',
-        backdropFilter: 'blur(12px)',
-      }}>
-      <div className="flex items-center justify-between mb-5">
-        <div>
-          <h3 className="text-sm font-semibold" style={{ fontFamily: 'Syne, sans-serif', color: 'var(--ph-text-1)' }}>
-            Wheel Positions
-          </h3>
-          <p className="text-xs mt-0.5" style={{ color: 'var(--ph-text-3)', fontFamily: 'DM Sans, sans-serif' }}>
-            {openPositions.length} open · {month}
-          </p>
-        </div>
-        <button onClick={onNavigate}
-          className="text-xs px-3 py-1.5 rounded-lg transition-opacity hover:opacity-80"
-          style={{
-            color: '#00e5c4', background: 'rgba(0,229,196,0.08)',
-            border: '1px solid rgba(0,229,196,0.15)', fontFamily: 'DM Sans, sans-serif',
-          }}>
-          View All →
-        </button>
-      </div>
-
-      {/* Mini position list */}
-      <div className="space-y-2.5 mb-5">
-        {preview.length === 0 ? (
-          <p className="text-xs text-center py-4" style={{ color: 'var(--ph-text-3)', fontFamily: 'DM Sans, sans-serif' }}>
-            No open positions · Add one in the Wheel Tracker
-          </p>
-        ) : (
-          preview.map((pos) => {
-            const positionPnL = pos.premiumCollected - pos.currentPrice * pos.contracts;
-            return (
-              <div key={pos.id}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-lg"
-                style={{ background: 'var(--ph-overlay)' }}>
-                <span className="font-bold text-sm w-12"
-                  style={{ fontFamily: 'Syne, sans-serif', color: 'var(--ph-text-1)' }}>{pos.ticker}</span>
-                <span className="text-xs px-1.5 py-0.5 rounded"
-                  style={{
-                    color: pos.strategy === 'CSP' ? '#00c6f5' : '#00e5c4',
-                    background: pos.strategy === 'CSP' ? 'rgba(0,198,245,0.1)' : 'rgba(0,229,196,0.1)',
-                    fontFamily: 'JetBrains Mono, monospace',
-                  }}>
-                  {pos.strategy}
-                </span>
-                <span className="text-xs ml-auto" style={{ color: 'var(--ph-text-2)', fontFamily: 'JetBrains Mono, monospace' }}>
-                  ${pos.strike} · {pos.daysToExpiry}d
-                </span>
-                <span className="text-xs font-semibold"
-                  style={{ color: positionPnL >= 0 ? '#00d68f' : '#ff4d6d', fontFamily: 'JetBrains Mono, monospace' }}>
-                  {positionPnL >= 0 ? '+' : '-'}${Math.abs(positionPnL).toFixed(0)}
-                </span>
-              </div>
-            );
-          })
-        )}
-      </div>
-
-      {/* P&L Summary */}
-      <div className="grid grid-cols-2 gap-3 pt-4" style={{ borderTop: '1px solid var(--ph-border-row)' }}>
-        <div className="rounded-lg p-3" style={{
-          background: monthlyPnL >= 0 ? 'rgba(0,214,143,0.06)' : 'rgba(255,77,109,0.06)',
-          border: monthlyPnL >= 0 ? '1px solid rgba(0,214,143,0.12)' : '1px solid rgba(255,77,109,0.12)',
-        }}>
-          <p className="text-xs mb-1" style={{ color: 'var(--ph-text-3)', fontFamily: 'DM Sans, sans-serif' }}>Avg Monthly (realized)</p>
-          <p className="text-lg font-bold" style={{ color: monthlyPnL >= 0 ? '#00d68f' : '#ff4d6d', fontFamily: 'JetBrains Mono, monospace' }}>
-            {monthlyPnL >= 0 ? '+' : '-'}${Math.abs(monthlyPnL).toFixed(0)}
-          </p>
-        </div>
-        <div className="rounded-lg p-3" style={{ background: 'rgba(0,229,196,0.06)', border: '1px solid rgba(0,229,196,0.12)' }}>
-          <p className="text-xs mb-1" style={{ color: 'var(--ph-text-3)', fontFamily: 'DM Sans, sans-serif' }}>Open Premium (locked)</p>
-          <p className="text-lg font-bold" style={{ color: '#00e5c4', fontFamily: 'JetBrains Mono, monospace' }}>
-            ${totalPremium.toFixed(0)}
-          </p>
-        </div>
       </div>
     </div>
   );
