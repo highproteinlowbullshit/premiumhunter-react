@@ -210,6 +210,376 @@ export function calculateAssignmentProbability(params: {
   };
 }
 
+// ── Portfolio Greeks ──────────────────────────────────────────────────────────
+
+export interface PositionGreeks {
+  positionId: string
+  ticker: string
+  strategy: 'CSP' | 'CC'
+  strike: number
+  expiry: string
+  contracts: number
+  currentPrice: number
+  impliedVolatility: number
+  dte: number
+  delta: number
+  gamma: number
+  theta: number
+  vega: number
+  rho: number
+  positionDelta: number
+  positionGamma: number
+  positionTheta: number
+  positionVega: number
+  sellerDelta: number
+  sellerTheta: number
+  sellerVega: number
+  sellerGamma: number
+  dollarThetaToday: number
+  dollarThetaToExpiry: number
+  dollarVegaImpact: number
+  dollarDeltaImpact: number
+  moneyness: number
+  moneynessLabel: 'Deep ITM' | 'ITM' | 'ATM' | 'OTM' | 'Deep OTM'
+  distanceFromStrike: number
+  distancePercent: number
+  ivSource: 'polygon_live' | 'supabase_cache' | 'estimated'
+  calculatedAt: string
+}
+
+export interface PortfolioGreeks {
+  totalDelta: number
+  totalGamma: number
+  totalTheta: number
+  totalVega: number
+  totalRho: number
+  dailyThetaIncome: number
+  weeklyThetaIncome: number
+  monthlyThetaIncome: number
+  thetaToMaxProfitPercent: number
+  dollarDeltaPerPoint: number
+  dollarVegaPerPoint: number
+  gammaRisk: 'low' | 'moderate' | 'high' | 'extreme'
+  vegaRisk: 'low' | 'moderate' | 'high'
+  deltaExposure: 'bullish' | 'slightly_bullish' | 'neutral' | 'slightly_bearish' | 'bearish'
+  thetaByPosition: Array<{
+    positionId: string
+    ticker: string
+    strategy: 'CSP' | 'CC'
+    strike: number
+    dte: number
+    dailyTheta: number
+    percentOfTotal: number
+    thetaPercentOfPremium: number
+  }>
+  thetaByTicker: Array<{
+    ticker: string
+    dailyTheta: number
+    percentOfTotal: number
+  }>
+  weightedAverageDTE: number
+  positionsExpiringThisWeek: number
+  premiumExpiringThisWeek: number
+  thetaAccelerationNote: string | null
+  scenarios: {
+    stocksUp5Percent: number
+    stocksDown5Percent: number
+    stocksUp10Percent: number
+    stocksDown10Percent: number
+    ivUp10Percent: number
+    ivDown10Percent: number
+    oneWeekFromNow: number
+    atExpiry: number
+  }
+  positions: PositionGreeks[]
+  positionsWithLiveIV: number
+  positionsWithEstimatedIV: number
+  calculatedAt: string
+}
+
+function _getMoneynessLabel(
+  moneyness: number,
+  strategy: 'CSP' | 'CC',
+): PositionGreeks['moneynessLabel'] {
+  if (strategy === 'CSP') {
+    if (moneyness > 1.20) return 'Deep OTM'
+    if (moneyness > 1.03) return 'OTM'
+    if (moneyness >= 0.97) return 'ATM'
+    if (moneyness >= 0.80) return 'ITM'
+    return 'Deep ITM'
+  } else {
+    if (moneyness > 1.20) return 'Deep ITM'
+    if (moneyness > 1.03) return 'ITM'
+    if (moneyness >= 0.97) return 'ATM'
+    if (moneyness >= 0.80) return 'OTM'
+    return 'Deep OTM'
+  }
+}
+
+export function calculatePositionGreeks(params: {
+  positionId: string
+  ticker: string
+  strategy: 'CSP' | 'CC'
+  strike: number
+  expiry: string
+  contracts: number
+  currentPrice: number
+  impliedVolatility: number
+  riskFreeRate?: number
+  ivSource: PositionGreeks['ivSource']
+}): PositionGreeks {
+  const {
+    positionId, ticker, strategy, strike, expiry,
+    contracts, currentPrice, impliedVolatility,
+    riskFreeRate = 0.045, ivSource,
+  } = params
+
+  const today = new Date()
+  const expiryDate = new Date(expiry)
+  const dte = Math.max(0, Math.ceil(
+    (expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
+  ))
+
+  const moneyness = currentPrice > 0 ? currentPrice / strike : 0
+
+  if (dte === 0 || currentPrice <= 0 || impliedVolatility <= 0) {
+    const intrinsicDelta = strategy === 'CSP'
+      ? (currentPrice < strike ? -1 : 0)
+      : (currentPrice > strike ? 1 : 0)
+    return {
+      positionId, ticker, strategy, strike, expiry,
+      contracts, currentPrice, impliedVolatility, dte,
+      delta: intrinsicDelta, gamma: 0, theta: 0, vega: 0, rho: 0,
+      positionDelta: intrinsicDelta * contracts * 100,
+      positionGamma: 0, positionTheta: 0, positionVega: 0,
+      sellerDelta: -intrinsicDelta * contracts * 100,
+      sellerTheta: 0, sellerVega: 0, sellerGamma: 0,
+      dollarThetaToday: 0, dollarThetaToExpiry: 0,
+      dollarVegaImpact: 0, dollarDeltaImpact: 0,
+      moneyness,
+      moneynessLabel: _getMoneynessLabel(moneyness, strategy),
+      distanceFromStrike: Math.abs(currentPrice - strike),
+      distancePercent: currentPrice > 0 ? Math.abs((currentPrice - strike) / currentPrice) * 100 : 0,
+      ivSource,
+      calculatedAt: new Date().toISOString(),
+    }
+  }
+
+  const optionType = strategy === 'CSP' ? 'put' : 'call'
+  const T = dte / 365
+
+  const bs = blackScholes({
+    spotPrice: currentPrice,
+    strikePrice: strike,
+    timeToExpiry: T,
+    riskFreeRate,
+    volatility: impliedVolatility,
+    optionType,
+  })
+
+  const rho = optionType === 'call'
+    ? strike * T * Math.exp(-riskFreeRate * T) * normalCDF(bs.d2) / 100
+    : -strike * T * Math.exp(-riskFreeRate * T) * normalCDF(-bs.d2) / 100
+
+  const multiplier = contracts * 100
+  const positionDelta = bs.delta * multiplier
+  const positionGamma = bs.gamma * multiplier
+  const positionTheta = bs.theta * multiplier
+  const positionVega = bs.vega * multiplier
+
+  const sellerDelta = positionDelta * -1
+  const sellerTheta = positionTheta * -1
+  const sellerVega = positionVega * -1
+  const sellerGamma = positionGamma * -1
+
+  const dollarThetaToday = sellerTheta
+  const dollarThetaToExpiry = sellerTheta * dte
+  const dollarVegaImpact = sellerVega
+  const dollarDeltaImpact = sellerDelta
+
+  const distanceFromStrike = Math.abs(currentPrice - strike)
+  const distancePercent = (distanceFromStrike / currentPrice) * 100
+
+  return {
+    positionId, ticker, strategy, strike, expiry,
+    contracts, currentPrice, impliedVolatility, dte,
+    delta: bs.delta,
+    gamma: bs.gamma,
+    theta: bs.theta,
+    vega: bs.vega,
+    rho: Math.round(rho * 10000) / 10000,
+    positionDelta, positionGamma, positionTheta, positionVega,
+    sellerDelta: Math.round(sellerDelta * 100) / 100,
+    sellerTheta: Math.round(sellerTheta * 100) / 100,
+    sellerVega: Math.round(sellerVega * 100) / 100,
+    sellerGamma: Math.round(sellerGamma * 10000) / 10000,
+    dollarThetaToday: Math.round(dollarThetaToday * 100) / 100,
+    dollarThetaToExpiry: Math.round(dollarThetaToExpiry * 100) / 100,
+    dollarVegaImpact: Math.round(dollarVegaImpact * 100) / 100,
+    dollarDeltaImpact: Math.round(dollarDeltaImpact * 100) / 100,
+    moneyness: Math.round(moneyness * 10000) / 10000,
+    moneynessLabel: _getMoneynessLabel(moneyness, strategy),
+    distanceFromStrike: Math.round(distanceFromStrike * 100) / 100,
+    distancePercent: Math.round(distancePercent * 100) / 100,
+    ivSource,
+    calculatedAt: new Date().toISOString(),
+  }
+}
+
+export function aggregatePortfolioGreeks(
+  positionGreeks: PositionGreeks[],
+): PortfolioGreeks {
+  if (positionGreeks.length === 0) return emptyPortfolioGreeks()
+
+  const totalDelta = positionGreeks.reduce((s, p) => s + p.sellerDelta, 0)
+  const totalGamma = positionGreeks.reduce((s, p) => s + p.sellerGamma, 0)
+  const totalTheta = positionGreeks.reduce((s, p) => s + p.sellerTheta, 0)
+  const totalVega = positionGreeks.reduce((s, p) => s + p.sellerVega, 0)
+  const totalRho = positionGreeks.reduce((s, p) => s + p.rho, 0)
+
+  const thetaByPosition = positionGreeks
+    .map(p => ({
+      positionId: p.positionId,
+      ticker: p.ticker,
+      strategy: p.strategy,
+      strike: p.strike,
+      dte: p.dte,
+      dailyTheta: p.dollarThetaToday,
+      percentOfTotal: totalTheta > 0 ? (p.dollarThetaToday / totalTheta) * 100 : 0,
+      thetaPercentOfPremium: 0,
+    }))
+    .sort((a, b) => b.dailyTheta - a.dailyTheta)
+
+  const tickerThetaMap = new Map<string, number>()
+  positionGreeks.forEach(p => {
+    tickerThetaMap.set(p.ticker, (tickerThetaMap.get(p.ticker) ?? 0) + p.dollarThetaToday)
+  })
+  const thetaByTicker = Array.from(tickerThetaMap.entries())
+    .map(([ticker, dailyTheta]) => ({
+      ticker,
+      dailyTheta,
+      percentOfTotal: totalTheta > 0 ? (dailyTheta / totalTheta) * 100 : 0,
+    }))
+    .sort((a, b) => b.dailyTheta - a.dailyTheta)
+
+  const weeklyTheta = totalTheta * 5
+  const monthlyTheta = positionGreeks.reduce(
+    (sum, p) => sum + p.dollarThetaToday * Math.min(p.dte, 30),
+    0,
+  )
+
+  const totalContracts = positionGreeks.reduce((s, p) => s + p.contracts * 100, 0)
+  const weightedDTE = totalContracts > 0
+    ? positionGreeks.reduce((s, p) => s + p.dte * (p.contracts * 100), 0) / totalContracts
+    : 0
+
+  const expiringThisWeek = positionGreeks.filter(p => p.dte <= 7)
+  const premiumExpiringThisWeek = expiringThisWeek.reduce(
+    (s, p) => s + p.dollarThetaToday * p.dte,
+    0,
+  )
+
+  const highThetaPositions = positionGreeks.filter(p => p.dte < 21 && p.dte > 0)
+  const thetaAccelerationNote = highThetaPositions.length > 0
+    ? `${highThetaPositions.map(p => p.ticker).join(', ')} ${highThetaPositions.length === 1 ? 'is' : 'are'} under 21 DTE — theta decay is accelerating`
+    : null
+
+  function estimatePortfolioPnL(avgMovePercent: number): number {
+    return positionGreeks.reduce((sum, p) => {
+      const priceMove = p.currentPrice * avgMovePercent
+      const deltaImpact = p.sellerDelta * priceMove
+      const gammaImpact = 0.5 * p.sellerGamma * priceMove * priceMove
+      return sum + deltaImpact + gammaImpact
+    }, 0)
+  }
+
+  function estimateVegaPnL(ivChangePct: number): number {
+    return positionGreeks.reduce((sum, p) => sum + p.sellerVega * ivChangePct, 0)
+  }
+
+  const scenarios = {
+    stocksUp5Percent: Math.round(estimatePortfolioPnL(0.05) * 100) / 100,
+    stocksDown5Percent: Math.round(estimatePortfolioPnL(-0.05) * 100) / 100,
+    stocksUp10Percent: Math.round(estimatePortfolioPnL(0.10) * 100) / 100,
+    stocksDown10Percent: Math.round(estimatePortfolioPnL(-0.10) * 100) / 100,
+    ivUp10Percent: Math.round(estimateVegaPnL(10) * 100) / 100,
+    ivDown10Percent: Math.round(estimateVegaPnL(-10) * 100) / 100,
+    oneWeekFromNow: Math.round(totalTheta * 5 * 100) / 100,
+    atExpiry: Math.round(
+      positionGreeks.reduce((s, p) => s + p.dollarThetaToExpiry, 0) * 100,
+    ) / 100,
+  }
+
+  const gammaRatio = Math.abs(totalGamma) / Math.max(positionGreeks.length, 1)
+  const gammaRisk: PortfolioGreeks['gammaRisk'] =
+    gammaRatio < 0.5 ? 'low'
+    : gammaRatio < 2 ? 'moderate'
+    : gammaRatio < 5 ? 'high'
+    : 'extreme'
+
+  const vegaRatio = Math.abs(totalVega) / Math.max(Math.abs(totalTheta), 1)
+  const vegaRisk: PortfolioGreeks['vegaRisk'] =
+    vegaRatio < 5 ? 'low'
+    : vegaRatio < 15 ? 'moderate'
+    : 'high'
+
+  const deltaExposure: PortfolioGreeks['deltaExposure'] =
+    totalDelta > 50 ? 'bullish'
+    : totalDelta > 15 ? 'slightly_bullish'
+    : totalDelta > -15 ? 'neutral'
+    : totalDelta > -50 ? 'slightly_bearish'
+    : 'bearish'
+
+  return {
+    totalDelta: Math.round(totalDelta * 100) / 100,
+    totalGamma: Math.round(totalGamma * 10000) / 10000,
+    totalTheta: Math.round(totalTheta * 100) / 100,
+    totalVega: Math.round(totalVega * 100) / 100,
+    totalRho: Math.round(totalRho * 100) / 100,
+    dailyThetaIncome: Math.round(totalTheta * 100) / 100,
+    weeklyThetaIncome: Math.round(weeklyTheta * 100) / 100,
+    monthlyThetaIncome: Math.round(monthlyTheta * 100) / 100,
+    thetaToMaxProfitPercent: 0,
+    dollarDeltaPerPoint: Math.round(totalDelta * 100) / 100,
+    dollarVegaPerPoint: Math.round(totalVega * 100) / 100,
+    gammaRisk,
+    vegaRisk,
+    deltaExposure,
+    thetaByPosition,
+    thetaByTicker,
+    weightedAverageDTE: Math.round(weightedDTE * 10) / 10,
+    positionsExpiringThisWeek: expiringThisWeek.length,
+    premiumExpiringThisWeek: Math.round(premiumExpiringThisWeek * 100) / 100,
+    thetaAccelerationNote,
+    scenarios,
+    positions: positionGreeks,
+    positionsWithLiveIV: positionGreeks.filter(p => p.ivSource !== 'estimated').length,
+    positionsWithEstimatedIV: positionGreeks.filter(p => p.ivSource === 'estimated').length,
+    calculatedAt: new Date().toISOString(),
+  }
+}
+
+export function emptyPortfolioGreeks(): PortfolioGreeks {
+  return {
+    totalDelta: 0, totalGamma: 0, totalTheta: 0, totalVega: 0, totalRho: 0,
+    dailyThetaIncome: 0, weeklyThetaIncome: 0, monthlyThetaIncome: 0,
+    thetaToMaxProfitPercent: 0, dollarDeltaPerPoint: 0, dollarVegaPerPoint: 0,
+    gammaRisk: 'low', vegaRisk: 'low', deltaExposure: 'neutral',
+    thetaByPosition: [], thetaByTicker: [],
+    weightedAverageDTE: 0, positionsExpiringThisWeek: 0, premiumExpiringThisWeek: 0,
+    thetaAccelerationNote: null,
+    scenarios: {
+      stocksUp5Percent: 0, stocksDown5Percent: 0,
+      stocksUp10Percent: 0, stocksDown10Percent: 0,
+      ivUp10Percent: 0, ivDown10Percent: 0,
+      oneWeekFromNow: 0, atExpiry: 0,
+    },
+    positions: [],
+    positionsWithLiveIV: 0, positionsWithEstimatedIV: 0,
+    calculatedAt: new Date().toISOString(),
+  }
+}
+
 export function calculateAssignmentProbabilitiesBatch(
   positions: Array<{ id: string; ticker: string; strategy: 'CSP' | 'CC'; strike: number; expiry: string }>,
   priceMap: Map<string, number>,

@@ -12,6 +12,8 @@ import { MonthlyPnLChart } from '../components/MonthlyPnLChart';
 import { MonthlyTargetCompact } from '../components/MonthlyTargetTracker';
 import { useDashboardIntelligence } from '../hooks/useDashboardIntelligence';
 import { DashboardCommandCentre } from '../components/DashboardCommandCentre';
+import { PortfolioGreeksDashboard } from '../components/PortfolioGreeksDashboard';
+import { usePortfolioGreeks } from '../hooks/usePortfolioGreeks';
 import type { StockTicker, IVDataPoint, WheelPosition } from '../types';
 
 export function Dashboard() {
@@ -29,6 +31,7 @@ function RealDashboard() {
   const { tickers } = useWatchlistContext();
   const { data: liveData, isLoading } = useWatchlistData(tickers);
   const { data: intelligence, isLoading: intelligenceLoading } = useDashboardIntelligence();
+  const { greeks, isLoading: greeksLoading } = usePortfolioGreeks();
 
   useEffect(() => {
     setMounted(true);
@@ -62,6 +65,9 @@ function RealDashboard() {
           data={intelligence ?? null}
           isLoading={intelligenceLoading}
         />
+
+        {/* Portfolio Greeks */}
+        <PortfolioGreeksDashboard greeks={greeks} isLoading={greeksLoading} />
 
         {/* Monthly Premium Income Chart */}
         <MonthlyPnLChart />

@@ -17,6 +17,8 @@ import { TradeChecklist } from '../components/TradeChecklist';
 import { MonthlyTargetTracker } from '../components/MonthlyTargetTracker';
 import { AssignmentFlowModal } from '../components/AssignmentFlowModal';
 import { PositionsUrgencyBanner } from '../components/PositionsUrgencyBanner';
+import { GreeksSummaryBar } from '../components/GreeksSummaryBar';
+import { usePortfolioGreeks } from '../hooks/usePortfolioGreeks';
 import { useAssignmentProbabilities } from '../hooks/useAssignmentProbabilities';
 import type { ChecklistResult } from '../lib/tradeChecklist';
 import { usePageTitle } from '../hooks/usePageTitle';
@@ -41,6 +43,7 @@ function RealWheelTracker() {
   const { user } = useAuth();
   const { positions, openPositions, monthlyPnL, isLoading, addPosition, removePosition, closePosition, editPosition, assignPosition } = usePositions();
   const cycleGroups = useCycleGroups(positions);
+  const { greeks, isLoading: greeksLoading } = usePortfolioGreeks();
 
   // Build stable ticker list from open positions for WebSocket subscription
   const openTickers = useMemo(
@@ -188,6 +191,9 @@ function RealWheelTracker() {
         {/* Monthly Income Target */}
         <MonthlyTargetTracker />
 
+        {/* Greeks Summary Bar */}
+        <GreeksSummaryBar greeks={greeks} isLoading={greeksLoading} />
+
         {/* Positions Table */}
         <div className="rounded-2xl p-5 sm:p-6"
           style={{
@@ -221,6 +227,7 @@ function RealWheelTracker() {
               livePrices={livePrices}
               probabilities={probabilities}
               probabilitySummary={probabilitySummary}
+              positionGreeks={greeks ? new Map(greeks.positions.map(p => [p.positionId, p])) : undefined}
               onRemove={setDeletingPosition}
               onClose={setClosingPosition}
               onEdit={setEditingPosition}

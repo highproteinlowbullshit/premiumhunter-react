@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ClipboardList } from 'lucide-react';
 import type { WheelPosition } from '../types';
-import type { AssignmentProbabilityResult } from '../lib/blackScholes';
+import type { AssignmentProbabilityResult, PositionGreeks } from '../lib/blackScholes';
 import { DTEIndicator } from './DTEIndicator';
 import { AssignmentProbabilityGauge } from './AssignmentProbabilityGauge';
 import { EmptyState } from './ui/EmptyState';
@@ -10,6 +10,7 @@ interface PositionTableProps {
   positions: WheelPosition[];
   livePrices?: Map<string, number>;
   probabilities?: Map<string, AssignmentProbabilityResult>;
+  positionGreeks?: Map<string, PositionGreeks>;
   highlightTicker?: string | null;
   probabilitySummary?: {
     highRiskCount: number;
@@ -130,7 +131,7 @@ function SortHeader({ label, current, sortKey, onSort }: {
 }
 
 export function PositionTable({
-  positions, livePrices, probabilities, probabilitySummary,
+  positions, livePrices, probabilities, probabilitySummary, positionGreeks,
   onRemove, onClose, onEdit, onAssign, highlightTicker, onOpenAdd,
 }: PositionTableProps) {
   const [sortKey, setSortKey] = useState<SortKey>(() => {
@@ -265,6 +266,7 @@ export function PositionTable({
                   <SortHeader label="Assignment Risk" current={sortKey} sortKey="probability" onSort={setSortKey} />
                 </th>
               )}
+              {positionGreeks && <th className="text-left py-3 px-4" style={thStyle} title="Daily theta income / Delta exposure for this position">Θ / Δ</th>}
               {livePrices && <th className="text-left py-3 px-4" style={thStyle}>Stock $</th>}
               {livePrices && <th className="text-left py-3 px-4" style={thStyle}>Unreal P&L</th>}
               {hasActions && <th className="text-left py-3 px-4 last:pr-0" style={thStyle}></th>}
@@ -353,6 +355,29 @@ export function PositionTable({
                       />
                     </td>
                   )}
+
+                  {/* Greeks: theta + delta */}
+                  {positionGreeks && (() => {
+                    const pg = positionGreeks.get(pos.id)
+                    if (!pg) return (
+                      <td className="py-3.5 px-4">
+                        <span style={{ color: '#4a6a8a', fontFamily: 'JetBrains Mono, monospace', fontSize: 11 }}>—</span>
+                      </td>
+                    )
+                    return (
+                      <td className="py-3.5 px-4" style={{ width: 100 }}
+                        title={`Daily theta: +$${pg.dollarThetaToday.toFixed(2)}/day · Delta: ${pg.sellerDelta.toFixed(1)}`}>
+                        <div className="flex flex-col gap-0.5">
+                          <span style={{ color: '#14b8a6', fontFamily: 'JetBrains Mono, monospace', fontSize: 11 }}>
+                            +${pg.dollarThetaToday.toFixed(2)}/d
+                          </span>
+                          <span style={{ color: '#6a8fb0', fontFamily: 'JetBrains Mono, monospace', fontSize: 10 }}>
+                            Δ {pg.sellerDelta >= 0 ? '+' : ''}{pg.sellerDelta.toFixed(1)}
+                          </span>
+                        </div>
+                      </td>
+                    )
+                  })()}
 
                   {/* Stock price + unrealized P&L */}
                   {livePrices && (() => {
