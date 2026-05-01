@@ -410,7 +410,7 @@ export function Screener() {
                         isLast={i === filtered.length - 1}
                         watched={isWatched(stock.ticker)}
                         onToggleWatch={() => isWatched(stock.ticker) ? removeTicker(stock.ticker) : addTicker(stock.ticker)}
-                        onClick={() => navigate(`/stock/${stock.ticker}`)}
+                        onClick={() => navigate(`/stock/${stock.ticker}`, { state: { from: 'screener' } })}
                         isPaperMode={isPaperMode}
                         onPaperTrade={() => setPaperTradeStock(stock)}
                         isAffordable={(stock as StockWithAffordability).isAffordable}
@@ -452,7 +452,7 @@ export function Screener() {
                         stock={stock}
                         watched={isWatched(stock.ticker)}
                         onToggleWatch={() => isWatched(stock.ticker) ? removeTicker(stock.ticker) : addTicker(stock.ticker)}
-                        onClick={() => navigate(`/stock/${stock.ticker}`)}
+                        onClick={() => navigate(`/stock/${stock.ticker}`, { state: { from: 'screener' } })}
                         isPaperMode={isPaperMode}
                         onPaperTrade={() => setPaperTradeStock(stock)}
                       />

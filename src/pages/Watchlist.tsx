@@ -291,7 +291,7 @@ export function Watchlist() {
                   data={entry.data}
                   isLoading={entry.isLoading}
                   isLast={i === sortedEntries.length - 1}
-                  onView={() => navigate(`/stock/${entry.ticker}`)}
+                  onView={() => navigate(`/stock/${entry.ticker}`, { state: { from: 'watchlist' } })}
                   onRemove={() => removeTicker(entry.ticker)}
                   delay={i * 40}
                 />

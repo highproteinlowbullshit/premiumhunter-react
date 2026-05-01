@@ -7,6 +7,7 @@ import { WatchlistProvider } from './context/WatchlistContext';
 import { PaperModeProvider } from './context/PaperModeContext';
 import { Navbar } from './components/Navbar';
 import { MobileNav } from './components/MobileNav';
+import { ShortcutsModal } from './components/ShortcutsModal';
 import { ToastContainer } from './components/Toast';
 import { WelcomeModal, SwitchOffListener } from './components/PaperModals';
 import { PaperBanner } from './components/PaperBanner';
@@ -69,6 +70,7 @@ export default function App() {
 
 function AppInner() {
   const [leapsCalcOpen, setLeapsCalcOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -82,6 +84,7 @@ function AppInner() {
         case '3': navigate('/watchlist'); break;
         case '4': navigate('/wheel'); break;
         case '5': navigate('/portfolio'); break;
+        case '?': setShortcutsOpen(true); break;
       }
     };
     window.addEventListener('keydown', handler);
@@ -92,10 +95,12 @@ function AppInner() {
     <div style={{ minHeight: '100vh' }}>
       <Navbar
         onOpenLeapsCalc={() => setLeapsCalcOpen(true)}
+        onOpenShortcuts={() => setShortcutsOpen(true)}
       />
       <Suspense fallback={null}>
         <LeapsCalculator isOpen={leapsCalcOpen} onClose={() => setLeapsCalcOpen(false)} />
       </Suspense>
+      {shortcutsOpen && <ShortcutsModal onClose={() => setShortcutsOpen(false)} />}
       <WelcomeModal />
       <SwitchOffListener />
       <PaperBanner />

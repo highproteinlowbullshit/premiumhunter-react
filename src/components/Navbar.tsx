@@ -14,9 +14,10 @@ const NAV_ITEMS = [
 
 interface NavbarProps {
   onOpenLeapsCalc: () => void;
+  onOpenShortcuts: () => void;
 }
 
-export function Navbar({ onOpenLeapsCalc }: NavbarProps) {
+export function Navbar({ onOpenLeapsCalc, onOpenShortcuts }: NavbarProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
@@ -89,6 +90,21 @@ export function Navbar({ onOpenLeapsCalc }: NavbarProps) {
 
         {/* Right actions */}
         <div className="flex items-center gap-3">
+          {/* Keyboard shortcuts */}
+          <button
+            onClick={onOpenShortcuts}
+            className="w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-200 hover:bg-[rgba(0,229,196,0.08)] text-[#6a8fb0] hover:text-[#00e5c4]"
+            title="Keyboard shortcuts (?)"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <rect x="1" y="3" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="1.2" />
+              <rect x="3" y="5.5" width="2" height="2" rx="0.5" fill="currentColor" opacity="0.7" />
+              <rect x="7" y="5.5" width="2" height="2" rx="0.5" fill="currentColor" opacity="0.7" />
+              <rect x="11" y="5.5" width="2" height="2" rx="0.5" fill="currentColor" opacity="0.7" />
+              <rect x="3" y="9" width="10" height="2" rx="0.5" fill="currentColor" opacity="0.5" />
+            </svg>
+          </button>
+
           {/* LEAPS Calculator */}
           <button
             onClick={onOpenLeapsCalc}

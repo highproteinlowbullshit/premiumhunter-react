@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { IVChart } from '../components/IVChart';
 import { IVBadge } from '../components/IVBadge';
 import { useStockDetailData } from '../hooks/useMarketData';
@@ -9,6 +9,8 @@ export function StockDetail() {
   const { ticker = '' } = useParams<{ ticker: string }>();
   usePageTitle(ticker ? ticker.toUpperCase() : '');
   const navigate = useNavigate();
+  const location = useLocation();
+  const from = (location.state as { from?: string } | null)?.from;
   const [mounted, setMounted] = useState(false);
   const { data, isLoading } = useStockDetailData(ticker);
   const stock = data?.stock ?? null;
@@ -41,7 +43,7 @@ export function StockDetail() {
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
             <path d="M9 2L4 7l5 5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-          Back
+          {from === 'screener' ? 'Back to Screener' : from === 'watchlist' ? 'Back to Watchlist' : 'Back'}
         </button>
 
         {/* Header */}
