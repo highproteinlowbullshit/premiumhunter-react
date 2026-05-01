@@ -44,8 +44,10 @@ function distColor(pct: number | null): string {
 
 function fmt$(n: number, abs = false): string {
   const v = abs ? Math.abs(n) : n;
-  if (Math.abs(v) >= 1000) return `$${(v / 1000).toFixed(1)}k`;
-  return `$${Math.abs(v).toFixed(0)}`;
+  const a = Math.abs(v);
+  if (a >= 1000) return `$${(v / 1000).toFixed(1)}k`;
+  if (a >= 10) return `$${a.toFixed(0)}`;
+  return `$${a.toFixed(2)}`;
 }
 
 function fmtExpiry(expiry: string): string {
