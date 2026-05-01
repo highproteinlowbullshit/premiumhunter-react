@@ -342,6 +342,7 @@ export function Screener() {
           onReset={resetFilters}
           isDirty={isDirty}
           mounted={mounted}
+          searchRef={searchRef}
         />
 
         {/* ── Affordability filter toggle ─────────────────────────────────── */}
@@ -514,13 +515,14 @@ function StatsBar({ stats, mounted }: { stats: { total: number; avgIV: number; h
 // Filter Controls
 // ─────────────────────────────────────────────────────────────────────────────
 function FilterControls({
-  filters, set, onReset, isDirty, mounted
+  filters, set, onReset, isDirty, mounted, searchRef
 }: {
   filters: Filters;
   set: <K extends keyof Filters>(k: K, v: Filters[K]) => void;
   onReset: () => void;
   isDirty: boolean;
   mounted: boolean;
+  searchRef: React.RefObject<HTMLInputElement>;
 }) {
   const panelStyle = {
     background: 'rgba(13,27,53,0.6)',
