@@ -69,13 +69,21 @@ export interface ScreenerStreamState {
  * 2. Cached tickers: built instantly from snapshot prices — zero extra API calls
  * 3. Uncached tickers: HV-only Polygon call per ticker (snapshot already has price)
  */
-export function useScreenerStream(): ScreenerStreamState {
+export function useScreenerStream(version = 0): ScreenerStreamState {
   const [stocks, setStocks] = useState<ScreenerStock[]>(_cache?.stocks ?? []);
   const [loadedCount, setLoadedCount] = useState(_cache?.stocks.length ?? 0);
   const [isLoading, setIsLoading] = useState(!cacheIsFresh());
   const cancelledRef = useRef(false);
 
   useEffect(() => {
+    // Force refresh: clear in-memory and persisted cache
+    if (version > 0) {
+      _cache = null;
+      try { localStorage.removeItem(SCREENER_LS_KEY); } catch { /* ignore */ }
+      setStocks([]);
+      setLoadedCount(0);
+    }
+
     // Return cached results immediately — no network needed
     if (cacheIsFresh()) return;
 
@@ -193,7 +201,7 @@ export function useScreenerStream(): ScreenerStreamState {
     });
 
     return () => { cancelledRef.current = true; };
-  }, []);
+  }, [version]);
 
   return { stocks, loadedCount, total: STOCK_LIST.length, isLoading };
 }

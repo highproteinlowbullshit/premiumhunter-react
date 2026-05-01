@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQueries } from '@tanstack/react-query';
+import { useQueries, useQueryClient } from '@tanstack/react-query';
+import { PullToRefresh } from '../components/ui/PullToRefresh';
 import { IVBadge } from '../components/IVBadge';
 import { IVSparkline } from '../components/IVChart';
 import { useWatchlist } from '../hooks/useWatchlist';
@@ -30,6 +31,10 @@ export function Watchlist() {
   const [mounted, setMounted] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const queryClient = useQueryClient();
+  const handleRefresh = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: ['watchlist'] });
+  }, [queryClient]);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -98,6 +103,7 @@ export function Watchlist() {
   });
 
   return (
+    <PullToRefresh onRefresh={handleRefresh}>
     <div className="min-h-screen mesh-bg pt-24 pb-12 px-4 sm:px-6">
       <div className="max-w-7xl mx-auto">
 
@@ -334,6 +340,7 @@ export function Watchlist() {
         )}
       </div>
     </div>
+    </PullToRefresh>
   );
 }
 

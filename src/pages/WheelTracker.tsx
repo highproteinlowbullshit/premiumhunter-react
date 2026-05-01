@@ -1,5 +1,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import { PullToRefresh } from '../components/ui/PullToRefresh';
 import { PositionTable } from '../components/PositionTable';
 import { ClosedPositionTable } from '../components/ClosedPositionTable';
 import { CycleGroupView } from '../components/CycleGroupView';
@@ -43,6 +45,10 @@ function RealWheelTracker() {
   const [closedView, setClosedView] = useState<'list' | 'cycles'>('list');
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const handleRefresh = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: ['positions', user?.id] });
+  }, [queryClient, user?.id]);
   const { positions, openPositions, monthlyPnL, isLoading, addPosition, removePosition, closePosition, editPosition, assignPosition } = usePositions();
   const cycleGroups = useCycleGroups(positions);
   const { greeks, isLoading: greeksLoading } = usePortfolioGreeks();
@@ -141,6 +147,7 @@ function RealWheelTracker() {
   const totalRealizedPnl = closedPositions.reduce((acc, p) => acc + getPositionPnl(p), 0);
 
   return (
+    <PullToRefresh onRefresh={handleRefresh}>
     <div className="min-h-screen mesh-bg pt-24 pb-12 px-4 sm:px-6">
       <div className="max-w-7xl mx-auto">
 
@@ -394,6 +401,7 @@ function RealWheelTracker() {
         )
       )}
     </div>
+    </PullToRefresh>
   );
 }
 

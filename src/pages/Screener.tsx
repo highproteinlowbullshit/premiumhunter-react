@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { PullToRefresh } from '../components/ui/PullToRefresh';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useNavigate } from 'react-router-dom';
@@ -164,7 +165,12 @@ export function Screener() {
   const [mounted, setMounted] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const searchRef = useRef<HTMLInputElement>(null);
-  const { stocks, loadedCount, total, isLoading } = useScreenerStream();
+  const [refreshVersion, setRefreshVersion] = useState(0);
+  const { stocks, loadedCount, total, isLoading } = useScreenerStream(refreshVersion);
+  const handleRefresh = useCallback(async () => {
+    setRefreshVersion(v => v + 1);
+    await new Promise<void>(r => setTimeout(r, 1500));
+  }, []);
   const { prefs } = useScoringPreferences();
   const capitalPerTrade = prefs.capitalPerTrade ?? 0;
   const [filterAffordable, setFilterAffordable] = useState(false);
@@ -284,6 +290,7 @@ export function Screener() {
 
   return (
     <>
+    <PullToRefresh onRefresh={handleRefresh} innerScrollRef={mobileScrollRef}>
     <div className="min-h-screen mesh-bg pt-20 pb-12">
       {/* ── Page header ────────────────────────────────────────────────────── */}
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 pt-4 pb-0">
@@ -468,6 +475,7 @@ export function Screener() {
         )}
       </div>
     </div>
+    </PullToRefresh>
 
     {paperTradeStock && (
       <PaperTradeModal

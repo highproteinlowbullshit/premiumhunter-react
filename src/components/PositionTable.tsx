@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ClipboardList } from 'lucide-react';
 import type { WheelPosition } from '../types';
 import type { AssignmentProbabilityResult, PositionGreeks } from '../lib/blackScholes';
@@ -130,6 +130,160 @@ function SortHeader({ label, current, sortKey, onSort }: {
   );
 }
 
+// ── Swipeable card wrapper (mobile only) ──────────────────────────────────────
+// Direct DOM style mutation for smooth 60fps drag; React state only at snap points.
+
+function SwipePositionCard({
+  children, pos, onEdit, onClose,
+}: {
+  children: React.ReactNode;
+  pos: WheelPosition;
+  onEdit?: (pos: WheelPosition) => void;
+  onClose?: (pos: WheelPosition) => void;
+}) {
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const slideRef = useRef<HTMLDivElement>(null);
+  const startXRef = useRef<number | null>(null);
+  const startYRef = useRef<number | null>(null);
+  const dirRef = useRef<'h' | 'v' | null>(null);
+  const curOffsetRef = useRef(0);
+  const openRef = useRef(false);
+  const [swipeRatio, setSwipeRatio] = useState(0);
+
+  const btnCount = (onEdit ? 1 : 0) + (onClose ? 1 : 0);
+  const PANEL_W = btnCount * 76;
+
+  useEffect(() => {
+    const el = wrapRef.current;
+    const slide = slideRef.current;
+    if (!el || !slide || PANEL_W === 0) return;
+
+    const applyTransform = (offset: number, animate: boolean) => {
+      slide.style.transition = animate ? 'transform 0.22s ease' : 'none';
+      slide.style.transform = `translateX(${offset}px)`;
+    };
+
+    const onTouchStart = (e: TouchEvent) => {
+      startXRef.current = e.touches[0].clientX;
+      startYRef.current = e.touches[0].clientY;
+      dirRef.current = null;
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (startXRef.current === null || startYRef.current === null) return;
+      const dx = e.touches[0].clientX - startXRef.current;
+      const dy = e.touches[0].clientY - startYRef.current;
+
+      if (!dirRef.current) {
+        if (Math.abs(dx) > 6 || Math.abs(dy) > 6) {
+          dirRef.current = Math.abs(dx) >= Math.abs(dy) ? 'h' : 'v';
+        }
+        return;
+      }
+      if (dirRef.current === 'v') return;
+
+      e.preventDefault();
+      const base = openRef.current ? -PANEL_W : 0;
+      const newOffset = Math.max(-PANEL_W, Math.min(0, base + dx));
+      curOffsetRef.current = newOffset;
+      applyTransform(newOffset, false);
+      setSwipeRatio(-newOffset / PANEL_W);
+    };
+
+    const onTouchEnd = () => {
+      if (dirRef.current !== 'h') return;
+      const cur = curOffsetRef.current;
+      const wasOpen = openRef.current;
+      let snap: number;
+
+      if (!wasOpen && cur < -PANEL_W / 2) {
+        snap = -PANEL_W;
+        openRef.current = true;
+        setSwipeRatio(1);
+      } else if (wasOpen && cur > -PANEL_W / 2) {
+        snap = 0;
+        openRef.current = false;
+        setSwipeRatio(0);
+      } else {
+        snap = wasOpen ? -PANEL_W : 0;
+        setSwipeRatio(-snap / PANEL_W);
+      }
+
+      curOffsetRef.current = snap;
+      applyTransform(snap, true);
+    };
+
+    el.addEventListener('touchstart', onTouchStart, { passive: true });
+    el.addEventListener('touchmove', onTouchMove, { passive: false });
+    el.addEventListener('touchend', onTouchEnd, { passive: true });
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchmove', onTouchMove);
+      el.removeEventListener('touchend', onTouchEnd);
+    };
+  }, [PANEL_W]);
+
+  const reset = () => {
+    const slide = slideRef.current;
+    if (slide) {
+      slide.style.transition = 'transform 0.22s ease';
+      slide.style.transform = 'translateX(0px)';
+    }
+    curOffsetRef.current = 0;
+    openRef.current = false;
+    setSwipeRatio(0);
+  };
+
+  if (PANEL_W === 0) return <>{children}</>;
+
+  return (
+    <div ref={wrapRef} style={{ position: 'relative', overflow: 'hidden', borderRadius: 12 }}>
+      {/* Action panel revealed by swipe */}
+      <div style={{
+        position: 'absolute', right: 0, top: 0, bottom: 0,
+        width: PANEL_W, display: 'flex',
+        opacity: Math.min(swipeRatio * 1.5, 1),
+      }}>
+        {onEdit && (
+          <button
+            onClick={() => { onEdit(pos); reset(); }}
+            style={{
+              flex: 1, border: 'none', cursor: 'pointer',
+              background: 'rgba(245,200,66,0.18)',
+              borderLeft: '1px solid rgba(245,200,66,0.2)',
+              color: '#f5c842',
+              fontFamily: 'DM Sans, sans-serif',
+              fontSize: 13, fontWeight: 700,
+            }}
+          >
+            Edit
+          </button>
+        )}
+        {onClose && (
+          <button
+            onClick={() => { onClose(pos); reset(); }}
+            style={{
+              flex: 1, border: 'none', cursor: 'pointer',
+              background: 'rgba(0,229,196,0.18)',
+              borderLeft: '1px solid rgba(0,229,196,0.2)',
+              color: '#00e5c4',
+              fontFamily: 'DM Sans, sans-serif',
+              fontSize: 13, fontWeight: 700,
+            }}
+          >
+            Close
+          </button>
+        )}
+      </div>
+
+      {/* Card content slides on swipe */}
+      <div ref={slideRef} style={{ willChange: 'transform' }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 export function PositionTable({
   positions, livePrices, probabilities, probabilitySummary, positionGreeks,
   onRemove, onClose, onEdit, onAssign, highlightTicker, onOpenAdd,
@@ -169,7 +323,8 @@ export function PositionTable({
           const sp = livePrices?.get(pos.ticker);
 
           return (
-            <div key={pos.id} id={`position-${pos.id}`} className="rounded-xl p-4"
+            <SwipePositionCard key={pos.id} pos={pos} onEdit={onEdit} onClose={onClose}>
+            <div id={`position-${pos.id}`} className="rounded-xl p-4"
               style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(0,229,196,0.08)', ...rowBorderStyle(pos, probabilities) }}>
               {/* Row 1: ticker + badges */}
               <div className="flex items-center gap-2 mb-3">
@@ -234,16 +389,20 @@ export function PositionTable({
                 </div>
               </div>
 
-              {/* Row 3: actions */}
-              {(onAssign || onEdit || onClose || onRemove) && (
+              {/* Row 3: actions — Assign/Delete always visible; Edit/Close via swipe */}
+              {(onAssign || onRemove) && (
                 <div className="flex items-center gap-2 mt-3 pt-3" style={{ borderTop: '1px solid rgba(0,229,196,0.07)' }}>
                   {onAssign && <button onClick={() => onAssign(pos)} style={mobileBtn('#f5c842')}>Assign</button>}
-                  {onEdit   && <button onClick={() => onEdit(pos)}   style={mobileBtn('#f5c842')}>Edit</button>}
-                  {onClose  && <button onClick={() => onClose(pos)}  style={mobileBtn('#00e5c4')}>Close</button>}
                   {onRemove && <button onClick={() => onRemove(pos)} style={mobileBtn('#ff4d6d')}>Delete</button>}
+                  {(onEdit || onClose) && (
+                    <span className="ml-auto text-[10px]" style={{ color: '#2e4a6a', fontFamily: 'DM Sans, sans-serif' }}>
+                      ← swipe
+                    </span>
+                  )}
                 </div>
               )}
             </div>
+            </SwipePositionCard>
           );
         })}
       </div>
