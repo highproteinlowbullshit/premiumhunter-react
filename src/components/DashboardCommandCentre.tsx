@@ -340,10 +340,10 @@ function QuickStatsRow({ d, isPaper }: { d: DashboardIntelligence; isPaper: bool
             {fmt$(d.totalPremiumAtRisk, true)} premium
           </div>
         )}
-        {d.expiringThisWeek.length > 0 && (
+        {d.positions.filter(p => p.dteZone !== 'comfortable').length > 0 && (
           <div style={{ fontSize: 10, color: '#f5c842', fontFamily: 'DM Sans, sans-serif', marginTop: 2, display: 'flex', alignItems: 'center', gap: 3 }}>
             <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#f5c842', display: 'inline-block' }} />
-            {d.expiringThisWeek.length} expiring this week
+            {d.positions.filter(p => p.dteZone !== 'comfortable').length} expiring this week
           </div>
         )}
       </StatPill>
@@ -416,85 +416,7 @@ function SecondaryInsightsRow({ insights }: { insights: DashboardIntelligence['s
   );
 }
 
-// ── Zone 5: Positions + screener split ─────────────────────────────────────────
-
-function urgencyDot(u: string) {
-  const color = u === 'today' || u === 'critical' ? '#ff4d6d' : u === 'urgent' ? '#f5c842' : '#00e5c4';
-  return <span style={{ width: 6, height: 6, borderRadius: '50%', background: color, display: 'inline-block', flexShrink: 0 }} />;
-}
-
-function PositionsColumn({ d }: { d: DashboardIntelligence }) {
-  const navigate = useNavigate();
-  const top3 = d.expiringThisWeek.slice(0, 3);
-  const near = d.positionsNearStrike;
-  const allComfortable = top3.length === 0 && near.length === 0 && d.openPositionCount > 0;
-
-  return (
-    <div style={{ flex: 1, minWidth: 0, height: '100%', background: 'rgba(13,27,53,0.5)', border: '1px solid rgba(0,229,196,0.08)', borderRadius: 12, padding: '14px 16px', boxSizing: 'border-box' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ph-text-3)', fontFamily: 'DM Sans, sans-serif', letterSpacing: '0.07em', textTransform: 'uppercase' }}>
-          Positions {d.openPositionCount > 0 ? `(${d.openPositionCount} open)` : ''}
-        </span>
-      </div>
-
-      {d.openPositionCount === 0 ? (
-        <div style={{ textAlign: 'center', padding: '16px 0' }}>
-          <p style={{ margin: '0 0 4px', fontSize: 13, color: 'var(--ph-text-2)', fontFamily: 'DM Sans, sans-serif' }}>No open positions</p>
-          <p style={{ margin: '0 0 12px', fontSize: 11, color: 'var(--ph-text-3)', fontFamily: 'DM Sans, sans-serif' }}>Ready to deploy capital for the next cycle</p>
-          <button onClick={() => navigate('/screener')} style={{ fontSize: 12, color: '#00e5c4', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
-            Open screener →
-          </button>
-        </div>
-      ) : (
-        <>
-          {allComfortable && (
-            <p style={{ margin: '0 0 10px', fontSize: 12, color: '#00d68f', fontFamily: 'DM Sans, sans-serif', display: 'flex', alignItems: 'center', gap: 5 }}>
-              <Check size={12} strokeWidth={2.5} />
-              All {d.openPositionCount} positions are comfortable
-            </p>
-          )}
-
-          {top3.length > 0 && (
-            <div style={{ marginBottom: near.length > 0 ? 10 : 0 }}>
-              {top3.map((p, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                  {urgencyDot(p.urgency)}
-                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ph-text-1)', fontFamily: 'JetBrains Mono, monospace' }}>{p.ticker}</span>
-                  <span style={{ fontSize: 10, color: p.strategy === 'CSP' ? '#00c6f5' : '#00e5c4', background: p.strategy === 'CSP' ? 'rgba(0,198,245,0.1)' : 'rgba(0,229,196,0.1)', padding: '1px 6px', borderRadius: 4, fontFamily: 'JetBrains Mono, monospace' }}>{p.strategy}</span>
-                  <span style={{ fontSize: 11, color: 'var(--ph-text-3)', fontFamily: 'JetBrains Mono, monospace', marginLeft: 'auto' }}>
-                    {p.dte === 0 ? 'today' : `${p.dte}d`}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {near.length > 0 && (
-            <>
-              {top3.length > 0 && <div style={{ height: 1, background: 'rgba(0,229,196,0.06)', margin: '8px 0' }} />}
-              {near.map((p, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
-                  <AlertTriangle size={12} color={p.status === 'itm' ? '#ff4d6d' : '#f5c842'} strokeWidth={2} style={{ flexShrink: 0 }} />
-                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ph-text-1)', fontFamily: 'JetBrains Mono, monospace' }}>{p.ticker}</span>
-                  <span style={{ fontSize: 11, color: p.status === 'itm' ? '#ff4d6d' : '#f5c842', fontFamily: 'DM Sans, sans-serif' }}>
-                    {p.distancePercent.toFixed(1)}% from strike
-                  </span>
-                  <span style={{ fontSize: 10, marginLeft: 'auto', padding: '1px 6px', borderRadius: 10, background: p.status === 'itm' ? 'rgba(255,77,109,0.15)' : 'rgba(245,200,66,0.15)', color: p.status === 'itm' ? '#ff4d6d' : '#f5c842', fontFamily: 'DM Sans, sans-serif' }}>
-                    {p.status.toUpperCase()}
-                  </span>
-                </div>
-              ))}
-            </>
-          )}
-
-          <button onClick={() => navigate('/wheel')} style={{ marginTop: 10, fontSize: 11, color: '#00e5c4', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', padding: 0 }}>
-            View all positions →
-          </button>
-        </>
-      )}
-    </div>
-  );
-}
+// ── Zone 5: Screener pulse (right column) ─────────────────────────────────────
 
 function ScreenerPulseColumn({ d }: { d: DashboardIntelligence }) {
   const navigate = useNavigate();
@@ -645,6 +567,7 @@ interface Props {
 
 export function DashboardCommandCentre({ data: d, isLoading }: Props) {
   const { isPaperMode } = usePaperMode();
+  const navigate = useNavigate();
   const [toastDismissed, setToastDismissed] = useState(false);
 
   const newMilestone = d?.milestones.find(m => m.isNew) ?? null;
@@ -677,10 +600,15 @@ export function DashboardCommandCentre({ data: d, isLoading }: Props) {
 
       {/* Zone 5 */}
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'stretch' }}>
-        <div style={{ flex: '1 1 260px', display: 'flex', flexDirection: 'column' }}>
-          <PositionsIntelligenceCard d={d} />
+        <div style={{ flex: '1.2 1 280px', display: 'flex', flexDirection: 'column' }}>
+          <PositionsIntelligenceCard
+            positions={d.positions}
+            summary={d.positionsSummary}
+            isLoading={false}
+            onNavigateToTracker={() => navigate('/wheel')}
+          />
         </div>
-        <div style={{ flex: '1 1 260px', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ flex: '1 1 240px', display: 'flex', flexDirection: 'column' }}>
           <ScreenerPulseColumn d={d} />
         </div>
       </div>

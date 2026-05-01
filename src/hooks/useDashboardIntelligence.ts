@@ -2,33 +2,55 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { usePaperMode } from '../context/PaperModeContext';
-import { blackScholes, calculatePositionGreeks } from '../lib/blackScholes';
+import { blackScholes } from '../lib/blackScholes';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 export interface PositionSnapshot {
-  id: string;
-  ticker: string;
-  strategy: 'CSP' | 'CC';
-  strike: number;
-  expiry: string;
-  contracts: number;
-  premiumCollected: number; // total dollars (premium × contracts)
+  // Identity
+  positionId: string
+  ticker: string
+  strategy: 'CSP' | 'CC'
+  strike: number
+  expiry: string
+  contracts: number
+  premiumCollected: number      // per-contract dollars (DB stores price × 100)
+  totalPremium: number          // premiumCollected × contracts (total received)
 
-  dte: number;
-  urgency: 'today' | 'critical' | 'urgent' | 'watch' | 'ok';
+  // Time
+  dte: number
+  dteZone: 'today' | 'critical' | 'urgent' | 'watch' | 'comfortable'
+  openedDaysAgo: number
 
-  currentPrice: number | null;
-  distancePercent: number | null;
-  moneyness: 'itm' | 'near' | 'watch' | 'safe' | 'unknown';
+  // Price and distance
+  currentPrice: number | null
+  distanceFromStrike: number | null   // absolute $ distance to strike
+  distancePercent: number | null      // % distance from currentPrice to strike
+  isITM: boolean
+  safetyStatus: 'safe' | 'watch' | 'near' | 'itm'
 
-  dailyTheta: number | null; // positive = daily income for seller
-  delta: number | null; // seller-perspective delta
+  // P&L estimate
+  estimatedCurrentValue: number | null  // current option price per share (BS)
+  estimatedPnL: number | null           // total $ P&L (positive = profit)
+  estimatedPnLPercent: number | null    // pnl / totalPremium * 100
+  percentOfMaxProfit: number | null     // how close to full profit capture
 
-  openedAt: string | null;
-  openedDaysAgo: number | null;
+  // Theta
+  dailyTheta: number | null             // $ earned per day from time decay
+  thetaToDate: number | null            // rough theta earned so far (dailyTheta × days)
 
-  ivSource: 'live' | 'cached' | 'estimated';
+  // Greeks summary
+  assignmentProbability: number | null  // % chance (≈ |delta| × 100)
+  impliedVolatility: number | null      // IV used for calculations
+
+  // Action suggestion
+  suggestedAction: 'hold' | 'watch' | 'review' | 'urgent'
+  actionReason: string
+
+  // Flags
+  hasEarningsRisk: boolean
+  daysToEarnings: number | null
+  isNearHighTheta: boolean              // DTE < 21 — theta accelerating
 }
 
 export interface DashboardIntelligence {
@@ -45,25 +67,20 @@ export interface DashboardIntelligence {
   totalCollateralDeployed: number;
   capitalEfficiencyPercent: number;
 
-  expiringThisWeek: Array<{
-    ticker: string;
-    strategy: 'CSP' | 'CC';
-    strike: number;
-    expiry: string;
-    dte: number;
-    premiumCollected: number;
-    contracts: number;
-    urgency: 'today' | 'critical' | 'urgent' | 'watch';
-  }>;
-
-  positionsNearStrike: Array<{
-    ticker: string;
-    strategy: 'CSP' | 'CC';
-    strike: number;
-    currentPrice: number;
-    distancePercent: number;
-    status: 'itm' | 'near' | 'watch';
-  }>;
+  positions: PositionSnapshot[];
+  positionsSummary: {
+    totalCount: number;
+    safeCount: number;
+    watchCount: number;
+    nearCount: number;
+    itmCount: number;
+    totalDailyTheta: number;
+    totalPotentialPremium: number;
+    avgPercentOfMaxProfit: number;
+    bestPerformer: PositionSnapshot | null;
+    worstPerformer: PositionSnapshot | null;
+    mostUrgent: PositionSnapshot | null;
+  };
 
   thisMonth: {
     premiumCollected: number;
@@ -133,16 +150,6 @@ export interface DashboardIntelligence {
     ivRank: number;
     ivTrend: string;
   } | null;
-
-  positions: PositionSnapshot[];
-  positionsSummary: {
-    itmCount: number;
-    nearCount: number;
-    urgentExpiryCount: number;
-    totalDailyTheta: number;
-    avgDelta: number | null;
-    avgDTE: number;
-  };
 
   portfolioHealthScore: number;
   portfolioHealthLabel: string;
@@ -241,7 +248,7 @@ function calcPnl(pos: {
   // DB stores per-contract dollar amount; no ×100
   if (pos.status === 'expired') return pos.premium_collected * pos.contracts;
   if (pos.closing_price !== null) return (pos.premium_collected - pos.closing_price) * pos.contracts;
-  return pos.premium_collected * pos.contracts; // assigned
+  return pos.premium_collected * pos.contracts;
 }
 
 function getDefaultIV(ticker: string): number {
@@ -297,7 +304,7 @@ function calcHealth(
 
 function primaryInsight(d: DashboardIntelligence): DashboardIntelligence['primaryInsight'] {
   // P1: expiring today
-  const today = d.expiringThisWeek.filter(p => p.urgency === 'today');
+  const today = d.positions.filter(p => p.dteZone === 'today');
   if (today.length > 0) {
     return {
       type: 'warning',
@@ -308,12 +315,12 @@ function primaryInsight(d: DashboardIntelligence): DashboardIntelligence['primar
   }
 
   // P2: ITM
-  const itm = d.positionsNearStrike.filter(p => p.status === 'itm');
+  const itm = d.positions.filter(p => p.safetyStatus === 'itm');
   if (itm.length > 0) {
     return {
       type: 'warning',
       headline: `${itm[0].ticker} is in the money`,
-      detail: `${itm[0].ticker} is trading ${itm[0].distancePercent.toFixed(1)}% through your ${itm[0].strategy} strike of $${itm[0].strike}. Assignment is likely if this continues to expiry.`,
+      detail: `${itm[0].ticker} is trading ${itm[0].distancePercent?.toFixed(1) ?? '—'}% through your ${itm[0].strategy} strike of $${itm[0].strike}. Assignment is likely if this continues to expiry.`,
       action: { label: 'Review position', route: '/wheel' },
     };
   }
@@ -345,10 +352,11 @@ function primaryInsight(d: DashboardIntelligence): DashboardIntelligence['primar
     const nextMonth = new Date();
     nextMonth.setMonth(nextMonth.getMonth() + 1);
     const monthName = nextMonth.toLocaleString('en-US', { month: 'long' });
+    const urgentCount = d.positions.filter(p => p.dteZone !== 'comfortable').length;
     return {
       type: 'neutral',
       headline: 'Expiry Friday — monthly options settle today',
-      detail: `${d.expiringThisWeek.length} position${d.expiringThisWeek.length !== 1 ? 's' : ''} expire today. Plan your ${monthName} cycle — capital will be available to redeploy.`,
+      detail: `${urgentCount} position${urgentCount !== 1 ? 's' : ''} expire today. Plan your ${monthName} cycle — capital will be available to redeploy.`,
       action: { label: 'Plan next cycle', route: '/screener' },
     };
   }
@@ -405,13 +413,14 @@ function primaryInsight(d: DashboardIntelligence): DashboardIntelligence['primar
   }
 
   // Default
+  const nextExpiry = d.positions.filter(p => p.dteZone !== 'comfortable')[0];
   return {
     type: 'neutral',
     headline: d.openPositionCount > 0
       ? `${d.openPositionCount} position${d.openPositionCount > 1 ? 's' : ''} open — all on track`
       : 'Ready to trade — no open positions',
     detail: d.openPositionCount > 0
-      ? `Total open premium: ${fmt$(d.totalPremiumAtRisk)}. Next expiry in ${d.expiringThisWeek[0]?.dte ?? '—'} days.`
+      ? `Total open premium: ${fmt$(d.totalPremiumAtRisk)}. Next expiry in ${nextExpiry?.dte ?? '—'} days.`
       : `${d.highIVCount} high-IV opportunities in the screener right now.`,
     action: d.openPositionCount > 0
       ? { label: 'View positions', route: '/wheel' }
@@ -424,7 +433,7 @@ function primaryInsight(d: DashboardIntelligence): DashboardIntelligence['primar
 function secondaryInsights(d: DashboardIntelligence): DashboardIntelligence['secondaryInsights'] {
   const out: DashboardIntelligence['secondaryInsights'] = [];
 
-  const critical = d.expiringThisWeek.filter(p => p.urgency === 'critical' || p.urgency === 'urgent');
+  const critical = d.positions.filter(p => p.dteZone === 'critical' || p.dteZone === 'urgent');
   if (critical.length > 0) {
     out.push({ type: 'warning', text: `${critical.length} position${critical.length > 1 ? 's' : ''} expiring within ${critical[0].dte} days` });
   }
@@ -568,141 +577,191 @@ export function useDashboardIntelligence() {
         (posIVRes.data ?? []).map(r => [r.ticker, r])
       );
 
-      // ── Enriched positions ─────────────────────────────────────────────────
-      const urgencyOrder = { today: 0, critical: 1, urgent: 2, watch: 3, ok: 4 };
-      const positions: PositionSnapshot[] = open
-        .map(pos => {
-          const dte = Math.ceil((new Date(pos.expiry as string).getTime() - now.getTime()) / 86400000);
-          const urgency: PositionSnapshot['urgency'] =
-            dte <= 0 ? 'today' : dte <= 2 ? 'critical' : dte <= 6 ? 'urgent' : dte <= 7 ? 'watch' : 'ok';
+      // ── Build enriched positions ───────────────────────────────────────────
+      const positions: PositionSnapshot[] = open.map(pos => {
+        const premiumCollected = Number(pos.premium_collected);
+        const contracts = Number(pos.contracts);
+        const strike = Number(pos.strike);
+        const totalPremium = Math.round(premiumCollected * contracts * 100) / 100;
 
-          const posIV = posIVMap.get(pos.ticker as string);
-          const screenIV = ivMap.get(pos.ticker as string);
-          const currentPrice = posIV?.current_price
-            ? Number(posIV.current_price)
-            : screenIV?.current_price
-            ? Number(screenIV.current_price)
-            : null;
+        // DTE
+        const expiryDate = new Date(pos.expiry as string);
+        const dte = Math.max(0, Math.ceil(
+          (expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+        ));
+        const dteZone: PositionSnapshot['dteZone'] =
+          dte === 0 ? 'today'
+          : dte <= 2 ? 'critical'
+          : dte <= 6 ? 'urgent'
+          : dte <= 14 ? 'watch'
+          : 'comfortable';
 
-          const rawIV = posIV?.current_iv ? Number(posIV.current_iv) : null;
-          const ivValue = rawIV ?? getDefaultIV(pos.ticker as string);
-          const ivSource: PositionSnapshot['ivSource'] = rawIV
-            ? (posIV?.current_iv ? 'cached' : 'estimated')
-            : 'estimated';
+        // Days since opened
+        const openedAt = pos.opened_at as string | null;
+        const openedDaysAgo = openedAt
+          ? Math.floor((now.getTime() - new Date(openedAt).getTime()) / 86400000)
+          : 0;
 
-          const strike = Number(pos.strike);
+        // IV lookup
+        const posIV = posIVMap.get(pos.ticker as string);
+        const screenIV = ivMap.get(pos.ticker as string);
+        const currentPrice = posIV?.current_price
+          ? Number(posIV.current_price)
+          : screenIV?.current_price
+          ? Number(screenIV.current_price)
+          : null;
+        const rawIV = posIV?.current_iv ? Number(posIV.current_iv) : null;
+        const iv = rawIV ?? getDefaultIV(pos.ticker as string);
 
-          let distancePercent: number | null = null;
-          let moneyness: PositionSnapshot['moneyness'] = 'unknown';
-          let dailyTheta: number | null = null;
-          let delta: number | null = null;
+        // Price distance and safety
+        const isITM = currentPrice !== null
+          ? (pos.strategy as string) === 'CSP' ? currentPrice < strike : currentPrice > strike
+          : false;
+        const distanceFromStrike = currentPrice !== null ? Math.abs(currentPrice - strike) : null;
+        const distancePercent = currentPrice !== null && distanceFromStrike !== null
+          ? Math.round((distanceFromStrike / currentPrice) * 10000) / 100
+          : null;
+        const safetyStatus: PositionSnapshot['safetyStatus'] =
+          isITM ? 'itm'
+          : distancePercent !== null && distancePercent < 3 ? 'near'
+          : distancePercent !== null && distancePercent < 8 ? 'watch'
+          : 'safe';
 
-          if (currentPrice !== null && currentPrice > 0) {
-            const distPct = Math.abs((currentPrice - strike) / currentPrice) * 100;
-            distancePercent = Math.round(distPct * 10) / 10;
-            const isITM = (pos.strategy as string) === 'CSP' ? currentPrice < strike : currentPrice > strike;
-            moneyness = isITM ? 'itm' : distPct < 3 ? 'near' : distPct < 8 ? 'watch' : 'safe';
+        // Black-Scholes estimates
+        let estimatedCurrentValue: number | null = null;
+        let estimatedPnL: number | null = null;
+        let estimatedPnLPercent: number | null = null;
+        let percentOfMaxProfit: number | null = null;
+        let dailyTheta: number | null = null;
+        let assignmentProbability: number | null = null;
 
-            if (dte > 0) {
-              try {
-                const greeks = calculatePositionGreeks({
-                  positionId: pos.id as string,
-                  ticker: pos.ticker as string,
-                  strategy: pos.strategy as 'CSP' | 'CC',
-                  strike,
-                  expiry: pos.expiry as string,
-                  contracts: Number(pos.contracts),
-                  currentPrice,
-                  impliedVolatility: ivValue,
-                  ivSource: 'supabase_cache',
-                });
-                dailyTheta = Math.round(greeks.dollarThetaToday * 100) / 100;
-                delta = Math.round(greeks.sellerDelta * 1000) / 1000;
-              } catch {
-                // BS may fail near expiry or with edge inputs
-              }
-            }
+        if (currentPrice !== null && currentPrice > 0 && dte >= 0) {
+          try {
+            const T = Math.max(0.001, dte / 365);
+            const optionType = (pos.strategy as string) === 'CSP' ? 'put' : 'call';
+            const bs = blackScholes({
+              spotPrice: currentPrice,
+              strikePrice: strike,
+              timeToExpiry: T,
+              riskFreeRate: 0.045,
+              volatility: iv,
+              optionType,
+            });
+
+            estimatedCurrentValue = Math.round(bs.price * 100) / 100;
+
+            // DB premium_collected is per-contract (= price × 100 shares)
+            // bs.price is per-share — multiply by 100 to compare units
+            const currentCostPerContract = bs.price * 100;
+            const currentCostTotal = currentCostPerContract * contracts;
+            estimatedPnL = Math.round((totalPremium - currentCostTotal) * 100) / 100;
+            estimatedPnLPercent = totalPremium > 0
+              ? Math.round((estimatedPnL / totalPremium) * 1000) / 10
+              : null;
+            percentOfMaxProfit = premiumCollected > 0
+              ? Math.max(0, Math.round(((premiumCollected - currentCostPerContract) / premiumCollected) * 1000) / 10)
+              : null;
+
+            // Seller theta: abs(theta) per share × 100 shares/contract × contracts
+            dailyTheta = Math.round(Math.abs(bs.theta) * contracts * 100 * 100) / 100;
+            assignmentProbability = Math.round(Math.abs(bs.delta) * 1000) / 10;
+          } catch {
+            // Black-Scholes failed — leave null
           }
+        }
 
-          const openedAt = (pos.opened_at as string | null) ?? null;
-          const openedDaysAgo = openedAt
-            ? Math.floor((now.getTime() - new Date(openedAt).getTime()) / 86400000)
-            : null;
+        // Action suggestion
+        let suggestedAction: PositionSnapshot['suggestedAction'] = 'hold';
+        let actionReason = 'Position on track — hold to expiry';
 
-          return {
-            id: pos.id as string,
-            ticker: pos.ticker as string,
-            strategy: pos.strategy as 'CSP' | 'CC',
-            strike,
-            expiry: pos.expiry as string,
-            contracts: Number(pos.contracts),
-            premiumCollected: Number(pos.premium_collected) * Number(pos.contracts),
-            dte,
-            urgency,
-            currentPrice,
-            distancePercent,
-            moneyness,
-            dailyTheta,
-            delta,
-            openedAt,
-            openedDaysAgo,
-            ivSource,
-          } satisfies PositionSnapshot;
-        })
-        .sort((a, b) =>
-          urgencyOrder[a.urgency] !== urgencyOrder[b.urgency]
-            ? urgencyOrder[a.urgency] - urgencyOrder[b.urgency]
-            : a.dte - b.dte
-        );
+        if (isITM) {
+          suggestedAction = 'urgent';
+          actionReason = `${pos.ticker} ITM by $${distanceFromStrike?.toFixed(2) ?? '?'} — assignment likely`;
+        } else if (dteZone === 'today') {
+          suggestedAction = 'urgent';
+          actionReason = 'Expiring today — check outcome after market close';
+        } else if (dteZone === 'critical') {
+          suggestedAction = 'review';
+          actionReason = `${dte} DTE — review position and prepare for expiry`;
+        } else if (percentOfMaxProfit !== null && percentOfMaxProfit >= 50) {
+          suggestedAction = 'watch';
+          actionReason = `${percentOfMaxProfit.toFixed(0)}% max profit reached — consider closing`;
+        } else if (safetyStatus === 'near') {
+          suggestedAction = 'watch';
+          actionReason = `Only ${distancePercent?.toFixed(1) ?? '?'}% from strike — monitor closely`;
+        } else if (dteZone === 'urgent' && safetyStatus === 'watch') {
+          suggestedAction = 'review';
+          actionReason = `${dte} DTE and approaching strike — elevated risk`;
+        }
 
-      // ── Derived expiring / near-strike arrays (consumed by insight fns) ────
-      const expiringThisWeek = positions
-        .filter(p => p.urgency !== 'ok')
-        .map(p => ({
-          ticker: p.ticker,
-          strategy: p.strategy,
-          strike: p.strike,
-          expiry: p.expiry,
-          dte: p.dte,
-          premiumCollected: p.premiumCollected,
-          contracts: p.contracts,
-          urgency: p.urgency as 'today' | 'critical' | 'urgent' | 'watch',
-        })) as DashboardIntelligence['expiringThisWeek'];
+        return {
+          positionId: pos.id as string,
+          ticker: pos.ticker as string,
+          strategy: pos.strategy as 'CSP' | 'CC',
+          strike,
+          expiry: pos.expiry as string,
+          contracts,
+          premiumCollected,
+          totalPremium,
+          dte,
+          dteZone,
+          openedDaysAgo,
+          currentPrice,
+          distanceFromStrike,
+          distancePercent,
+          isITM,
+          safetyStatus,
+          estimatedCurrentValue,
+          estimatedPnL,
+          estimatedPnLPercent,
+          percentOfMaxProfit,
+          dailyTheta,
+          thetaToDate: dailyTheta !== null ? Math.round(dailyTheta * openedDaysAgo * 100) / 100 : null,
+          assignmentProbability,
+          impliedVolatility: Math.round(iv * 1000) / 10,
+          suggestedAction,
+          actionReason,
+          hasEarningsRisk: false,
+          daysToEarnings: null,
+          isNearHighTheta: dte < 21 && dte > 0,
+        } satisfies PositionSnapshot;
+      });
 
-      const positionsNearStrike = positions
-        .filter(p => p.moneyness !== 'safe' && p.moneyness !== 'unknown' && p.currentPrice !== null)
-        .map(p => ({
-          ticker: p.ticker,
-          strategy: p.strategy,
-          strike: p.strike,
-          currentPrice: p.currentPrice!,
-          distancePercent: p.distancePercent ?? 0,
-          status: p.moneyness as 'itm' | 'near' | 'watch',
-        })) as DashboardIntelligence['positionsNearStrike'];
+      // Sort: urgent first, then DTE ascending
+      const urgencyOrder = { urgent: 0, review: 1, watch: 2, hold: 3 };
+      positions.sort((a, b) => {
+        if (urgencyOrder[a.suggestedAction] !== urgencyOrder[b.suggestedAction]) {
+          return urgencyOrder[a.suggestedAction] - urgencyOrder[b.suggestedAction];
+        }
+        return a.dte - b.dte;
+      });
 
       // ── Positions summary ──────────────────────────────────────────────────
-      const itmPositions = positions.filter(p => p.moneyness === 'itm');
-      const nearPositions = positions.filter(p => p.moneyness === 'near');
-      const urgentPositions = positions.filter(p => p.urgency === 'today' || p.urgency === 'critical' || p.urgency === 'urgent');
-      const thetaPositions = positions.filter(p => p.dailyTheta !== null);
-      const deltaPositions = positions.filter(p => p.delta !== null);
-      const totalDailyTheta = thetaPositions.reduce((s, p) => s + p.dailyTheta!, 0);
-      const avgDelta = deltaPositions.length > 0
-        ? deltaPositions.reduce((s, p) => s + p.delta!, 0) / deltaPositions.length
-        : null;
-      const avgDTE = positions.length > 0
-        ? Math.round(positions.reduce((s, p) => s + p.dte, 0) / positions.length)
+      const withProfit = positions.filter(p => p.percentOfMaxProfit !== null);
+      const withTheta = positions.filter(p => p.dailyTheta !== null);
+      const avgPercentOfMaxProfit = withProfit.length > 0
+        ? Math.round(withProfit.reduce((s, p) => s + p.percentOfMaxProfit!, 0) / withProfit.length * 10) / 10
         : 0;
 
       const positionsSummary: DashboardIntelligence['positionsSummary'] = {
-        itmCount: itmPositions.length,
-        nearCount: nearPositions.length,
-        urgentExpiryCount: urgentPositions.length,
-        totalDailyTheta: Math.round(totalDailyTheta * 100) / 100,
-        avgDelta: avgDelta !== null ? Math.round(avgDelta * 1000) / 1000 : null,
-        avgDTE,
+        totalCount: positions.length,
+        safeCount: positions.filter(p => p.safetyStatus === 'safe').length,
+        watchCount: positions.filter(p => p.safetyStatus === 'watch').length,
+        nearCount: positions.filter(p => p.safetyStatus === 'near').length,
+        itmCount: positions.filter(p => p.safetyStatus === 'itm').length,
+        totalDailyTheta: Math.round(withTheta.reduce((s, p) => s + p.dailyTheta!, 0) * 100) / 100,
+        totalPotentialPremium: Math.round(positions.reduce((s, p) => s + p.totalPremium, 0) * 100) / 100,
+        avgPercentOfMaxProfit,
+        bestPerformer: withProfit.reduce<PositionSnapshot | null>(
+          (best, p) => (p.percentOfMaxProfit! > (best?.percentOfMaxProfit ?? -Infinity) ? p : best), null
+        ),
+        worstPerformer: withProfit.reduce<PositionSnapshot | null>(
+          (worst, p) => (p.percentOfMaxProfit! < (worst?.percentOfMaxProfit ?? Infinity) ? p : worst), null
+        ),
+        mostUrgent: positions.find(p => p.suggestedAction === 'urgent') ?? null,
       };
 
+      // ── Premiums and collateral ────────────────────────────────────────────
       const totalPremiumAtRisk = open.reduce(
         (s, p) => s + Number(p.premium_collected) * Number(p.contracts), 0,
       );
@@ -827,14 +886,13 @@ export function useDashboardIntelligence() {
       const bestWL = wlIV[0];
 
       // ── Health score ───────────────────────────────────────────────────────
-      const dangerEarnings = 0; // no earnings data available here
       const healthFactors = calcHealth(
         capitalEfficiency,
         atWinRate,
-        positionsNearStrike.filter(p => p.status === 'itm').length,
+        positionsSummary.itmCount,
         targetProgress,
         targetAmount > 0,
-        dangerEarnings,
+        0,
       );
       const healthScore = (healthFactors as any).score as number;
       const healthLabel = (healthFactors as any).label as string;
@@ -857,8 +915,9 @@ export function useDashboardIntelligence() {
         totalPremiumAtRisk: Math.round(totalPremiumAtRisk * 100) / 100,
         totalCollateralDeployed: Math.round(totalCollateral),
         capitalEfficiencyPercent: capitalEfficiency,
-        expiringThisWeek,
-        positionsNearStrike,
+
+        positions,
+        positionsSummary,
 
         thisMonth: {
           premiumCollected: Math.round(tmPremium * 100) / 100,
@@ -899,9 +958,6 @@ export function useDashboardIntelligence() {
         watchlistBestOpportunity: bestWL
           ? { ticker: bestWL.ticker, ivRank: bestWL.iv_rank ?? 0, ivTrend: 'elevated' }
           : null,
-
-        positions,
-        positionsSummary,
 
         portfolioHealthScore: healthScore,
         portfolioHealthLabel: healthLabel,
