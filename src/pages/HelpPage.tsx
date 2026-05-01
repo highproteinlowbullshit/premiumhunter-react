@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { usePaperMode } from '../context/PaperModeContext';
+import { usePageTitle } from '../hooks/usePageTitle';
 
 // ── Section heading with teal left border ─────────────────────────────────────
 function SectionHeading({ title, subtitle }: { title: string; subtitle?: string }) {
@@ -709,6 +710,7 @@ const PAIN_POINTS = [
 
 // ── Main component ────────────────────────────────────────────────────────────
 export function HelpPage() {
+  usePageTitle('Help');
   const [showBackToTop, setShowBackToTop] = useState(false);
   const { user } = useAuth();
   const { isPaperMode, togglePaperMode } = usePaperMode();

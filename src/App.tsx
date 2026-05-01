@@ -1,11 +1,12 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { lazy, Suspense, useState } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { lazy, Suspense, useState, useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import { WatchlistProvider } from './context/WatchlistContext';
 import { PaperModeProvider } from './context/PaperModeContext';
 import { Navbar } from './components/Navbar';
+import { MobileNav } from './components/MobileNav';
 import { ToastContainer } from './components/Toast';
 import { WelcomeModal, SwitchOffListener } from './components/PaperModals';
 import { PaperBanner } from './components/PaperBanner';
@@ -68,6 +69,24 @@ export default function App() {
 
 function AppInner() {
   const [leapsCalcOpen, setLeapsCalcOpen] = useState(false);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement) return;
+      if (e.target instanceof HTMLTextAreaElement) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      switch (e.key) {
+        case '1': navigate('/dashboard'); break;
+        case '2': navigate('/screener'); break;
+        case '3': navigate('/watchlist'); break;
+        case '4': navigate('/wheel'); break;
+        case '5': navigate('/portfolio'); break;
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [navigate]);
 
   return (
     <div style={{ minHeight: '100vh' }}>
@@ -81,8 +100,10 @@ function AppInner() {
       <SwitchOffListener />
       <PaperBanner />
       <ToastContainer />
+      <MobileNav />
       <Sentry.ErrorBoundary fallback={(props) => <ErrorFallback onReset={props.resetError} />}>
         <Suspense fallback={<PageLoader />}>
+          <div className="mobile-nav-pad">
           <Routes>
             {/* Public */}
             <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />
@@ -103,6 +124,7 @@ function AppInner() {
             {/* Catch-all */}
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </div>
         </Suspense>
       </Sentry.ErrorBoundary>
       <DemoBanner />

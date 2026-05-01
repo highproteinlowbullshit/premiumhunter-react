@@ -8,6 +8,7 @@ import { STOCK_LIST } from '../lib/stockList';
 import { fetchWatchlistStock } from '../lib/marketData';
 import type { SortOption, IVDataPoint } from '../types';
 import type { WatchlistStockData } from '../lib/marketData';
+import { usePageTitle } from '../hooks/usePageTitle';
 
 type SortField = SortOption['field'];
 
@@ -19,6 +20,7 @@ const SORT_OPTIONS: { field: SortField; label: string }[] = [
 ];
 
 export function Watchlist() {
+  usePageTitle('Watchlist');
   const navigate = useNavigate();
   const { tickers, sort, addTicker, removeTicker, updateSort } = useWatchlist();
   const [addInput, setAddInput] = useState('');

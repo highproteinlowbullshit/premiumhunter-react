@@ -19,8 +19,10 @@ import { AssignmentFlowModal } from '../components/AssignmentFlowModal';
 import { PositionsUrgencyBanner } from '../components/PositionsUrgencyBanner';
 import { useAssignmentProbabilities } from '../hooks/useAssignmentProbabilities';
 import type { ChecklistResult } from '../lib/tradeChecklist';
+import { usePageTitle } from '../hooks/usePageTitle';
 
 export function WheelTracker() {
+  usePageTitle('Wheel Tracker');
   const { isPaperMode } = usePaperMode();
   if (isPaperMode) return <PaperWheelTracker />;
   return <RealWheelTracker />;

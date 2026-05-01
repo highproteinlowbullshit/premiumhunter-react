@@ -1,0 +1,112 @@
+import { useLocation, useNavigate } from 'react-router-dom';
+
+const TABS = [
+  { path: '/dashboard', label: 'Home',     icon: HomeIcon    },
+  { path: '/screener',  label: 'Screen',   icon: ScreenIcon  },
+  { path: '/wheel',     label: 'Track',    icon: TrackIcon   },
+  { path: '/portfolio', label: 'Portfolio', icon: PortIcon   },
+  { path: '/help',      label: 'Help',     icon: HelpIcon    },
+];
+
+export function MobileNav() {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const isActive = (path: string) => location.pathname.startsWith(path);
+
+  return (
+    <nav
+      className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex"
+      style={{
+        height: 60,
+        background: 'var(--ph-navbar-bg)',
+        borderTop: '1px solid var(--ph-border-md)',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+      }}
+    >
+      {TABS.map(({ path, label, icon: Icon }) => {
+        const active = isActive(path);
+        return (
+          <button
+            key={path}
+            onClick={() => navigate(path)}
+            className="flex-1 flex flex-col items-center justify-center gap-0.5"
+            style={{
+              border: 'none',
+              background: 'transparent',
+              color: active ? '#00e5c4' : 'var(--ph-text-nav-inactive)',
+              cursor: 'pointer',
+              paddingBottom: 6,
+              transition: 'color 0.15s ease',
+            }}
+          >
+            <Icon active={active} />
+            <span style={{ fontSize: 10, fontWeight: active ? 600 : 400, fontFamily: 'DM Sans, sans-serif', lineHeight: 1 }}>
+              {label}
+            </span>
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
+function HomeIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <path d="M3 9.5L10 3l7 6.5V17a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5Z"
+        stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"
+        fill={active ? 'rgba(0,229,196,0.15)' : 'none'} />
+      <path d="M7.5 18v-5h5v5" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function ScreenIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <circle cx="9" cy="9" r="5.5" stroke="currentColor" strokeWidth="1.3"
+        fill={active ? 'rgba(0,229,196,0.12)' : 'none'} />
+      <line x1="13.2" y1="13.2" x2="17" y2="17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function TrackIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="1.3"
+        fill={active ? 'rgba(0,229,196,0.12)' : 'none'} />
+      <circle cx="10" cy="10" r="2" fill="currentColor" />
+      <line x1="10" y1="3" x2="10" y2="8" stroke="currentColor" strokeWidth="1.3" />
+      <line x1="10" y1="12" x2="10" y2="17" stroke="currentColor" strokeWidth="1.3" />
+      <line x1="3" y1="10" x2="8" y2="10" stroke="currentColor" strokeWidth="1.3" />
+      <line x1="12" y1="10" x2="17" y2="10" stroke="currentColor" strokeWidth="1.3" />
+    </svg>
+  );
+}
+
+function PortIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <rect x="3" y="8" width="4" height="9" rx="1" stroke="currentColor" strokeWidth="1.3"
+        fill={active ? 'rgba(0,229,196,0.12)' : 'none'} />
+      <rect x="8" y="5" width="4" height="12" rx="1" stroke="currentColor" strokeWidth="1.3"
+        fill={active ? 'rgba(0,229,196,0.15)' : 'none'} />
+      <rect x="13" y="3" width="4" height="14" rx="1" stroke="currentColor" strokeWidth="1.3"
+        fill={active ? 'rgba(0,229,196,0.18)' : 'none'} />
+    </svg>
+  );
+}
+
+function HelpIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="1.3"
+        fill={active ? 'rgba(0,229,196,0.12)' : 'none'} />
+      <path d="M7.5 7.5a2.5 2.5 0 0 1 4.9.8c0 1.7-2.4 2.2-2.4 3.7" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+      <circle cx="10" cy="14.5" r="0.8" fill="currentColor" />
+    </svg>
+  );
+}

@@ -16,6 +16,7 @@ import { PortfolioBenchmarkChart } from '../components/PortfolioBenchmarkChart';
 import { AssignedSharesSection } from '../components/AssignedSharesSection';
 import { useTickerPerformance } from '../hooks/useTickerPerformance';
 import { TickerPerformanceTable } from '../components/TickerPerformanceTable';
+import { usePageTitle } from '../hooks/usePageTitle';
 
 type Currency = 'USD' | 'SGD';
 const SGD_FALLBACK_RATE = 1.275; // fallback if Finnhub fetch fails
@@ -1079,6 +1080,7 @@ function CspCoveragePanel({ totalCash, cspObligation, cspUsedPct, totalCSPContra
 // ── Main Portfolio Page ────────────────────────────────────────────────────────
 
 export function Portfolio() {
+  usePageTitle('Portfolio');
   const { isPaperMode } = usePaperMode();
   if (isPaperMode) return <PaperPortfolio />;
   return <RealPortfolio />;

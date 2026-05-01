@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { usePageTitle } from '../hooks/usePageTitle';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -144,6 +145,7 @@ type StockWithAffordability = ScreenerStock & {
 };
 
 export function Screener() {
+  usePageTitle('IV Screener');
   const navigate = useNavigate();
   const { isWatched, addTicker, removeTicker } = useWatchlistContext();
   const { isPaperMode, paperAccount } = usePaperMode();

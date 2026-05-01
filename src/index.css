@@ -262,3 +262,38 @@ body {
   animation: skeleton-shimmer 1.4s ease infinite;
   border-radius: 4px;
 }
+
+/* ── Modal enter animation ───────────────────────────────────────────── */
+@keyframes modalEnter {
+  from { opacity: 0; transform: scale(0.97) translateY(-8px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+.modal-enter {
+  animation: modalEnter 0.2s ease;
+}
+
+/* ── Toast slide-in ──────────────────────────────────────────────────── */
+@keyframes toastEnter {
+  from { opacity: 0; transform: translateX(100%); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.toast-enter {
+  animation: toastEnter 0.25s ease;
+}
+
+/* ── Mobile bottom nav body padding ─────────────────────────────────── */
+@media (max-width: 767px) {
+  .mobile-nav-pad {
+    padding-bottom: 68px;
+  }
+}
+
+/* ── Touch targets ───────────────────────────────────────────────────── */
+@media (max-width: 767px) {
+  button:not([data-no-min-h]) {
+    min-height: 44px;
+  }
+  [role="tab"] {
+    min-height: 44px;
+  }
+}

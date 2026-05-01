@@ -3,9 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { IVChart } from '../components/IVChart';
 import { IVBadge } from '../components/IVBadge';
 import { useStockDetailData } from '../hooks/useMarketData';
+import { usePageTitle } from '../hooks/usePageTitle';
 
 export function StockDetail() {
   const { ticker = '' } = useParams<{ ticker: string }>();
+  usePageTitle(ticker ? ticker.toUpperCase() : '');
   const navigate = useNavigate();
   const [mounted, setMounted] = useState(false);
   const { data, isLoading } = useStockDetailData(ticker);

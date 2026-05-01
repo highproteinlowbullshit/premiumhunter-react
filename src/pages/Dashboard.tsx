@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { usePageTitle } from '../hooks/usePageTitle';
 import { IVBadge, IVLabel } from '../components/IVBadge';
 import { IVSparkline } from '../components/IVChart';
 import { usePositions } from '../hooks/usePositions';
@@ -12,6 +13,7 @@ import { MonthlyTargetCompact } from '../components/MonthlyTargetTracker';
 import type { StockTicker, IVDataPoint, WheelPosition } from '../types';
 
 export function Dashboard() {
+  usePageTitle('Dashboard');
   const { isPaperMode } = usePaperMode();
   if (isPaperMode) return <PaperDashboard />;
   return <RealDashboard />;
