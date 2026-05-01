@@ -422,7 +422,68 @@ export function usePositions() {
           showToast('Assigned — but failed to update shares holding. Add manually in Portfolio.', 'error');
         }
       } else {
-        showToast(`Assigned — ${data.contracts * 100} ${data.ticker} shares called away at $${data.strike}`, 'success');
+        // CC assigned: close the share lot and record the capital gain
+        const today = new Date().toISOString().split('T')[0];
+        const totalSharesCalled = data.contracts * 100;
+
+        // Find the open lot (prefer matching contract count, fall back to oldest)
+        const { data: openLots, error: lotFetchErr } = await supabase
+          .from('assigned_share_lots')
+          .select('id, cost_basis_per_share, shares, contracts, total_premium_collected')
+          .eq('user_id', user.id)
+          .eq('ticker', data.ticker)
+          .eq('status', 'holding')
+          .order('assignment_date', { ascending: true });
+
+        if (lotFetchErr) Sentry.captureException(lotFetchErr);
+
+        const lot = openLots?.find(l => Number(l.contracts) === data.contracts) ?? openLots?.[0];
+
+        let capitalGain: number | null = null;
+
+        if (lot) {
+          const totalShares = Number(lot.shares) * Number(lot.contracts);
+          capitalGain = Math.round((data.strike - Number(lot.cost_basis_per_share)) * totalShares * 100) / 100;
+          const totalLotReturn = Math.round((capitalGain + Number(lot.total_premium_collected)) * 100) / 100;
+
+          const { error: lotUpdateErr } = await supabase
+            .from('assigned_share_lots')
+            .update({
+              status: 'called_away',
+              exit_date: today,
+              exit_price: data.strike,
+              realized_capital_gain: capitalGain,
+              total_lot_return: totalLotReturn,
+            })
+            .eq('id', lot.id)
+            .eq('user_id', user.id);
+
+          if (lotUpdateErr) {
+            Sentry.captureException(lotUpdateErr);
+            showToast('Assigned — but failed to record capital gain. Check Portfolio.', 'error');
+          }
+        }
+
+        // Close the portfolio_holdings share position
+        const { error: holdingCloseErr } = await supabase
+          .from('portfolio_holdings')
+          .update({ status: 'closed' })
+          .eq('user_id', user.id)
+          .eq('ticker', data.ticker)
+          .eq('holding_type', 'shares')
+          .eq('status', 'open');
+
+        if (holdingCloseErr) {
+          Sentry.captureException(holdingCloseErr);
+          showToast('Assigned — but failed to close shares holding. Remove manually in Portfolio.', 'error');
+        }
+
+        void queryClient.invalidateQueries({ queryKey: ['portfolio-enhanced'] });
+
+        const gainLabel = capitalGain !== null
+          ? ` · ${capitalGain >= 0 ? '+' : ''}$${Math.abs(capitalGain).toFixed(0)} capital gain`
+          : '';
+        showToast(`Assigned — ${totalSharesCalled} ${data.ticker} shares called away at $${data.strike}${gainLabel}`, 'success');
       }
     },
     [user, showToast, queryClient, qKey]

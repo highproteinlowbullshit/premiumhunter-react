@@ -173,7 +173,7 @@ export function usePortfolioEnhanced(timeRange: EnhancedTimeRange) {
       const lots = (lotsResult.data ?? []) as any[];
       let totalGains = 0;
       lots.forEach(lot => {
-        if (lot.realized_capital_gain && lot.exit_date) {
+        if (lot.realized_capital_gain != null && lot.exit_date) {
           const gain = Number(lot.realized_capital_gain);
           totalGains += gain;
           const mk = (lot.exit_date as string).slice(0, 7);
