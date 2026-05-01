@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  AlertTriangle, Target, Trophy, Lightbulb, BarChart2,
+  AlertTriangle, Search, Trophy, Lightbulb, BarChart2,
   Calendar, Flame, Check, Award,
 } from 'lucide-react';
 import { usePaperMode } from '../context/PaperModeContext';
@@ -170,7 +170,7 @@ function GreetingBar({ d, isPaper }: { d: DashboardIntelligence; isPaper: boolea
 function InsightIcon({ type, size = 18 }: { type: string; size?: number }) {
   const props = { size, strokeWidth: 1.8 };
   if (type === 'warning') return <AlertTriangle {...props} />;
-  if (type === 'opportunity') return <Target {...props} />;
+  if (type === 'opportunity') return <Search {...props} />;
   if (type === 'achievement') return <Trophy {...props} />;
   if (type === 'suggestion') return <Lightbulb {...props} />;
   return <BarChart2 {...props} />;
@@ -337,7 +337,7 @@ function QuickStatsRow({ d, isPaper }: { d: DashboardIntelligence; isPaper: bool
       {/* Deployed */}
       <StatPill
         label="Deployed"
-        value={`${d.capitalEfficiencyPercent.toFixed(0)}%`}
+        value={`${Math.min(100, d.capitalEfficiencyPercent).toFixed(0)}%`}
         sub={d.totalCollateralDeployed > 0 ? `${fmt$(d.totalCollateralDeployed, true)} working` : 'No collateral'}
         color={depColor}
         isPaper={isPaper}
