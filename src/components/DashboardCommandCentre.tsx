@@ -54,22 +54,22 @@ function HealthPopover({ factors, score, label, onClose, wrapperRef }: {
       style={{
         position: 'absolute', top: 'calc(100% + 8px)', right: 0, zIndex: 100,
         background: 'rgba(5,13,26,0.98)', border: '1px solid rgba(0,229,196,0.2)',
-        borderRadius: 12, padding: '14px 16px', minWidth: 240,
+        borderRadius: 12, padding: '14px 16px', minWidth: 280,
         boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
       }}
     >
-      {factors.map(f => (
-        <div key={f.factor} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, gap: 12 }}>
-          <span style={{ fontSize: 12, color: '#9ab4d4', fontFamily: 'DM Sans, sans-serif' }}>{f.factor}</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: 11, color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>{f.note}</span>
-            <span style={{ fontSize: 12, fontWeight: 700, color: '#00e5c4', fontFamily: 'JetBrains Mono, monospace', whiteSpace: 'nowrap' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', columnGap: 12, rowGap: 8, alignItems: 'center', marginBottom: 8 }}>
+        {factors.map(f => (
+          <>
+            <span key={`${f.factor}-name`} style={{ fontSize: 12, color: '#9ab4d4', fontFamily: 'DM Sans, sans-serif' }}>{f.factor}</span>
+            <span key={`${f.factor}-note`} style={{ fontSize: 11, color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', textAlign: 'right', whiteSpace: 'nowrap' }}>{f.note}</span>
+            <span key={`${f.factor}-score`} style={{ fontSize: 12, fontWeight: 700, color: '#00e5c4', fontFamily: 'JetBrains Mono, monospace', textAlign: 'right', whiteSpace: 'nowrap' }}>
               {f.score}/{f.maxScore}
             </span>
-          </div>
-        </div>
-      ))}
-      <div style={{ borderTop: '1px solid rgba(0,229,196,0.1)', paddingTop: 8, marginTop: 4, display: 'flex', justifyContent: 'space-between' }}>
+          </>
+        ))}
+      </div>
+      <div style={{ borderTop: '1px solid rgba(0,229,196,0.1)', paddingTop: 8, marginTop: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span style={{ fontSize: 12, fontWeight: 600, color: '#e8f0fe', fontFamily: 'DM Sans, sans-serif' }}>Overall</span>
         <span style={{ fontSize: 13, fontWeight: 700, color: labelColor, fontFamily: 'JetBrains Mono, monospace' }}>
           {score}/100 — {label}
@@ -418,6 +418,7 @@ function PositionsColumn({ d }: { d: DashboardIntelligence }) {
   return (
     <div style={{ flex: 1, minWidth: 0, background: 'rgba(13,27,53,0.5)', border: '1px solid rgba(0,229,196,0.08)', borderRadius: 12, padding: '14px 16px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+
         <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ph-text-3)', fontFamily: 'DM Sans, sans-serif', letterSpacing: '0.07em', textTransform: 'uppercase' }}>
           Positions {d.openPositionCount > 0 ? `(${d.openPositionCount} open)` : ''}
         </span>
@@ -662,11 +663,11 @@ export function DashboardCommandCentre({ data: d, isLoading }: Props) {
       <SecondaryInsightsRow insights={d.secondaryInsights} />
 
       {/* Zone 5 */}
-      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-        <div style={{ flex: '1 1 260px' }}>
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'stretch' }}>
+        <div style={{ flex: '1 1 260px', display: 'flex', flexDirection: 'column' }}>
           <PositionsColumn d={d} />
         </div>
-        <div style={{ flex: '1 1 260px' }}>
+        <div style={{ flex: '1 1 260px', display: 'flex', flexDirection: 'column' }}>
           <ScreenerPulseColumn d={d} />
         </div>
       </div>
