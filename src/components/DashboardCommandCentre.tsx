@@ -39,6 +39,8 @@ function HealthPopover({ factors, score, label, onClose, wrapperRef }: {
   onClose: () => void;
   wrapperRef: React.RefObject<HTMLDivElement | null>;
 }) {
+  const [style, setStyle] = useState<React.CSSProperties>({ visibility: 'hidden' });
+
   useEffect(() => {
     function handler(e: MouseEvent) {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) onClose();
@@ -47,14 +49,37 @@ function HealthPopover({ factors, score, label, onClose, wrapperRef }: {
     return () => document.removeEventListener('mousedown', handler);
   }, [onClose, wrapperRef]);
 
+  // Position relative to viewport so it never clips off-screen edges
+  useEffect(() => {
+    if (!wrapperRef.current) return;
+    const rect = wrapperRef.current.getBoundingClientRect();
+    const POPOVER_WIDTH = 280;
+    const EDGE_PAD = 12;
+    const top = rect.bottom + window.scrollY + 8;
+
+    let left: number;
+    if (rect.right - POPOVER_WIDTH >= EDGE_PAD) {
+      // Enough room to the left — right-align with the button
+      left = rect.right - POPOVER_WIDTH;
+    } else {
+      // Would bleed off-screen left — clamp to edge padding
+      left = EDGE_PAD;
+    }
+    // Also clamp right edge
+    const maxLeft = window.innerWidth - POPOVER_WIDTH - EDGE_PAD;
+    left = Math.min(left, maxLeft);
+
+    setStyle({ position: 'fixed', top, left, width: POPOVER_WIDTH, zIndex: 100, visibility: 'visible' });
+  }, [wrapperRef]);
+
   const labelColor = score >= 85 ? '#00e5c4' : score >= 70 ? '#00e5c4' : score >= 50 ? '#f5c842' : '#ff4d6d';
 
   return (
     <div
       style={{
-        position: 'absolute', top: 'calc(100% + 8px)', right: 0, zIndex: 100,
+        ...style,
         background: 'rgba(5,13,26,0.98)', border: '1px solid rgba(0,229,196,0.2)',
-        borderRadius: 12, padding: '14px 16px', minWidth: 280,
+        borderRadius: 12, padding: '14px 16px',
         boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
       }}
     >
