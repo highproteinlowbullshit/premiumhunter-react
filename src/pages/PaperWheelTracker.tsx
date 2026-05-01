@@ -730,10 +730,25 @@ function OpenPaperPositionModal({ availableCash, onClose, onSubmit }: {
         <div className="grid grid-cols-2 gap-3 items-start">
           <div>
             <label className="block text-xs mb-1.5" style={{ color: A.muted, fontFamily: 'DM Sans, sans-serif' }}>Strike Price</label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: A.muted }}>$</span>
-              <input type="number" step="0.5" value={form.strike} onChange={(e) => setForm((f) => ({ ...f, strike: e.target.value }))}
-                className="w-full pl-7 pr-3 py-2.5 rounded-xl text-sm" style={inputStyle('strike')} />
+            <div className="flex rounded-xl overflow-hidden" style={{ border: errors.strike ? '1px solid rgba(255,77,109,0.4)' : A.amberBorder }}>
+              <button type="button" data-no-min-h tabIndex={-1}
+                onClick={() => setForm((f) => ({ ...f, strike: (Math.max(0, (parseFloat(f.strike) || 0) - 0.5)).toFixed(2) }))}
+                className="px-3 flex items-center justify-center text-lg font-light"
+                style={{ background: 'rgba(5,13,26,0.8)', color: A.muted, borderRight: `1px solid ${A.amberBorder}`, minWidth: 36 }}>
+                −
+              </button>
+              <div className="relative flex-1">
+                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm" style={{ color: A.muted }}>$</span>
+                <input type="number" step="0.5" value={form.strike} onChange={(e) => setForm((f) => ({ ...f, strike: e.target.value }))}
+                  className="w-full pl-6 pr-2 py-2.5 text-sm"
+                  style={{ ...inputBase, border: 'none', borderRadius: 0, width: '100%' }} />
+              </div>
+              <button type="button" data-no-min-h tabIndex={-1}
+                onClick={() => setForm((f) => ({ ...f, strike: ((parseFloat(f.strike) || 0) + 0.5).toFixed(2) }))}
+                className="px-3 flex items-center justify-center text-lg font-light"
+                style={{ background: 'rgba(5,13,26,0.8)', color: A.muted, borderLeft: `1px solid ${A.amberBorder}`, minWidth: 36 }}>
+                +
+              </button>
             </div>
             {errors.strike && <p className="text-xs mt-1" style={{ color: '#ff4d6d' }}>{errors.strike}</p>}
             <p className="text-xs mt-1.5" style={{ color: '#9ab4d4', fontFamily: 'DM Sans, sans-serif', lineHeight: 1.5 }}>

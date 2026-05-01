@@ -31,6 +31,7 @@ export function WheelTracker() {
 function RealWheelTracker() {
   const [mounted, setMounted] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [recentTicker, setRecentTicker] = useState<string | null>(null);
   const [closingPosition, setClosingPosition] = useState<WheelPosition | null>(null);
   const [editingPosition, setEditingPosition] = useState<WheelPosition | null>(null);
   const [assigningPosition, setAssigningPosition] = useState<WheelPosition | null>(null);
@@ -224,6 +225,7 @@ function RealWheelTracker() {
               onClose={setClosingPosition}
               onEdit={setEditingPosition}
               onAssign={setAssigningPosition}
+              highlightTicker={recentTicker}
             />
           )}
         </div>
@@ -289,6 +291,8 @@ function RealWheelTracker() {
           onClose={() => setShowAddModal(false)}
           onAdd={(data) => {
             addPosition(data);
+            setRecentTicker(data.ticker.toUpperCase());
+            setTimeout(() => setRecentTicker(null), 2000);
             setShowAddModal(false);
           }}
         />
@@ -1095,13 +1099,18 @@ function AddPositionModal({ cashBalance, lockedCollateral, openPositions, onClos
     <ModalShell title="Add Position" subtitle="Log a new wheel trade" onClose={onClose} wide>
       <div className="flex flex-col lg:flex-row gap-6">
         {/* Left: form */}
-        <form onSubmit={handleSubmit} className="space-y-4 flex-1 min-w-0">
+        <form
+          onSubmit={handleSubmit}
+          onKeyDown={(e) => { if (e.key === 'Enter' && !(e.target instanceof HTMLTextAreaElement)) { e.preventDefault(); handleSubmit(e); } }}
+          className="space-y-4 flex-1 min-w-0"
+        >
         {/* Ticker + Strategy */}
         <div className="grid grid-cols-2 gap-3 items-start">
           <div>
             <label className="block text-xs mb-1.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>Ticker</label>
             <input
               autoFocus
+              tabIndex={1}
               value={form.ticker}
               onChange={(e) => { setForm((f) => ({ ...f, ticker: e.target.value.toUpperCase() })); setSpotPrice(null); setSharesHeld(null); }}
               onBlur={(e) => { void fetchSpot(e.target.value); void fetchShares(e.target.value); }}
@@ -1148,15 +1157,30 @@ function AddPositionModal({ cashBalance, lockedCollateral, openPositions, onClos
         <div className="grid grid-cols-2 gap-3 items-start">
           <div>
             <label className="block text-xs mb-1.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>Strike Price</label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: '#4a6a8a' }}>$</span>
-              <input
-                value={form.strike}
-                onChange={(e) => setForm((f) => ({ ...f, strike: e.target.value }))}
-                placeholder="" type="number" step="0.50"
-                className="w-full pl-7 pr-3 py-2.5 rounded-xl text-sm"
-                style={inputStyle('strike')}
-              />
+            <div className="flex rounded-xl overflow-hidden" style={{ border: errors.strike ? '1px solid rgba(255,77,109,0.4)' : '1px solid rgba(0,229,196,0.15)' }}>
+              <button type="button" data-no-min-h tabIndex={-1}
+                onClick={() => setForm((f) => ({ ...f, strike: (Math.max(0, (parseFloat(f.strike) || 0) - 0.5)).toFixed(2) }))}
+                className="px-3 flex items-center justify-center text-lg font-light transition-colors hover:text-[#00e5c4]"
+                style={{ background: 'rgba(5,13,26,0.8)', color: '#4a6a8a', borderRight: '1px solid rgba(0,229,196,0.1)', minWidth: 36 }}>
+                −
+              </button>
+              <div className="relative flex-1">
+                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm" style={{ color: '#4a6a8a' }}>$</span>
+                <input
+                  tabIndex={3}
+                  value={form.strike}
+                  onChange={(e) => setForm((f) => ({ ...f, strike: e.target.value }))}
+                  placeholder="" type="number" step="0.50"
+                  className="w-full pl-6 pr-2 py-2.5 text-sm"
+                  style={{ background: 'rgba(5,13,26,0.8)', color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace', caretColor: '#00e5c4', outline: 'none', border: 'none' }}
+                />
+              </div>
+              <button type="button" data-no-min-h tabIndex={-1}
+                onClick={() => setForm((f) => ({ ...f, strike: ((parseFloat(f.strike) || 0) + 0.5).toFixed(2) }))}
+                className="px-3 flex items-center justify-center text-lg font-light transition-colors hover:text-[#00e5c4]"
+                style={{ background: 'rgba(5,13,26,0.8)', color: '#4a6a8a', borderLeft: '1px solid rgba(0,229,196,0.1)', minWidth: 36 }}>
+                +
+              </button>
             </div>
             {errors.strike && <p className="text-xs mt-1" style={{ color: '#ff4d6d', fontFamily: 'DM Sans, sans-serif' }}>{errors.strike}</p>}
             <p className="text-xs mt-1.5" style={{ color: '#9ab4d4', fontFamily: 'DM Sans, sans-serif', lineHeight: 1.5 }}>
@@ -1170,6 +1194,7 @@ function AddPositionModal({ cashBalance, lockedCollateral, openPositions, onClos
           <div>
             <label className="block text-xs mb-1.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>Contracts</label>
             <input
+              tabIndex={5}
               value={form.contracts}
               onChange={(e) => setForm((f) => ({ ...f, contracts: e.target.value }))}
               placeholder="1" type="number" min="1"

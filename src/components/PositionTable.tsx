@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { WheelPosition } from '../types';
 import type { AssignmentProbabilityResult } from '../lib/blackScholes';
 import { DTEIndicator } from './DTEIndicator';
@@ -8,6 +8,7 @@ interface PositionTableProps {
   positions: WheelPosition[];
   livePrices?: Map<string, number>;
   probabilities?: Map<string, AssignmentProbabilityResult>;
+  highlightTicker?: string | null;
   probabilitySummary?: {
     highRiskCount: number;
     watchCount: number;
@@ -127,9 +128,17 @@ function SortHeader({ label, current, sortKey, onSort }: {
 
 export function PositionTable({
   positions, livePrices, probabilities, probabilitySummary,
-  onRemove, onClose, onEdit, onAssign,
+  onRemove, onClose, onEdit, onAssign, highlightTicker,
 }: PositionTableProps) {
-  const [sortKey, setSortKey] = useState<SortKey>(null);
+  const [sortKey, setSortKey] = useState<SortKey>(() => {
+    const saved = localStorage.getItem('ph-position-sort');
+    return (saved === 'expiry' || saved === 'probability') ? saved : null;
+  });
+
+  useEffect(() => {
+    if (sortKey) localStorage.setItem('ph-position-sort', sortKey);
+    else localStorage.removeItem('ph-position-sort');
+  }, [sortKey]);
 
   if (!positions.length) {
     return (
@@ -276,12 +285,15 @@ export function PositionTable({
               const rowStyle = rowBorderStyle(pos, probabilities);
               const isLastRow = i === sorted.length - 1;
 
+              const isHighlighted = highlightTicker === pos.ticker;
               return (
                 <tr
                   key={pos.id}
                   className="stock-row-hover group"
                   style={{
                     borderBottom: !isLastRow ? '1px solid rgba(0, 229, 196, 0.06)' : 'none',
+                    background: isHighlighted ? 'rgba(0,229,196,0.12)' : undefined,
+                    transition: 'background 1.5s ease',
                     ...rowStyle,
                   }}
                 >
