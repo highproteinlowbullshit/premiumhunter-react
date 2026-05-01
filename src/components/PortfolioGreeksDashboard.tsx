@@ -282,7 +282,7 @@ function GreekCard({
 }) {
   return (
     <div
-      className="rounded-xl p-5"
+      className="rounded-xl p-4 overflow-hidden"
       style={{
         background: 'rgba(13,27,53,0.6)',
         border: '1px solid rgba(0,229,196,0.1)',
@@ -290,31 +290,33 @@ function GreekCard({
       }}
       title={tooltip}
     >
-      <div className="flex items-start justify-between mb-3">
-        <div>
-          <div className="flex items-baseline gap-2 mb-0.5">
-            <span style={{ fontSize: 28, color: valueColor, fontFamily: 'serif', lineHeight: 1 }}>{symbol}</span>
-            <span className="text-xs font-medium uppercase tracking-wide" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>{title}</span>
-          </div>
-          <p className="text-xl font-bold tabular-nums" style={{ color: valueColor, fontFamily: 'JetBrains Mono, monospace' }}>
-            {value}
-          </p>
-        </div>
-        <span
-          className="text-xs px-2 py-0.5 rounded font-semibold"
-          style={{
-            background: `${badgeColor}18`,
-            border: `1px solid ${badgeColor}40`,
-            color: badgeColor,
-            fontFamily: 'DM Sans, sans-serif',
-            whiteSpace: 'nowrap',
-          }}>
-          {badge}
-        </span>
+      {/* Symbol + title row */}
+      <div className="flex items-baseline gap-1.5 mb-1">
+        <span style={{ fontSize: 24, color: valueColor, fontFamily: 'serif', lineHeight: 1, flexShrink: 0 }}>{symbol}</span>
+        <span className="text-xs font-medium uppercase tracking-wide truncate" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>{title}</span>
       </div>
-      <p className="text-xs mb-2" style={{ color: '#6a8fb0', fontFamily: 'JetBrains Mono, monospace' }}>{impact}</p>
+      {/* Value — allow wrapping so monospace numbers don't push outside the card */}
+      <p className="font-bold tabular-nums break-all mb-2" style={{ color: valueColor, fontFamily: 'JetBrains Mono, monospace', fontSize: 17, lineHeight: 1.3 }}>
+        {value}
+      </p>
+      {/* Badge below value — no horizontal competition */}
+      <span
+        className="inline-block text-xs px-2 py-0.5 rounded font-semibold mb-2"
+        style={{
+          background: `${badgeColor}18`,
+          border: `1px solid ${badgeColor}40`,
+          color: badgeColor,
+          fontFamily: 'DM Sans, sans-serif',
+          maxWidth: '100%',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+        }}>
+        {badge}
+      </span>
+      <p className="text-xs mb-1" style={{ color: '#6a8fb0', fontFamily: 'JetBrains Mono, monospace', wordBreak: 'break-word' }}>{impact}</p>
       {extra}
-      <p className="text-xs leading-relaxed mt-2" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
+      <p className="text-xs leading-relaxed mt-1" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
         {explanation}
       </p>
     </div>
