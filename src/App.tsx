@@ -80,8 +80,8 @@ function AppInner() {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       switch (e.key) {
         case '1': navigate('/dashboard'); break;
-        case '2': navigate('/screener'); break;
-        case '3': navigate('/watchlist'); break;
+        case '2': navigate('/watchlist'); break;
+        case '3': navigate('/screener'); break;
         case '4': navigate('/wheel'); break;
         case '5': navigate('/portfolio'); break;
         case '?': setShortcutsOpen(true); break;
