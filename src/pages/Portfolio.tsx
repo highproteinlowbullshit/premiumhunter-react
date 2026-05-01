@@ -1104,7 +1104,9 @@ function RealPortfolio() {
   const { openPositions } = usePositions();
 
   const [enhancedTimeRange, setEnhancedTimeRange] = useState<EnhancedTimeRange>('3M');
-  const [currency, setCurrency] = useState<Currency>('USD');
+  const [currency, setCurrency] = useState<Currency>(
+    () => (localStorage.getItem('ph-portfolio-currency') as Currency | null) ?? 'USD'
+  );
   const [sgdRate, setSgdRate] = useState<number>(SGD_FALLBACK_RATE);
   const [rateLoading, setRateLoading] = useState(false);
   const sgdRateFetched = useRef(false);
@@ -1112,6 +1114,19 @@ function RealPortfolio() {
   const [closingHolding, setClosingHolding] = useState<HoldingWithPrice | null>(null);
   const [editingHolding, setEditingHolding] = useState<HoldingWithPrice | null>(null);
   const [leapsCalcHolding, setLeapsCalcHolding] = useState<HoldingWithPrice | null>(null);
+
+  // Fetch live SGD rate on mount if user's last session was in SGD
+  useEffect(() => {
+    if (currency === 'SGD' && !sgdRateFetched.current) {
+      sgdRateFetched.current = true;
+      setRateLoading(true);
+      getQuote('OANDA:USD_SGD')
+        .then((quote) => { if (quote.c > 0) setSgdRate(quote.c); })
+        .catch(() => { /* fall back to constant */ })
+        .finally(() => setRateLoading(false));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Collect unique non-cash tickers for WebSocket subscription
   const holdingTickers = useMemo(
@@ -1234,6 +1249,7 @@ function RealPortfolio() {
       }
     }
     setCurrency(next);
+    localStorage.setItem('ph-portfolio-currency', next);
   };
 
   const convert = (usd: number) => currency === 'SGD' ? usd * sgdRate : usd;
