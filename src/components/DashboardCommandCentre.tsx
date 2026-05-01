@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AlertTriangle, Search, Trophy, Lightbulb, BarChart2,
@@ -39,7 +39,7 @@ function HealthPopover({ factors, score, label, onClose, wrapperRef }: {
   onClose: () => void;
   wrapperRef: React.RefObject<HTMLDivElement | null>;
 }) {
-  const [style, setStyle] = useState<React.CSSProperties>({ visibility: 'hidden' });
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
 
   useEffect(() => {
     function handler(e: MouseEvent) {
@@ -49,35 +49,23 @@ function HealthPopover({ factors, score, label, onClose, wrapperRef }: {
     return () => document.removeEventListener('mousedown', handler);
   }, [onClose, wrapperRef]);
 
-  // Position relative to viewport so it never clips off-screen edges
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!wrapperRef.current) return;
     const rect = wrapperRef.current.getBoundingClientRect();
-    const POPOVER_WIDTH = 280;
-    const EDGE_PAD = 12;
-    const top = rect.bottom + window.scrollY + 8;
-
-    let left: number;
-    if (rect.right - POPOVER_WIDTH >= EDGE_PAD) {
-      // Enough room to the left — right-align with the button
-      left = rect.right - POPOVER_WIDTH;
-    } else {
-      // Would bleed off-screen left — clamp to edge padding
-      left = EDGE_PAD;
-    }
-    // Also clamp right edge
-    const maxLeft = window.innerWidth - POPOVER_WIDTH - EDGE_PAD;
-    left = Math.min(left, maxLeft);
-
-    setStyle({ position: 'fixed', top, left, width: POPOVER_WIDTH, zIndex: 100, visibility: 'visible' });
+    const W = 280, PAD = 12;
+    // Right-align with button, then clamp so neither edge escapes the viewport
+    const left = Math.max(PAD, Math.min(rect.right - W, window.innerWidth - W - PAD));
+    setPos({ top: rect.bottom + 8, left });
   }, [wrapperRef]);
 
   const labelColor = score >= 85 ? '#00e5c4' : score >= 70 ? '#00e5c4' : score >= 50 ? '#f5c842' : '#ff4d6d';
 
+  if (!pos) return null;
+
   return (
     <div
       style={{
-        ...style,
+        position: 'fixed', top: pos.top, left: pos.left, width: 280, zIndex: 1000,
         background: 'rgba(5,13,26,0.98)', border: '1px solid rgba(0,229,196,0.2)',
         borderRadius: 12, padding: '14px 16px',
         boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
