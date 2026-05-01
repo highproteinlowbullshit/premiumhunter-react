@@ -222,7 +222,7 @@ function calcHealth(
   let total = 0;
 
   const dep = capitalEfficiency >= 60 ? 20 : capitalEfficiency >= 40 ? 14 : capitalEfficiency >= 20 ? 8 : 4;
-  factors.push({ factor: 'Capital deployment', score: dep, maxScore: 20, note: `${capitalEfficiency.toFixed(0)}% of capital working` });
+  factors.push({ factor: 'Capital deployment', score: dep, maxScore: 20, note: `${Math.min(100, capitalEfficiency).toFixed(0)}% of capital working` });
   total += dep;
 
   const wr = allTimeWinRate >= 80 ? 25 : allTimeWinRate >= 70 ? 20 : allTimeWinRate >= 60 ? 14 : allTimeWinRate >= 50 ? 8 : 4;
