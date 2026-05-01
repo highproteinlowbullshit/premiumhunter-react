@@ -931,8 +931,11 @@ function getNextMonthlyExpiries(n = 4): string[] {
   let month = today.getMonth();
   while (result.length < n) {
     const dow = new Date(year, month, 1).getDay();
-    const thirdFriday = new Date(year, month, ((5 - dow + 7) % 7) + 15);
-    if (thirdFriday > today) result.push(thirdFriday.toISOString().split('T')[0]);
+    const day = ((5 - dow + 7) % 7) + 15;
+    const candidate = new Date(year, month, day);
+    if (candidate > today) {
+      result.push(`${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`);
+    }
     if (++month > 11) { month = 0; year++; }
   }
   return result;

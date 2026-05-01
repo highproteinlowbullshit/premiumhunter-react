@@ -136,7 +136,7 @@ function GreetingBar({ d, isPaper }: { d: DashboardIntelligence; isPaper: boolea
           style={{
             display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px',
             background: healthBg, border: `1px solid ${healthColor}40`,
-            borderRadius: 20, cursor: 'pointer', gap: 6,
+            borderRadius: 20, cursor: 'pointer',
           }}
         >
           <span style={{ fontSize: 11, color: 'var(--ph-text-3)', fontFamily: 'DM Sans, sans-serif' }}>Portfolio health</span>
