@@ -7,7 +7,7 @@ import { usePositions } from '../hooks/usePositions';
 import { LeapsTableCells, LeapsMobileValues } from '../components/LeapsTableCells';
 import { LeapsCalculator } from '../components/LeapsCalculator';
 import { blackScholes, yearsToExpiry, estimateVolatility } from '../lib/blackScholes';
-import { getQuote } from '../lib/finnhub';
+import { getForexRate } from '../lib/finnhub';
 import type { HoldingType } from '../types';
 import { useRealtimePrices } from '../hooks/useRealtimePrices';
 import { WebSocketStatus } from '../components/WebSocketStatus';
@@ -1120,8 +1120,8 @@ function RealPortfolio() {
     if (currency === 'SGD' && !sgdRateFetched.current) {
       sgdRateFetched.current = true;
       setRateLoading(true);
-      getQuote('OANDA:USD_SGD')
-        .then((quote) => { if (quote.c > 0) setSgdRate(quote.c); })
+      getForexRate('USD', 'SGD')
+        .then((rate) => setSgdRate(rate))
         .catch(() => { /* fall back to constant */ })
         .finally(() => setRateLoading(false));
     }
@@ -1239,8 +1239,8 @@ function RealPortfolio() {
     if (next === 'SGD' && !sgdRateFetched.current) {
       setRateLoading(true);
       try {
-        const quote = await getQuote('OANDA:USD_SGD');
-        if (quote.c > 0) setSgdRate(quote.c);
+        const rate = await getForexRate('USD', 'SGD');
+        setSgdRate(rate);
       } catch {
         // fall back to constant — already set
       } finally {
