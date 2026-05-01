@@ -416,9 +416,8 @@ function PositionsColumn({ d }: { d: DashboardIntelligence }) {
   const allComfortable = top3.length === 0 && near.length === 0 && d.openPositionCount > 0;
 
   return (
-    <div style={{ flex: 1, minWidth: 0, background: 'rgba(13,27,53,0.5)', border: '1px solid rgba(0,229,196,0.08)', borderRadius: 12, padding: '14px 16px' }}>
+    <div style={{ flex: 1, minWidth: 0, height: '100%', background: 'rgba(13,27,53,0.5)', border: '1px solid rgba(0,229,196,0.08)', borderRadius: 12, padding: '14px 16px', boxSizing: 'border-box' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-
         <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ph-text-3)', fontFamily: 'DM Sans, sans-serif', letterSpacing: '0.07em', textTransform: 'uppercase' }}>
           Positions {d.openPositionCount > 0 ? `(${d.openPositionCount} open)` : ''}
         </span>
@@ -488,7 +487,7 @@ function ScreenerPulseColumn({ d }: { d: DashboardIntelligence }) {
   const ivColor = d.highIVCount >= 10 ? '#00d68f' : d.highIVCount >= 5 ? '#f5c842' : '#ff4d6d';
 
   return (
-    <div style={{ flex: 1, minWidth: 0, background: 'rgba(13,27,53,0.5)', border: '1px solid rgba(0,229,196,0.08)', borderRadius: 12, padding: '14px 16px' }}>
+    <div style={{ flex: 1, minWidth: 0, height: '100%', background: 'rgba(13,27,53,0.5)', border: '1px solid rgba(0,229,196,0.08)', borderRadius: 12, padding: '14px 16px', boxSizing: 'border-box' }}>
       <div style={{ marginBottom: 10 }}>
         <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ph-text-3)', fontFamily: 'DM Sans, sans-serif', letterSpacing: '0.07em', textTransform: 'uppercase' }}>
           Market pulse
