@@ -1401,8 +1401,8 @@ function RealPortfolio() {
                 border: '1px solid rgba(0,229,196,0.08)',
                 borderRadius: 12,
                 padding: '16px 20px',
-                minWidth: 170,
-                flex: '1 1 170px',
+                minWidth: 190,
+                flex: '1 1 190px',
               }}
             >
               <div
@@ -1435,6 +1435,7 @@ function RealPortfolio() {
                   fontSize: 20,
                   fontWeight: 700,
                   letterSpacing: '-0.02em',
+                  whiteSpace: 'nowrap',
                 }}
               >
                 {isLoading ? '—' : card.value}
