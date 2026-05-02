@@ -131,7 +131,7 @@ function PositionTooltip({ pos }: { pos: PositionSnapshot }) {
 // ── Progress bar ──────────────────────────────────────────────────────────────
 
 function ProfitBar({ pct }: { pct: number | null }) {
-  if (pct === null) return <span style={{ fontSize: 10, color: C.muted }}>—</span>;
+  if (pct === null) return <div style={{ minWidth: 72 }}><span style={{ fontSize: 10, color: C.muted }}>—</span></div>;
   const color = profitColor(pct);
   const show50 = pct >= 50;
   return (
@@ -317,8 +317,8 @@ function SummaryBar({ summary }: { summary: DashboardIntelligence['positionsSumm
       {/* Daily theta */}
       <div style={{ flex: 1, padding: '7px 10px' }}>
         <div style={{ fontSize: 9, color: C.muted, marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Daily θ</div>
-        <div style={{ fontSize: 12, fontWeight: 700, color: C.teal, fontFamily: 'JetBrains Mono, monospace', marginTop: 6 }}>
-          +{fmt$(summary.totalDailyTheta)}/d
+        <div style={{ fontSize: 12, fontWeight: 700, color: summary.totalDailyTheta > 0 ? C.teal : C.muted, fontFamily: 'JetBrains Mono, monospace', marginTop: 6 }}>
+          {summary.totalDailyTheta > 0 ? `+${fmt$(summary.totalDailyTheta)}/d` : '—'}
         </div>
       </div>
     </div>
@@ -530,8 +530,8 @@ export function PositionsIntelligenceCard({ positions, summary, isLoading, onNav
               <HealthDots summary={summary} />
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <span style={{ fontSize: 11, color: C.teal, fontFamily: 'JetBrains Mono, monospace', fontWeight: 700 }}>
-                Θ +{fmt$(summary.totalDailyTheta)}/day
+              <span style={{ fontSize: 11, color: summary.totalDailyTheta > 0 ? C.teal : C.muted, fontFamily: 'JetBrains Mono, monospace', fontWeight: 700 }}>
+                {summary.totalDailyTheta > 0 ? `Θ +${fmt$(summary.totalDailyTheta)}/day` : 'Θ —'}
               </span>
               <button
                 onClick={onNavigateToTracker}
