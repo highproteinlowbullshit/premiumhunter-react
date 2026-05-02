@@ -640,7 +640,7 @@ export function useDashboardIntelligence() {
           : screenIV?.current_price
           ? Number(screenIV.current_price)
           : null;
-        const rawIV = posIV?.current_hv ? Number(posIV.current_hv) : null;
+        const rawIV = posIV?.current_hv ? Number(posIV.current_hv) / 100 : null;
         const iv = rawIV ?? getDefaultIV(pos.ticker as string);
 
         // Price distance and safety
