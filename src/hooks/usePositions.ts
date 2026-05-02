@@ -429,7 +429,7 @@ export function usePositions() {
         // Find the open lot (prefer matching contract count, fall back to oldest)
         const { data: openLots, error: lotFetchErr } = await supabase
           .from('assigned_share_lots')
-          .select('id, cost_basis_per_share, shares, contracts, total_premium_collected')
+          .select('id, assignment_strike, cost_basis_per_share, shares, contracts, total_premium_collected')
           .eq('user_id', user.id)
           .eq('ticker', data.ticker)
           .eq('status', 'holding')
@@ -443,7 +443,11 @@ export function usePositions() {
 
         if (lot) {
           const totalShares = Number(lot.shares) * Number(lot.contracts);
-          capitalGain = Math.round((data.strike - Number(lot.cost_basis_per_share)) * totalShares * 100) / 100;
+          // Capital gain = sale price vs acquisition price (assignment strike).
+          // CSP premium is tracked separately in assignmentPremium — using cost_basis_per_share
+          // (which has premium subtracted) would double-count it as capital gain.
+          const acquisitionPricePerShare = Number(lot.assignment_strike);
+          capitalGain = Math.round((data.strike - acquisitionPricePerShare) * totalShares * 100) / 100;
           const totalLotReturn = Math.round((capitalGain + Number(lot.total_premium_collected)) * 100) / 100;
 
           const { error: lotUpdateErr } = await supabase

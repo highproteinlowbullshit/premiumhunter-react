@@ -565,17 +565,26 @@ export function useDashboardIntelligence() {
       const openTickers = new Set(open.map(p => p.ticker));
 
       // ── Per-position IV (sequential — needs open tickers) ──────────────────
+      // Use most recent snapshot within 7 days (not strictly today) so weekends
+      // and cron gaps don't leave currentPrice null and break Black-Scholes.
+      const sevenDaysAgo = new Date(now);
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      const sevenDaysAgoStr = sevenDaysAgo.toISOString().split('T')[0];
+
       const posIVRes = open.length > 0
         ? await supabase
             .from('iv_snapshots')
             .select('ticker, current_iv, current_price')
             .in('ticker', [...openTickers])
-            .eq('snapshot_date', todayStr)
+            .gte('snapshot_date', sevenDaysAgoStr)
             .eq('calculation_success', true)
+            .order('snapshot_date', { ascending: false })
+            .limit((openTickers.size + 1) * 7)
         : { data: [] };
-      const posIVMap = new Map(
-        (posIVRes.data ?? []).map(r => [r.ticker, r])
-      );
+      const posIVMap = new Map<string, { current_iv: number | null; current_price: number | null }>();
+      for (const r of (posIVRes.data ?? [])) {
+        if (!posIVMap.has(r.ticker)) posIVMap.set(r.ticker, r);
+      }
 
       // ── Build enriched positions ───────────────────────────────────────────
       const positions: PositionSnapshot[] = open.map(pos => {

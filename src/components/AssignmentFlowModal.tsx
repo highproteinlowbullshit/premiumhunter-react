@@ -89,8 +89,9 @@ export function AssignmentFlowModal({ position, onClose, onConfirm }: Props) {
   const shares = 100; // shares per contract
   const totalShares = contracts * shares;
   const grossCost = position.strike * totalShares;
-  // premium_collected is stored as dollar amount per contract
-  const totalPremium = position.premiumCollected * contracts;
+  // position.premiumCollected is already total across all contracts; scale to assigned contracts
+  const premiumPerContract = position.premiumCollected / position.contracts;
+  const totalPremium = premiumPerContract * contracts;
   const netCost = Math.max(0, grossCost - totalPremium);
   const costPerShare = totalShares > 0 ? netCost / totalShares : 0;
 
