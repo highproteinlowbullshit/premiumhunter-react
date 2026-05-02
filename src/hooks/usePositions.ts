@@ -650,6 +650,8 @@ export function usePositions() {
             return;
           }
         }
+
+        void queryClient.invalidateQueries({ queryKey: ['portfolio', user?.id] });
       }
 
       showToast('Position updated', 'success');
