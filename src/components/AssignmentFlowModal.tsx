@@ -25,11 +25,11 @@ function ModalWrapper({ onClose, children }: { onClose: () => void; children: Re
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
-        className="min-h-full flex items-center justify-center p-4"
+        className="min-h-full flex items-start sm:items-center justify-center p-4 py-6"
         onClick={(e) => e.target === e.currentTarget && onClose()}
       >
         <div
-          className="w-full max-w-lg rounded-2xl p-6"
+          className="w-full max-w-lg rounded-2xl p-6 my-2"
           style={{
             background: 'rgba(10,22,40,0.98)',
             border: '1px solid rgba(0,229,196,0.2)',
