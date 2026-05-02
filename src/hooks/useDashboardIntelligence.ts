@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { usePaperMode } from '../context/PaperModeContext';
 import { blackScholes } from '../lib/blackScholes';
+import { getQuote } from '../lib/finnhub';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -574,16 +575,36 @@ export function useDashboardIntelligence() {
       const posIVRes = open.length > 0
         ? await supabase
             .from('iv_snapshots')
-            .select('ticker, current_iv, current_price')
+            .select('ticker, current_hv, current_price')
             .in('ticker', [...openTickers])
             .gte('snapshot_date', thirtyDaysAgoStr)
             .eq('calculation_success', true)
             .order('snapshot_date', { ascending: false })
             .limit((openTickers.size + 1) * 30)
         : { data: [] };
-      const posIVMap = new Map<string, { current_iv: number | null; current_price: number | null }>();
+      const posIVMap = new Map<string, { current_hv: number | null; current_price: number | null }>();
       for (const r of (posIVRes.data ?? [])) {
         if (!posIVMap.has(r.ticker)) posIVMap.set(r.ticker, r);
+      }
+
+      // Fallback: fetch live price from Finnhub for tickers not in iv_snapshots or with null price today
+      const missingPriceTickers = [...openTickers].filter(t => {
+        const entry = posIVMap.get(t);
+        return !entry || entry.current_price == null;
+      });
+      if (missingPriceTickers.length > 0) {
+        const quoteResults = await Promise.allSettled(missingPriceTickers.map(t => getQuote(t)));
+        missingPriceTickers.forEach((ticker, i) => {
+          const r = quoteResults[i];
+          if (r.status === 'fulfilled') {
+            const q = r.value;
+            const price = q.c > 0 ? q.c : q.pc > 0 ? q.pc : null;
+            if (price != null) {
+              const existing = posIVMap.get(ticker);
+              posIVMap.set(ticker, { current_hv: existing?.current_hv ?? null, current_price: price });
+            }
+          }
+        });
       }
 
       // ── Build enriched positions ───────────────────────────────────────────
@@ -619,7 +640,7 @@ export function useDashboardIntelligence() {
           : screenIV?.current_price
           ? Number(screenIV.current_price)
           : null;
-        const rawIV = posIV?.current_iv ? Number(posIV.current_iv) : null;
+        const rawIV = posIV?.current_hv ? Number(posIV.current_hv) : null;
         const iv = rawIV ?? getDefaultIV(pos.ticker as string);
 
         // Price distance and safety
