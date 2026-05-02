@@ -421,6 +421,46 @@ export function usePositions() {
           Sentry.captureException(holdingErr);
           showToast('Assigned — but failed to update shares holding. Add manually in Portfolio.', 'error');
         }
+
+        // Deduct gross share purchase cost from cash (premium was already credited at open)
+        const grossCost = data.strike * data.contracts * 100;
+        const { data: cspCashRow } = await supabase
+          .from('portfolio_holdings')
+          .select('id, quantity')
+          .eq('user_id', user.id)
+          .eq('holding_type', 'cash')
+          .eq('status', 'open')
+          .order('quantity', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (cspCashRow) {
+          const { error: cashErr } = await supabase
+            .from('portfolio_holdings')
+            .update({ quantity: Number(cspCashRow.quantity) - grossCost })
+            .eq('id', cspCashRow.id);
+          if (cashErr) {
+            Sentry.captureException(cashErr);
+            showToast('Assigned — but failed to deduct share purchase cost from cash. Update manually in Portfolio.', 'error');
+          }
+        } else {
+          const { error: cashErr } = await supabase
+            .from('portfolio_holdings')
+            .insert({
+              user_id: user.id,
+              holding_type: 'cash',
+              ticker: 'USD',
+              quantity: -grossCost,
+              avg_cost: 1,
+              status: 'open',
+              notes: `Auto-created from CSP assignment — ${data.ticker} $${data.strike} strike`,
+              opened_at: today,
+            });
+          if (cashErr) {
+            Sentry.captureException(cashErr);
+            showToast('Assigned — but failed to record cash outflow. Update manually in Portfolio.', 'error');
+          }
+        }
       } else {
         // CC assigned: close the share lot and record the capital gain
         const today = new Date().toISOString().split('T')[0];
@@ -480,6 +520,46 @@ export function usePositions() {
         if (holdingCloseErr) {
           Sentry.captureException(holdingCloseErr);
           showToast('Assigned — but failed to close shares holding. Remove manually in Portfolio.', 'error');
+        }
+
+        // Credit sale proceeds to cash (shares sold at CC strike)
+        const saleProceeds = data.strike * data.contracts * 100;
+        const { data: ccCashRow } = await supabase
+          .from('portfolio_holdings')
+          .select('id, quantity')
+          .eq('user_id', user.id)
+          .eq('holding_type', 'cash')
+          .eq('status', 'open')
+          .order('quantity', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (ccCashRow) {
+          const { error: cashErr } = await supabase
+            .from('portfolio_holdings')
+            .update({ quantity: Number(ccCashRow.quantity) + saleProceeds })
+            .eq('id', ccCashRow.id);
+          if (cashErr) {
+            Sentry.captureException(cashErr);
+            showToast('Assigned — but failed to credit sale proceeds to cash. Update manually in Portfolio.', 'error');
+          }
+        } else {
+          const { error: cashErr } = await supabase
+            .from('portfolio_holdings')
+            .insert({
+              user_id: user.id,
+              holding_type: 'cash',
+              ticker: 'USD',
+              quantity: saleProceeds,
+              avg_cost: 1,
+              status: 'open',
+              notes: `Auto-created from CC assignment — ${data.ticker} $${data.strike} strike`,
+              opened_at: today,
+            });
+          if (cashErr) {
+            Sentry.captureException(cashErr);
+            showToast('Assigned — but failed to record cash inflow. Update manually in Portfolio.', 'error');
+          }
         }
 
         void queryClient.invalidateQueries({ queryKey: ['portfolio-enhanced'] });
