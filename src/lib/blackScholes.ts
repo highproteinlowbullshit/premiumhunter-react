@@ -41,7 +41,7 @@ export function blackScholes(params: {
   strikePrice: number;    // option strike price (K)
   timeToExpiry: number;   // years to expiry (T) — e.g. 1.5 for 18 months
   riskFreeRate: number;   // annual risk-free rate as decimal — 0.045 = 4.5%
-  volatility: number;     // annual implied volatility as decimal — 0.45 = 45%
+  volatility: number;     // annual implied volatility as decimal — 0.45 = 45%, if needed, this has to be changed for accuracy
   optionType: 'call' | 'put';
 }): BlackScholesResult {
   const { spotPrice: S, strikePrice: K, timeToExpiry: T, riskFreeRate: r, volatility: v, optionType } = params;
