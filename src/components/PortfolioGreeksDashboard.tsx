@@ -91,10 +91,19 @@ function EmptyGreeks() {
 // ── Zone A: Theta hero ────────────────────────────────────────────────────────
 
 function ZoneThetaHero({ greeks }: { greeks: PortfolioGreeks }) {
+  const [showDates, setShowDates] = useState(false)
+
   const projectionData = useMemo(
     () => generateThetaProjection(greeks.dailyThetaIncome, greeks.weightedAverageDTE),
     [greeks.dailyThetaIncome, greeks.weightedAverageDTE],
   )
+
+  const today = useMemo(() => new Date(), [])
+  const dayToDate = (day: number) => {
+    const d = new Date(today)
+    d.setDate(d.getDate() + day)
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  }
 
   const maxBarTheta = greeks.thetaByPosition[0]?.dailyTheta ?? 1
   const topPositions = greeks.thetaByPosition.slice(0, 5)
@@ -172,9 +181,23 @@ function ZoneThetaHero({ greeks }: { greeks: PortfolioGreeks }) {
 
         {/* Right: Theta projection chart */}
         <div className="p-6">
-          <p className="text-xs font-semibold uppercase tracking-widest mb-4" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', letterSpacing: '0.1em' }}>
-            Theta decay projection
-          </p>
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', letterSpacing: '0.1em' }}>
+              Theta decay projection
+            </p>
+            <button
+              onClick={() => setShowDates(v => !v)}
+              className="text-xs px-2 py-0.5 rounded-md transition-all"
+              style={{
+                fontFamily: 'DM Sans, sans-serif',
+                color: showDates ? '#14b8a6' : '#4a6a8a',
+                background: showDates ? 'rgba(20,184,166,0.1)' : 'rgba(255,255,255,0.04)',
+                border: `1px solid ${showDates ? 'rgba(20,184,166,0.3)' : 'rgba(255,255,255,0.08)'}`,
+              }}
+            >
+              {showDates ? 'Dates' : 'Days'}
+            </button>
+          </div>
           <div style={{ height: 80 }}>
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={projectionData} margin={{ top: 2, right: 2, bottom: 2, left: 2 }}>
@@ -188,10 +211,11 @@ function ZoneThetaHero({ greeks }: { greeks: PortfolioGreeks }) {
                   content={({ active, payload }) => {
                     if (!active || !payload?.length) return null
                     const d = payload[0]?.payload as { day: number; cumulative: number }
+                    const label = showDates ? dayToDate(d.day) : `Day ${d.day}`
                     return (
                       <div className="rounded-lg px-2.5 py-1.5" style={{ background: 'rgba(10,22,40,0.95)', border: '1px solid rgba(0,229,196,0.2)' }}>
                         <p className="text-xs" style={{ color: '#14b8a6', fontFamily: 'JetBrains Mono, monospace' }}>
-                          Day {d.day}: +${d.cumulative.toFixed(2)}
+                          {label}: +${d.cumulative.toFixed(2)}
                         </p>
                       </div>
                     )
