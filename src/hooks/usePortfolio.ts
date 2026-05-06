@@ -290,10 +290,14 @@ async function fetchPortfolioData(userId: string): Promise<PortfolioQueryResult>
   const tc = enriched.reduce((acc, h) => acc + holdingCostBasis(h), 0);
   const up = enriched.reduce((acc, h) => acc + (h.unrealizedPnl ?? 0), 0);
 
-  // Upsert today's snapshot (idempotent — safe to run on every fetch)
+  // Write today's snapshot only when every non-cash price resolved.
+  // If any price fell back to cost basis (marketValue === null), the tv would be
+  // artificially low, corrupting the benchmark chart for the rest of the day
+  // because the hasToday guard prevents any correction on subsequent visits.
   const today = new Date().toISOString().split('T')[0];
   const hasToday = snapshotList.some((s) => s.snapshotDate === today);
-  if (!hasToday && enriched.length > 0) {
+  const allPricesResolved = enriched.every(h => h.holdingType === 'cash' || h.marketValue !== null);
+  if (!hasToday && allPricesResolved && enriched.length > 0) {
     const { data: inserted, error: snapErr } = await supabase
       .from('portfolio_snapshots')
       .upsert(
