@@ -278,7 +278,7 @@ export function usePositions() {
       void queryClient.invalidateQueries({ queryKey: ['ticker-performance'] });
 
       // Buy To Close — deduct the BTC cost from cash for both CSP and CC.
-      if (closingPrice > 0) {
+      if (closingPrice > 0 && position) {
         const btcCost = closingPrice * position.contracts;
 
         const { data: cashRow } = await supabase
