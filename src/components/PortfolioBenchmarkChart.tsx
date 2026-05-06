@@ -325,7 +325,7 @@ function AttributionView({ attribution }: { attribution: PnLAttribution | null }
           <XAxis dataKey="month"
             tick={{ fill: '#4a6a8a', fontSize: 10, fontFamily: 'DM Sans, sans-serif' }}
             axisLine={false} tickLine={false} interval="preserveStartEnd" />
-          <YAxis tickFormatter={fmt}
+          <YAxis tickFormatter={(v) => fmt(v)}
             tick={{ fill: '#4a6a8a', fontSize: 10, fontFamily: 'DM Sans, sans-serif' }}
             axisLine={false} tickLine={false} width={48} />
           <Tooltip content={<AttributionTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
