@@ -185,18 +185,29 @@ function ZoneThetaHero({ greeks }: { greeks: PortfolioGreeks }) {
             <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', letterSpacing: '0.1em' }}>
               Theta decay projection
             </p>
-            <button
-              onClick={() => setShowDates(v => !v)}
-              className="text-xs px-2 py-0.5 rounded-md transition-all"
-              style={{
-                fontFamily: 'DM Sans, sans-serif',
-                color: showDates ? '#14b8a6' : '#4a6a8a',
-                background: showDates ? 'rgba(20,184,166,0.1)' : 'rgba(255,255,255,0.04)',
-                border: `1px solid ${showDates ? 'rgba(20,184,166,0.3)' : 'rgba(255,255,255,0.08)'}`,
-              }}
+            <div
+              className="flex rounded-md overflow-hidden"
+              style={{ border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)' }}
             >
-              {showDates ? 'Dates' : 'Days'}
-            </button>
+              {(['Days', 'Dates'] as const).map(opt => {
+                const active = (opt === 'Dates') === showDates
+                return (
+                  <button
+                    key={opt}
+                    onClick={() => setShowDates(opt === 'Dates')}
+                    className="text-xs px-2.5 py-1 transition-all"
+                    style={{
+                      fontFamily: 'DM Sans, sans-serif',
+                      color: active ? '#050d1a' : '#6a8fb0',
+                      background: active ? '#14b8a6' : 'transparent',
+                      fontWeight: active ? 600 : 400,
+                    }}
+                  >
+                    {opt}
+                  </button>
+                )
+              })}
+            </div>
           </div>
           <div style={{ height: 80 }}>
             <ResponsiveContainer width="100%" height="100%">
