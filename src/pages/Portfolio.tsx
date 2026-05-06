@@ -1480,6 +1480,8 @@ function RealPortfolio() {
           timeRange={enhancedTimeRange}
           onTimeRangeChange={setEnhancedTimeRange}
           isLoading={!enhanced}
+          currency={currency}
+          fxRate={currency === 'SGD' ? sgdRate : 1}
         />
 
         {/* Section C.5 — Assigned Shares */}

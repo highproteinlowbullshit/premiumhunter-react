@@ -41,9 +41,11 @@ export function useMonthlyPnL() {
       const thirteenMonthsAgo = new Date()
       thirteenMonthsAgo.setMonth(thirteenMonthsAgo.getMonth() - 13)
 
+      // Paper positions store buyback in closing_premium; real positions use closing_price
+      const closingColumn = isPaperMode ? 'closing_premium' : 'closing_price'
       const { data: closedPositions, error: closedError } = await supabase
         .from(tableName)
-        .select('id, ticker, strategy, strike, expiry, premium_collected, closing_price, contracts, opened_at, closed_at, status')
+        .select(`id, ticker, strategy, strike, expiry, premium_collected, ${closingColumn}, contracts, opened_at, closed_at, status`)
         .eq('user_id', user!.id)
         .in('status', ['closed', 'assigned', 'expired'])
         .or(`closed_at.gte.${thirteenMonthsAgo.toISOString()},closed_at.is.null`)
@@ -89,6 +91,19 @@ export function useMonthlyPnL() {
         })
       }
 
+      // Compute P&L for one closed position, accounting for real vs paper unit conventions.
+      // Real: premium_collected is per-contract dollars (price × 100 shares); multiply by contracts only.
+      // Paper: premium_collected is per-share price; multiply by contracts × 100.
+      // Buyback cost lives in closing_price (real) or closing_premium (paper).
+      const calcPnl = (pos: any): number => {
+        const buyback: number | null = pos.closing_premium ?? pos.closing_price ?? null
+        const multiplier = isPaperMode ? 100 : 1
+        if (buyback != null && pos.status !== 'expired') {
+          return (pos.premium_collected - buyback) * pos.contracts * multiplier
+        }
+        return pos.premium_collected * pos.contracts * multiplier
+      }
+
       // Populate buckets from closed positions
       ;(closedPositions ?? []).forEach((pos: any) => {
         const closedDate = pos.closed_at ?? pos.expiry
@@ -98,19 +113,7 @@ export function useMonthlyPnL() {
         const bucket = monthBuckets.get(monthKey)
         if (!bucket) return
 
-        let pnl: number
-        if (pos.status === 'expired') {
-          // Expired worthless — full per-contract premium kept (no ×100: DB stores dollar amount per contract)
-          pnl = pos.premium_collected * pos.contracts
-        } else if (pos.closing_price !== null) {
-          // Closed manually — net of buyback cost
-          pnl = (pos.premium_collected - pos.closing_price) * pos.contracts
-        } else {
-          // Assigned — keep premium as income
-          pnl = pos.premium_collected * pos.contracts
-        }
-
-        pnl = Math.round(pnl * 100) / 100
+        const pnl = Math.round(calcPnl(pos) * 100) / 100
 
         bucket.premiumCollected += pnl
         bucket.positionsClosed += 1
@@ -139,7 +142,8 @@ export function useMonthlyPnL() {
         const openPremium = (openPositions ?? []).reduce((sum: number, pos: any) => {
           const expiryMonth = pos.expiry?.slice(0, 7)
           if (expiryMonth === currentMonthKey) {
-            return sum + (pos.premium_collected * pos.contracts)
+            const multiplier = isPaperMode ? 100 : 1
+            return sum + (pos.premium_collected * pos.contracts * multiplier)
           }
           return sum
         }, 0)
@@ -164,19 +168,22 @@ export function useMonthlyPnL() {
       const averageMonthly = nonZeroMonths.length > 0 ? totalAllTime / nonZeroMonths.length : 0
 
       const currentMonth = months[months.length - 1]
-      const lastYearSameMonth = months.find(m => {
-        const [y, mo] = m.monthKey.split('-')
-        return parseInt(y) === nowUTCYear - 1 && parseInt(mo) === nowUTCMonth + 1
+
+      // Compute same-month-last-year premium from raw closedPositions — the 12-month
+      // bucket window never includes this month, so searching monthBuckets always returns
+      // undefined. Calculate directly from the data (query covers 13 months).
+      const lastYearSameMonthKey = `${nowUTCYear - 1}-${String(nowUTCMonth + 1).padStart(2, '0')}`
+      let lyPremium = 0
+      ;(closedPositions ?? []).forEach((pos: any) => {
+        const closedDate = pos.closed_at ?? pos.expiry
+        if (closedDate?.slice(0, 7) === lastYearSameMonthKey) {
+          lyPremium += Math.round(calcPnl(pos) * 100) / 100
+        }
       })
 
-      const growthPercent =
-        lastYearSameMonth && lastYearSameMonth.premiumCollected > 0
-          ? Math.round(
-              ((currentMonth.premiumCollected - lastYearSameMonth.premiumCollected) /
-                lastYearSameMonth.premiumCollected) *
-                1000,
-            ) / 10
-          : null
+      const growthPercent = lyPremium > 0
+        ? Math.round(((currentMonth.premiumCollected - lyPremium) / lyPremium) * 1000) / 10
+        : null
 
       let streakMonths = 0
       for (let i = months.length - 1; i >= 0; i--) {

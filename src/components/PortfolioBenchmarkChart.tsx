@@ -9,8 +9,8 @@ import type { PnLAttribution, EnhancedTimeRange } from '../hooks/usePortfolioEnh
 
 type ChartMode = 'benchmark' | 'attribution';
 
-function fmt(val: number): string {
-  return Math.abs(val) >= 1000 ? `$${(val / 1000).toFixed(1)}k` : `$${val.toFixed(0)}`;
+function fmt(val: number, sym = '$'): string {
+  return Math.abs(val) >= 1000 ? `${sym}${(val / 1000).toFixed(1)}k` : `${sym}${val.toFixed(0)}`;
 }
 
 function fmtDate(d: string): string {
@@ -44,7 +44,7 @@ function DonutChart({ premiumPct }: { premiumPct: number }) {
 
 // ── Custom tooltips ───────────────────────────────────────────────────────────
 
-function BenchmarkTooltip({ active, payload, label }: any) {
+function BenchmarkTooltip({ active, payload, label, sym = '$' }: any) {
   if (!active || !payload?.length) return null;
   const port = payload.find((p: any) => p.dataKey === 'portfolioValue');
   const spy = payload.find((p: any) => p.dataKey === 'spyValue');
@@ -56,8 +56,8 @@ function BenchmarkTooltip({ active, payload, label }: any) {
   return (
     <div style={{ background: 'rgba(10,22,40,0.97)', border: '1px solid rgba(0,229,196,0.15)', borderRadius: 8, padding: '10px 14px', fontFamily: 'DM Sans, sans-serif', fontSize: 12 }}>
       <div style={{ color: '#6a8fb0', marginBottom: 6, fontSize: 11 }}>{fmtDate(label)}</div>
-      {port && <div style={{ color: '#14b8a6', marginBottom: 2 }}>Your portfolio: {fmt(port.value)} ({portRet > 0 ? '+' : ''}{portRet}%)</div>}
-      {spy && <div style={{ color: '#64748b', marginBottom: 4 }}>SPY equivalent: {fmt(spy.value)} ({spyRet > 0 ? '+' : ''}{spyRet}%)</div>}
+      {port && <div style={{ color: '#14b8a6', marginBottom: 2 }}>Your portfolio: {fmt(port.value, sym)} ({portRet > 0 ? '+' : ''}{portRet}%)</div>}
+      {spy && <div style={{ color: '#64748b', marginBottom: 4 }}>SPY equivalent: {fmt(spy.value, sym)} ({spyRet > 0 ? '+' : ''}{spyRet}%)</div>}
       <div style={{ color: outperf >= 0 ? '#00d68f' : '#ff4d6d', fontWeight: 600 }}>
         {outperf >= 0 ? '+' : ''}{outperf}% vs SPY
       </div>
@@ -99,9 +99,11 @@ interface Props {
   timeRange: EnhancedTimeRange;
   onTimeRangeChange: (range: EnhancedTimeRange) => void;
   isLoading: boolean;
+  currency?: 'USD' | 'SGD';
+  fxRate?: number;
 }
 
-export function PortfolioBenchmarkChart({ benchmark, attribution, timeRange, onTimeRangeChange, isLoading }: Props) {
+export function PortfolioBenchmarkChart({ benchmark, attribution, timeRange, onTimeRangeChange, isLoading, currency, fxRate }: Props) {
   const [mode, setMode] = useState<ChartMode>('benchmark');
 
   const cardStyle: React.CSSProperties = {
@@ -157,7 +159,7 @@ export function PortfolioBenchmarkChart({ benchmark, attribution, timeRange, onT
           Loading performance data…
         </div>
       ) : mode === 'benchmark' ? (
-        <BenchmarkView benchmark={benchmark} />
+        <BenchmarkView benchmark={benchmark} currency={currency} fxRate={fxRate} />
       ) : (
         <AttributionView attribution={attribution} />
       )}
@@ -167,7 +169,9 @@ export function PortfolioBenchmarkChart({ benchmark, attribution, timeRange, onT
 
 // ── Benchmark view ────────────────────────────────────────────────────────────
 
-function BenchmarkView({ benchmark }: { benchmark: BenchmarkComparison | null }) {
+function BenchmarkView({ benchmark, currency, fxRate }: { benchmark: BenchmarkComparison | null; currency?: 'USD' | 'SGD'; fxRate?: number }) {
+  const rate = fxRate ?? 1;
+  const sym = currency === 'SGD' ? 'S$' : '$';
   if (!benchmark) {
     return (
       <div style={{ height: 260, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
@@ -217,9 +221,16 @@ function BenchmarkView({ benchmark }: { benchmark: BenchmarkComparison | null })
       </div>
 
       {/* Chart — hidden dataKeys feed tooltip; visible areas are portfolio + spy */}
+      {(() => {
+        const displayPoints = benchmark.dataPoints.map(dp => ({
+          ...dp,
+          portfolioValue: Math.round(dp.portfolioValue * rate * 100) / 100,
+          spyValue: Math.round(dp.spyValue * rate * 100) / 100,
+        }));
+        return (
       <ResponsiveContainer width="100%" height={230}>
         <AreaChart
-          data={benchmark.dataPoints}
+          data={displayPoints}
           margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
           <defs>
             <linearGradient id="portGrad" x1="0" y1="0" x2="0" y2="1">
@@ -231,10 +242,10 @@ function BenchmarkView({ benchmark }: { benchmark: BenchmarkComparison | null })
           <XAxis dataKey="date" tickFormatter={fmtDate}
             tick={{ fill: '#4a6a8a', fontSize: 10, fontFamily: 'DM Sans, sans-serif' }}
             axisLine={false} tickLine={false} interval="preserveStartEnd" />
-          <YAxis tickFormatter={fmt}
+          <YAxis tickFormatter={(v) => fmt(v, sym)}
             tick={{ fill: '#4a6a8a', fontSize: 10, fontFamily: 'DM Sans, sans-serif' }}
             axisLine={false} tickLine={false} width={52} />
-          <Tooltip content={<BenchmarkTooltip />} />
+          <Tooltip content={(props) => <BenchmarkTooltip {...props} sym={sym} />} />
           {/* Visible lines */}
           <Area type="monotone" dataKey="spyValue" name="SPY (normalised)"
             stroke="#475569" strokeWidth={1.5} strokeDasharray="4 2" fill="none" dot={false} />
@@ -242,6 +253,8 @@ function BenchmarkView({ benchmark }: { benchmark: BenchmarkComparison | null })
             stroke="#14b8a6" strokeWidth={2} fill="url(#portGrad)" dot={false} />
         </AreaChart>
       </ResponsiveContainer>
+        );
+      })()}
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, flexWrap: 'wrap', gap: 8 }}>
         {/* Legend */}
