@@ -42,6 +42,7 @@ export function usePortfolioGreeks(): {
   })
 
   const today = new Date().toISOString().split('T')[0]
+  const threeDaysAgo = new Date(Date.now() - 3 * 86_400_000).toISOString().split('T')[0]
   const tickers = [...new Set((positions ?? []).map(p => p.ticker))]
 
   const { data: ivData } = useQuery({
@@ -50,10 +51,19 @@ export function usePortfolioGreeks(): {
       if (tickers.length === 0) return []
       const { data } = await supabase
         .from('iv_snapshots')
-        .select('ticker, current_iv, current_price, iv_rank')
+        .select('ticker, current_hv, current_price, iv_rank')
         .in('ticker', tickers)
-        .eq('recorded_at', today)
-      return data ?? []
+        .gte('snapshot_date', threeDaysAgo)
+        .eq('calculation_success', true)
+        .order('snapshot_date', { ascending: false })
+        .limit((tickers.length + 1) * 3)
+      // Keep only the most recent row per ticker
+      const seen = new Set<string>()
+      const deduped: typeof data = []
+      for (const row of (data ?? [])) {
+        if (!seen.has(row.ticker)) { seen.add(row.ticker); deduped.push(row) }
+      }
+      return deduped
     },
     staleTime: 6 * 60 * 60 * 1000,
     enabled: tickers.length > 0,
@@ -61,7 +71,7 @@ export function usePortfolioGreeks(): {
 
   const { prices: realtimePrices } = useRealtimePrices(tickers)
 
-  const ivMap = new Map((ivData ?? []).map((d: { ticker: string; current_iv: number; current_price: number }) => [d.ticker, d]))
+  const ivMap = new Map((ivData ?? []).map((d: { ticker: string; current_hv: number; current_price: number }) => [d.ticker, d]))
 
   const positionIds = (positions ?? []).map(p => p.id).join(',')
   const priceKey = tickers.map(t => realtimePrices.get(t) ?? 0).join(',')
@@ -78,11 +88,13 @@ export function usePortfolioGreeks(): {
         const livePrice = realtimePrices.get(pos.ticker)
 
         const currentPrice = livePrice ?? iv?.current_price ?? 0
-        const impliedVolatility = iv?.current_iv ?? getDefaultIV(pos.ticker)
+        const impliedVolatility = iv?.current_hv != null
+          ? Number(iv.current_hv) / 100
+          : getDefaultIV(pos.ticker)
 
         const ivSource: PositionGreeks['ivSource'] =
-          livePrice && iv?.current_iv ? 'polygon_live'
-          : iv?.current_iv ? 'supabase_cache'
+          livePrice && iv?.current_hv ? 'polygon_live'
+          : iv?.current_hv ? 'supabase_cache'
           : 'estimated'
 
         return calculatePositionGreeks({
