@@ -2,8 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { usePaperMode } from '../context/PaperModeContext';
-import { blackScholes } from '../lib/blackScholes';
-import { getQuote } from '../lib/finnhub';
+import { blackScholes, estimateVolatility } from '../lib/blackScholes';
+import { getQuote, getNextEarnings } from '../lib/finnhub';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -252,16 +252,6 @@ function calcPnl(pos: {
   return pos.premium_collected * pos.contracts;
 }
 
-function getDefaultIV(ticker: string): number {
-  const highIVMap: Record<string, number> = {
-    TSLA: 0.65, NVDA: 0.55, AMD: 0.55, MARA: 0.90, COIN: 0.75,
-    HOOD: 0.70, PLTR: 0.60, SMCI: 0.80, GME: 0.85, AMC: 0.90,
-    RIVN: 0.75, LCID: 0.80, SOFI: 0.65, UPST: 0.80, RBLX: 0.60,
-    SPY: 0.18, QQQ: 0.22, IWM: 0.25, AAPL: 0.28, MSFT: 0.28,
-    META: 0.40, AMZN: 0.35, GOOGL: 0.30,
-  };
-  return highIVMap[ticker.toUpperCase()] ?? 0.35;
-}
 
 // ── Portfolio health ───────────────────────────────────────────────────────────
 
@@ -486,6 +476,7 @@ export function useDashboardIntelligence() {
       const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString();
       const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59).toISOString();
       const currentMonthKey = todayStr.slice(0, 7);
+      const lastMonthKey = lastMonthStart.slice(0, 7);
 
       const [
         openRes,
@@ -520,7 +511,7 @@ export function useDashboardIntelligence() {
 
         supabase
           .from(positionsTable)
-          .select('premium_collected, closing_price, contracts, status, closed_at')
+          .select('premium_collected, closing_price, contracts, status, closed_at, expiry')
           .eq('user_id', user!.id)
           .in('status', ['closed', 'expired', 'assigned'])
           .order('closed_at', { ascending: false }),
@@ -541,10 +532,9 @@ export function useDashboardIntelligence() {
 
         supabase
           .from('monthly_income_targets')
-          .select('target')
+          .select('target, month_key')
           .eq('user_id', user!.id)
-          .eq('month_key', currentMonthKey)
-          .maybeSingle(),
+          .in('month_key', [currentMonthKey, lastMonthKey]),
 
         supabase
           .from('user_preferences')
@@ -559,7 +549,11 @@ export function useDashboardIntelligence() {
       const allTime = allTimeRes.data ?? [];
       const ivSnaps = ivRes.data ?? [];
       const watchlist = watchlistRes.data ?? [];
-      const targetAmount = Number(targetRes.data?.target ?? 0);
+      const targetsByMonth = new Map(
+        ((targetRes.data ?? []) as Array<{ month_key: string; target: number }>).map(r => [r.month_key, Number(r.target)])
+      );
+      const targetAmount = targetsByMonth.get(currentMonthKey) ?? 0;
+      const lastMonthTargetAmount = targetsByMonth.get(lastMonthKey) ?? null;
       const accountBalance = Number(prefsRes.data?.account_balance ?? 0);
 
       const ivMap = new Map(ivSnaps.map(s => [s.ticker, s]));
@@ -607,6 +601,33 @@ export function useDashboardIntelligence() {
         });
       }
 
+      // ── Fetch earnings dates for open positions ────────────────────────────
+      const earningsDaysMap = new Map<string, number>();
+      if (open.length > 0) {
+        const earningsResults = await Promise.allSettled([...openTickers].map(t => getNextEarnings(t)));
+        [...openTickers].forEach((ticker, i) => {
+          const r = earningsResults[i];
+          if (r.status === 'fulfilled' && r.value) {
+            const days = Math.ceil((new Date(r.value).getTime() - now.getTime()) / 86_400_000);
+            if (days >= 0) earningsDaysMap.set(ticker, days);
+          }
+        });
+      }
+
+      const earningsThisWeek: DashboardIntelligence['earningsThisWeek'] = [];
+      earningsDaysMap.forEach((days, ticker) => {
+        if (days <= 7) {
+          earningsThisWeek.push({
+            ticker,
+            daysToEarnings: days,
+            hasOpenPosition: openTickers.has(ticker),
+            ivRank: ivMap.get(ticker)?.iv_rank ?? null,
+            warningLevel: days <= 3 ? 'danger' : 'caution',
+          });
+        }
+      });
+      earningsThisWeek.sort((a, b) => a.daysToEarnings - b.daysToEarnings);
+
       // ── Build enriched positions ───────────────────────────────────────────
       const positions: PositionSnapshot[] = open.map(pos => {
         const premiumCollected = Number(pos.premium_collected);
@@ -641,7 +662,7 @@ export function useDashboardIntelligence() {
           ? Number(screenIV.current_price)
           : null;
         const rawIV = posIV?.current_hv ? Number(posIV.current_hv) / 100 : null;
-        const iv = rawIV ?? getDefaultIV(pos.ticker as string);
+        const iv = rawIV ?? estimateVolatility(pos.ticker as string);
 
         // Price distance and safety
         const isITM = currentPrice !== null
@@ -751,8 +772,8 @@ export function useDashboardIntelligence() {
           impliedVolatility: Math.round(iv * 1000) / 10,
           suggestedAction,
           actionReason,
-          hasEarningsRisk: false,
-          daysToEarnings: null,
+          hasEarningsRisk: earningsDaysMap.has(pos.ticker as string) && (earningsDaysMap.get(pos.ticker as string)! <= 7),
+          daysToEarnings: earningsDaysMap.get(pos.ticker as string) ?? null,
           isNearHighTheta: dte < 21 && dte > 0,
         } satisfies PositionSnapshot;
       });
@@ -859,9 +880,32 @@ export function useDashboardIntelligence() {
 
       const atWinRate = allTime.length > 0 ? Math.round((atWins / allTime.length) * 1000) / 10 : 0;
 
+      // Consecutive profitable months (walk backwards from last full month)
+      const atMonthlyPnl = new Map<string, number>();
+      for (const p of allTime) {
+        const d = ((p as any).closed_at ?? (p as any).expiry) as string | null;
+        if (!d) continue;
+        const mk = d.slice(0, 7);
+        atMonthlyPnl.set(mk, Math.round(((atMonthlyPnl.get(mk) ?? 0) + calcPnl(p as any)) * 100) / 100);
+      }
+      let consecutiveProfitableMonths = 0;
+      const cmCheck = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      for (let i = 0; i < 24; i++) {
+        const mk = `${cmCheck.getFullYear()}-${String(cmCheck.getMonth() + 1).padStart(2, '0')}`;
+        if ((atMonthlyPnl.get(mk) ?? 0) <= 0) break;
+        consecutiveProfitableMonths++;
+        cmCheck.setMonth(cmCheck.getMonth() - 1);
+      }
+
       // ── Milestones ─────────────────────────────────────────────────────────
       const seenRaw = localStorage.getItem('ph_milestones') ?? '[]';
-      const seen: string[] = JSON.parse(seenRaw);
+      let seen: string[];
+      try {
+        seen = JSON.parse(seenRaw);
+        if (!Array.isArray(seen)) seen = [];
+      } catch {
+        seen = [];
+      }
 
       const checks: Array<{ type: DashboardIntelligence['milestones'][0]['type']; label: string; achieved: boolean }> = [
         { type: 'first_trade', label: 'First trade logged', achieved: allTime.length >= 1 },
@@ -892,7 +936,7 @@ export function useDashboardIntelligence() {
       const topRaw = ivSnaps.find(s => !openTickers.has(s.ticker) && (s.iv_rank ?? 0) >= 50);
       const topOpportunity: DashboardIntelligence['topOpportunity'] = topRaw
         ? (() => {
-            const iv = (topRaw.current_hv ?? 0.4) / 100;
+            const iv = (topRaw.current_hv ?? 40) / 100;
             const price = topRaw.current_price ?? 50;
             const dte = 30;
             const premium = price * Math.max(iv, 0.2) * Math.sqrt(dte / 365) * 0.4;
@@ -916,13 +960,14 @@ export function useDashboardIntelligence() {
       const bestWL = wlIV[0];
 
       // ── Health score ───────────────────────────────────────────────────────
+      const dangerEarnings = earningsThisWeek.filter(e => e.hasOpenPosition && e.warningLevel === 'danger').length;
       const healthFactors = calcHealth(
         capitalEfficiency,
         atWinRate,
         positionsSummary.itmCount,
         targetProgress,
         targetAmount > 0,
-        0,
+        dangerEarnings,
       );
       const healthScore = (healthFactors as any).score as number;
       const healthLabel = (healthFactors as any).label as string;
@@ -965,14 +1010,14 @@ export function useDashboardIntelligence() {
           premiumCollected: Math.round(lmPremium * 100) / 100,
           winRate: lastMonthClosed.length > 0 ? Math.round((lmWins / lastMonthClosed.length) * 1000) / 10 : 0,
           positionsClosed: lastMonthClosed.length,
-          hitTarget: targetAmount > 0 && lmPremium >= targetAmount,
+          hitTarget: lastMonthTargetAmount !== null && lmPremium >= lastMonthTargetAmount,
         } : null,
         momChange,
         momTrend: momChange === null ? null : momChange > 5 ? 'up' : momChange < -5 ? 'down' : 'flat',
 
         currentWinStreak: currentStreak,
         longestWinStreak: longestStreak,
-        consecutiveProfitableMonths: 0,
+        consecutiveProfitableMonths,
         totalPremiumAllTime: Math.round(atPremium * 100) / 100,
         totalTradesAllTime: allTime.length,
         allTimeWinRate: atWinRate,
@@ -981,7 +1026,7 @@ export function useDashboardIntelligence() {
         highIVCount: highIV.length,
         surgingIVCount: surging.length,
         topOpportunity,
-        earningsThisWeek: [],
+        earningsThisWeek,
 
         watchlistCount: watchlist.length,
         watchlistHighIV: wlHighIV.length,

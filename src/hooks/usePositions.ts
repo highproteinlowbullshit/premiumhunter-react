@@ -277,8 +277,8 @@ export function usePositions() {
       void queryClient.invalidateQueries({ queryKey: ['monthly-pnl'] });
       void queryClient.invalidateQueries({ queryKey: ['ticker-performance'] });
 
-      // For CC closed early (Buy To Close), deduct the BTC cost from cash holdings.
-      if (position?.strategy === 'CC' && closingPrice > 0) {
+      // Buy To Close — deduct the BTC cost from cash for both CSP and CC.
+      if (closingPrice > 0) {
         const btcCost = closingPrice * position.contracts;
 
         const { data: cashRow } = await supabase
@@ -312,7 +312,7 @@ export function usePositions() {
               quantity: -btcCost,
               avg_cost: 1,
               status: 'open',
-              notes: `Auto-created from CC BTC — ${position.ticker} $${position.strike} strike`,
+              notes: `Auto-created from BTC — ${position?.strategy ?? ''} ${position?.ticker ?? ''} $${position?.strike ?? ''} strike`,
               opened_at: new Date().toISOString().split('T')[0],
             });
 

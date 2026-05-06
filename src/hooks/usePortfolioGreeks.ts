@@ -7,6 +7,7 @@ import {
   calculatePositionGreeks,
   aggregatePortfolioGreeks,
   emptyPortfolioGreeks,
+  estimateVolatility,
   type PositionGreeks,
   type PortfolioGreeks,
 } from '../lib/blackScholes'
@@ -90,7 +91,7 @@ export function usePortfolioGreeks(): {
         const currentPrice = livePrice ?? iv?.current_price ?? 0
         const impliedVolatility = iv?.current_hv != null
           ? Number(iv.current_hv) / 100
-          : getDefaultIV(pos.ticker)
+          : estimateVolatility(pos.ticker)
 
         const ivSource: PositionGreeks['ivSource'] =
           livePrice && iv?.current_hv ? 'polygon_live'
@@ -126,12 +127,3 @@ export function usePortfolioGreeks(): {
   }
 }
 
-function getDefaultIV(ticker: string): number {
-  const defaults: Record<string, number> = {
-    GME: 1.20, MARA: 1.40, SOFI: 0.80, COIN: 1.00,
-    MSTR: 1.10, RIOT: 1.20, TSLA: 0.65, NVDA: 0.55,
-    AMD: 0.55, META: 0.40, AAPL: 0.28, MSFT: 0.28,
-    SPY: 0.18, QQQ: 0.22, IWM: 0.25,
-  }
-  return defaults[ticker] ?? 0.50
-}

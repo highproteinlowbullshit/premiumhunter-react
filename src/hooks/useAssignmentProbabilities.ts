@@ -35,6 +35,7 @@ export function useAssignmentProbabilities(
         .from('iv_snapshots')
         .select('ticker, hv_30, snapshot_date')
         .in('ticker', tickers)
+        .eq('calculation_success', true)
         .order('snapshot_date', { ascending: false })
         .limit(tickers.length * 3);
       return data ?? [];
