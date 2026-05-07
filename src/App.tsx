@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-route
 import { lazy, Suspense, useState, useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './context/AuthContext';
+import { useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import { WatchlistProvider } from './context/WatchlistContext';
 import { PaperModeProvider } from './context/PaperModeContext';
@@ -76,6 +77,7 @@ function AppInner() {
   const [leapsCalcOpen, setLeapsCalcOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const navigate = useNavigate();
+  const { user } = useAuth();
   useLastSeen();
 
   useEffect(() => {
@@ -98,22 +100,26 @@ function AppInner() {
 
   return (
     <div style={{ minHeight: '100vh' }}>
-      <Navbar
-        onOpenLeapsCalc={() => setLeapsCalcOpen(true)}
-        onOpenShortcuts={() => setShortcutsOpen(true)}
-      />
-      <Suspense fallback={null}>
-        <LeapsCalculator isOpen={leapsCalcOpen} onClose={() => setLeapsCalcOpen(false)} />
-      </Suspense>
-      {shortcutsOpen && <ShortcutsModal onClose={() => setShortcutsOpen(false)} />}
-      <WelcomeModal />
-      <SwitchOffListener />
-      <PaperBanner />
+      {user && (
+        <>
+          <Navbar
+            onOpenLeapsCalc={() => setLeapsCalcOpen(true)}
+            onOpenShortcuts={() => setShortcutsOpen(true)}
+          />
+          <Suspense fallback={null}>
+            <LeapsCalculator isOpen={leapsCalcOpen} onClose={() => setLeapsCalcOpen(false)} />
+          </Suspense>
+          {shortcutsOpen && <ShortcutsModal onClose={() => setShortcutsOpen(false)} />}
+          <WelcomeModal />
+          <SwitchOffListener />
+          <PaperBanner />
+          <MobileNav />
+        </>
+      )}
       <ToastContainer />
-      <MobileNav />
       <Sentry.ErrorBoundary fallback={(props) => <ErrorFallback onReset={props.resetError} />}>
         <Suspense fallback={<PageLoader />}>
-          <div className="mobile-nav-pad">
+          <div className={user ? 'mobile-nav-pad' : ''}>
           <Routes>
             {/* Public */}
             <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />

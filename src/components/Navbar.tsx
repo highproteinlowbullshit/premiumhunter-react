@@ -206,9 +206,10 @@ export function Navbar({ onOpenLeapsCalc, onOpenShortcuts }: NavbarProps) {
           )}
 
           {user ? (
-            <div className="hidden xl:flex items-center gap-2">
+            <div className="hidden lg:flex items-center gap-1">
+              {/* Avatar pill — only at xl where there's room */}
               <div
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg"
+                className="hidden xl:flex items-center gap-2 px-3 py-1.5 rounded-lg"
                 style={{
                   background: 'rgba(0,229,196,0.06)',
                   border: '1px solid rgba(0,229,196,0.12)',
@@ -227,14 +228,13 @@ export function Navbar({ onOpenLeapsCalc, onOpenShortcuts }: NavbarProps) {
                   {displayName}
                 </span>
               </div>
+              {/* Sign out — always visible on desktop as a consistent icon button */}
               <button
                 onClick={handleSignOut}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 hover:bg-[rgba(255,77,109,0.1)]"
-                style={{ color: 'var(--ph-text-3)', fontFamily: 'DM Sans, sans-serif', border: '1px solid transparent' }}
+                className="w-9 h-9 flex items-center justify-center rounded-lg transition-all duration-200 hover:bg-[rgba(255,77,109,0.08)] text-[#6a8fb0] hover:text-[#ff4d6d]"
                 title="Sign out"
               >
                 <SignOutIcon />
-                Sign out
               </button>
             </div>
           ) : (

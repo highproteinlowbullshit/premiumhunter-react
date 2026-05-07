@@ -175,7 +175,6 @@ function UsersTable({ users, isLoading, searchQuery, tierFilter, onSelectUser, o
                 >
                   <option value="free">Free</option>
                   <option value="pro">Pro</option>
-                  <option value="premium">Premium</option>
                   <option value="superuser">Superuser</option>
                 </select>
               </td>
@@ -342,7 +341,7 @@ function UserDetailPanel({ user, onClose, onChangeTier, onBanUser, onAddNote, is
         <div style={{ marginBottom: 20 }}>
           <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ph-text-3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>Change tier</div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
-            {(['free', 'pro', 'premium', 'superuser'] as const).map(t => (
+            {(['free', 'pro', 'superuser'] as const).map(t => (
               <button
                 key={t}
                 onClick={() => setNewTier(t)}
@@ -477,7 +476,7 @@ export function AdminPage() {
   if (!isSuperuser) return <Navigate to="/dashboard" replace />
 
   const allUsers = users.data ?? []
-  const tierCounts = { pro: 0, premium: 0, free: 0, superuser: 0 }
+  const tierCounts = { pro: 0, free: 0, superuser: 0 }
   allUsers.forEach(u => { if (u.tier in tierCounts) (tierCounts as any)[u.tier]++ })
 
   return (
@@ -499,7 +498,6 @@ export function AdminPage() {
           {[
             { label: 'Total', value: allUsers.length, color: 'var(--ph-text-1)' },
             { label: 'Pro', value: tierCounts.pro, color: '#00e5c4' },
-            { label: 'Premium', value: tierCounts.premium, color: '#8b5cf6' },
             { label: 'Free', value: tierCounts.free, color: 'var(--ph-text-3)' },
           ].map(pill => (
             <div key={pill.label} style={{
@@ -564,7 +562,6 @@ export function AdminPage() {
               <option value="all">All tiers</option>
               <option value="free">Free</option>
               <option value="pro">Pro</option>
-              <option value="premium">Premium</option>
               <option value="superuser">Superuser</option>
             </select>
           </div>

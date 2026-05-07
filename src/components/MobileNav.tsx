@@ -33,7 +33,7 @@ export function MobileNav() {
           />
           {/* Panel */}
           <div style={{
-            position: 'fixed', bottom: 60, left: 0, right: 0, zIndex: 50,
+            position: 'fixed', bottom: 72, left: 0, right: 0, zIndex: 50,
             background: 'var(--ph-navbar-bg)',
             borderTop: '1px solid var(--ph-border-md)',
             borderRadius: '16px 16px 0 0',
@@ -73,7 +73,7 @@ export function MobileNav() {
       <nav
         className="lg:hidden fixed bottom-0 left-0 right-0 z-50 flex"
         style={{
-          height: 60,
+          height: 72,
           background: 'var(--ph-navbar-bg)',
           borderTop: '1px solid var(--ph-border-md)',
           backdropFilter: 'blur(20px)',
@@ -92,7 +92,7 @@ export function MobileNav() {
                 background: 'transparent',
                 color: active ? '#00e5c4' : 'var(--ph-text-nav-inactive)',
                 cursor: 'pointer',
-                paddingBottom: 6,
+                paddingBottom: 10,
                 transition: 'color 0.15s ease',
               }}
             >
