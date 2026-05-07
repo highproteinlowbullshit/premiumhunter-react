@@ -1,11 +1,12 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 
 const TABS = [
-  { path: '/dashboard', label: 'Home',     icon: HomeIcon    },
-  { path: '/screener',  label: 'Screen',   icon: ScreenIcon  },
-  { path: '/wheel',     label: 'Track',    icon: TrackIcon   },
-  { path: '/portfolio', label: 'Portfolio', icon: PortIcon   },
-  { path: '/help',      label: 'Help',     icon: HelpIcon    },
+  { path: '/dashboard', label: 'Home',      icon: HomeIcon      },
+  { path: '/watchlist', label: 'Watchlist', icon: WatchlistIcon },
+  { path: '/screener',  label: 'Screen',    icon: ScreenIcon    },
+  { path: '/wheel',     label: 'Track',     icon: TrackIcon     },
+  { path: '/portfolio', label: 'Portfolio', icon: PortIcon      },
+  { path: '/help',      label: 'Help',      icon: HelpIcon      },
 ];
 
 export function MobileNav() {
@@ -42,7 +43,7 @@ export function MobileNav() {
             }}
           >
             <Icon active={active} />
-            <span style={{ fontSize: 10, fontWeight: active ? 600 : 400, fontFamily: 'DM Sans, sans-serif', lineHeight: 1 }}>
+            <span style={{ fontSize: 9, fontWeight: active ? 600 : 400, fontFamily: 'DM Sans, sans-serif', lineHeight: 1 }}>
               {label}
             </span>
           </button>
@@ -59,6 +60,18 @@ function HomeIcon({ active }: { active: boolean }) {
         stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"
         fill={active ? 'rgba(0,229,196,0.15)' : 'none'} />
       <path d="M7.5 18v-5h5v5" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function WatchlistIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor" strokeWidth="1.3"
+        fill={active ? 'rgba(0,229,196,0.12)' : 'none'} />
+      <line x1="6" y1="7" x2="14" y2="7" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+      <line x1="6" y1="10" x2="14" y2="10" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+      <line x1="6" y1="13" x2="10" y2="13" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
     </svg>
   );
 }

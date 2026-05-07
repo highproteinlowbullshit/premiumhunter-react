@@ -194,9 +194,9 @@ export function Navbar({ onOpenLeapsCalc, onOpenShortcuts }: NavbarProps) {
             </button>
           )}
 
-          {/* Hamburger — visible below lg */}
+          {/* Hamburger — tablet only (md–lg), mobile uses bottom nav instead */}
           <button
-            className="lg:hidden w-9 h-9 rounded-lg flex items-center justify-center transition-colors"
+            className="hidden md:flex lg:hidden w-9 h-9 rounded-lg items-center justify-center transition-colors"
             style={{ color: 'var(--ph-text-nav-inactive)' }}
             onClick={() => setMobileOpen(!mobileOpen)}
           >
@@ -205,9 +205,9 @@ export function Navbar({ onOpenLeapsCalc, onOpenShortcuts }: NavbarProps) {
         </div>
       </div>
 
-      {/* Mobile / tablet dropdown — slides down below header */}
+      {/* Tablet dropdown (md–lg only, phone uses bottom nav) */}
       {mobileOpen && (
-        <div className="lg:hidden absolute top-16 left-0 right-0 py-2 px-4"
+        <div className="hidden md:block lg:hidden absolute top-16 left-0 right-0 py-2 px-4"
           style={{
             background: 'var(--ph-navbar-mobile-bg)',
             borderBottom: '1px solid var(--ph-border-md)',
