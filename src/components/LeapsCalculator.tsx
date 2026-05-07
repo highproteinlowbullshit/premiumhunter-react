@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useSubscription } from '../hooks/useSubscription';
 import { AlertTriangle, Check } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, Tooltip as RechartsTooltip,
@@ -73,6 +75,8 @@ export function LeapsCalculator({
   initialContracts = 1,
   initialCostBasis,
 }: LeapsCalculatorProps) {
+  const { isFree } = useSubscription();
+  const navigate = useNavigate();
   const today = new Date().toISOString().split('T')[0];
   const oneYear = new Date(Date.now() + 365 * 86400000).toISOString().split('T')[0];
 
@@ -360,6 +364,51 @@ export function LeapsCalculator({
             ×
           </button>
         </div>
+
+        {/* Gate wrapper — blurs content for free users */}
+        <div style={{ position: 'relative' }}>
+          {isFree && (
+            <div style={{
+              position: 'absolute', inset: 0, zIndex: 10,
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+              background: 'rgba(9,18,40,0.6)',
+              backdropFilter: 'blur(2px)',
+              WebkitBackdropFilter: 'blur(2px)',
+              borderRadius: 8,
+            }}>
+              <div style={{
+                background: 'rgba(13,27,53,0.95)',
+                border: '1px solid rgba(0,229,196,0.2)',
+                borderRadius: 12, padding: '28px 32px',
+                textAlign: 'center', maxWidth: 300,
+              }}>
+                <div style={{ fontSize: 28, marginBottom: 12 }}>🔒</div>
+                <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8, fontFamily: 'Syne, sans-serif', color: '#e8f0fe' }}>
+                  Pro Feature
+                </div>
+                <p style={{ fontSize: 13, color: '#9ab4d4', lineHeight: 1.6, margin: '0 0 20px' }}>
+                  The LEAPS Calculator is available on the Pro plan. Upgrade to value long-dated options with Black-Scholes.
+                </p>
+                <button
+                  onClick={() => { onClose(); navigate('/upgrade'); }}
+                  style={{
+                    width: '100%', padding: '10px 0',
+                    background: '#14b8a6', color: '#0f1923',
+                    border: 'none', borderRadius: 8,
+                    fontSize: 14, fontWeight: 700, cursor: 'pointer',
+                  }}
+                >
+                  Unlock with Pro →
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div style={{
+            filter: isFree ? 'blur(4px)' : 'none',
+            pointerEvents: isFree ? 'none' : 'auto',
+            userSelect: isFree ? 'none' : 'auto',
+          }}>
 
         {/* ── Inputs ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 20 }}>
@@ -997,6 +1046,8 @@ export function LeapsCalculator({
             </p>
           </>
         )}
+          </div>{/* end blur wrapper */}
+        </div>{/* end gate wrapper */}
       </div>
     </>
   );

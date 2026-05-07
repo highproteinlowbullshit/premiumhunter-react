@@ -102,9 +102,9 @@ export function UpgradePage() {
             </div>
             <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 6, color: '#14b8a6' }}>Pro</div>
             <div style={{ fontSize: 34, fontWeight: 700, marginBottom: 4 }}>
-              $29
+              $399
               <span style={{ fontSize: 14, fontWeight: 400, color: 'var(--ph-text-2)', marginLeft: 4 }}>
-                / month
+                / year
               </span>
             </div>
             <p style={{ fontSize: 13, color: 'var(--ph-text-2)', lineHeight: 1.5, margin: '0 0 20px' }}>
@@ -151,7 +151,7 @@ export function UpgradePage() {
           <div style={{
             background: 'rgba(13,27,53,0.5)',
             border: '1px solid rgba(0,229,196,0.08)',
-            borderRadius: 12, padding: '28px 32px',
+            borderRadius: 12, padding: '28px 20px',
             textAlign: 'center', marginBottom: 32,
           }}>
             <h2 style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 700, fontFamily: 'Syne, sans-serif' }}>
@@ -165,17 +165,23 @@ export function UpgradePage() {
               you set up — usually within a few hours.
             </p>
             <div style={{
-              display: 'inline-flex', alignItems: 'center', gap: 10,
-              padding: '10px 20px',
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '10px 14px',
               background: 'rgba(13,27,53,0.8)',
               border: '1px solid rgba(0,229,196,0.15)',
               borderRadius: 8, marginBottom: 20,
+              maxWidth: 420, marginLeft: 'auto', marginRight: 'auto',
+              boxSizing: 'border-box', overflow: 'hidden',
             }}>
-              <span style={{ fontSize: 15, fontWeight: 500, fontFamily: 'JetBrains Mono, monospace' }}>
+              <span style={{
+                fontSize: 13, fontWeight: 500, fontFamily: 'JetBrains Mono, monospace',
+                flex: 1, minWidth: 0,
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              }}>
                 {SUPPORT_EMAIL}
               </span>
               <button onClick={handleCopyEmail} style={{
-                padding: '3px 10px',
+                padding: '3px 10px', flexShrink: 0,
                 background: emailCopied ? 'rgba(20,184,166,0.15)' : 'rgba(0,229,196,0.06)',
                 border: '1px solid rgba(0,229,196,0.15)',
                 borderRadius: 4, fontSize: 11,
@@ -210,7 +216,7 @@ export function UpgradePage() {
         <div style={{
           background: 'rgba(13,27,53,0.5)',
           border: '1px solid rgba(0,229,196,0.08)',
-          borderRadius: 12, padding: '24px 28px',
+          borderRadius: 12, padding: '24px 20px',
         }}>
           <h3 style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 600, fontFamily: 'Syne, sans-serif' }}>
             Questions
