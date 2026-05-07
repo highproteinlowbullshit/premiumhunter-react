@@ -91,7 +91,9 @@ function EmptyGreeks() {
 // ── Zone A: Theta hero ────────────────────────────────────────────────────────
 
 function ZoneThetaHero({ greeks }: { greeks: PortfolioGreeks }) {
-  const [showDates, setShowDates] = useState(false)
+  const [showDates, setShowDates] = useState(() => {
+    try { return localStorage.getItem('ph-theta-mode') === 'dates'; } catch { return false; }
+  })
 
   const projectionData = useMemo(
     () => generateThetaProjection(greeks.dailyThetaIncome, greeks.weightedAverageDTE),
@@ -194,7 +196,11 @@ function ZoneThetaHero({ greeks }: { greeks: PortfolioGreeks }) {
                 return (
                   <button
                     key={opt}
-                    onClick={() => setShowDates(opt === 'Dates')}
+                    onClick={() => {
+                      const next = opt === 'Dates'
+                      setShowDates(next)
+                      try { localStorage.setItem('ph-theta-mode', next ? 'dates' : 'days'); } catch { /* ignore */ }
+                    }}
                     className="text-xs px-2.5 py-1 transition-all"
                     style={{
                       fontFamily: 'DM Sans, sans-serif',
