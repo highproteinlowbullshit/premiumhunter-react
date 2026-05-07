@@ -17,6 +17,7 @@ import { ProtectedRoute, GuestRoute } from './components/ProtectedRoute';
 import { DemoBanner } from './components/DemoBanner';
 import { PageLoader } from './components/PageLoader';
 import { Dashboard } from './pages/Dashboard';
+import { useLastSeen } from './hooks/useLastSeen';
 
 const LeapsCalculator  = lazy(() => import('./components/LeapsCalculator').then(m => ({ default: m.LeapsCalculator })));
 const Watchlist        = lazy(() => import('./pages/Watchlist').then(m => ({ default: m.Watchlist })));
@@ -30,6 +31,8 @@ const ResetPassword    = lazy(() => import('./pages/ResetPassword').then(m => ({
 const NotFound         = lazy(() => import('./pages/NotFound').then(m => ({ default: m.NotFound })));
 const Portfolio        = lazy(() => import('./pages/Portfolio').then(m => ({ default: m.Portfolio })));
 const HelpPage         = lazy(() => import('./pages/HelpPage').then(m => ({ default: m.HelpPage })));
+const AdminPage        = lazy(() => import('./pages/AdminPage').then(m => ({ default: m.AdminPage })));
+const UpgradePage      = lazy(() => import('./pages/UpgradePage').then(m => ({ default: m.UpgradePage })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -72,6 +75,7 @@ function AppInner() {
   const [leapsCalcOpen, setLeapsCalcOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const navigate = useNavigate();
+  useLastSeen();
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -125,6 +129,8 @@ function AppInner() {
             <Route path="/wheel" element={<ProtectedRoute><WheelTracker /></ProtectedRoute>} />
             <Route path="/screener" element={<ProtectedRoute><Screener /></ProtectedRoute>} />
             <Route path="/portfolio" element={<ProtectedRoute><Portfolio /></ProtectedRoute>} />
+            <Route path="/upgrade" element={<ProtectedRoute><UpgradePage /></ProtectedRoute>} />
+            <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
 
             {/* Catch-all */}
             <Route path="*" element={<NotFound />} />

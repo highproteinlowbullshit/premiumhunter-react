@@ -2,6 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { usePaperMode } from '../context/PaperModeContext';
+import { useSubscription } from '../hooks/useSubscription';
 
 const NAV_ITEMS = [
   { to: '/dashboard', label: 'Dashboard',    icon: GridIcon      },
@@ -22,6 +23,7 @@ export function Navbar({ onOpenLeapsCalc, onOpenShortcuts }: NavbarProps) {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const { isPaperMode, togglePaperMode } = usePaperMode();
+  const { isSuperuser } = useSubscription();
 
   useEffect(() => {
     document.title = isPaperMode ? 'Paper Mode — Premium Hunter' : 'Premium Hunter';
@@ -144,6 +146,25 @@ export function Navbar({ onOpenLeapsCalc, onOpenShortcuts }: NavbarProps) {
             >
               PAPER
             </span>
+          )}
+
+          {isSuperuser && (
+            <NavLink
+              to="/admin"
+              style={({ isActive }) => ({
+                padding: '4px 10px',
+                background: isActive ? 'rgba(245,200,66,0.2)' : 'rgba(245,200,66,0.10)',
+                color: '#f5c842',
+                borderRadius: 6,
+                fontSize: 12,
+                fontWeight: 600,
+                textDecoration: 'none',
+                border: '1px solid rgba(245,200,66,0.25)',
+                whiteSpace: 'nowrap',
+              })}
+            >
+              ⚡ Admin
+            </NavLink>
           )}
 
           {user ? (
