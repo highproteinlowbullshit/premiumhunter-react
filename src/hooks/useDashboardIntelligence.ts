@@ -135,6 +135,12 @@ export interface DashboardIntelligence {
     annualisedReturn: number;
     sector: string;
   } | null;
+  topOpportunities: Array<{
+    ticker: string;
+    ivRank: number;
+    estimatedPremium: number;
+    annualisedReturn: number;
+  }>;
 
   earningsThisWeek: Array<{
     ticker: string;
@@ -933,24 +939,27 @@ export function useDashboardIntelligence() {
       const highIV = ivSnaps.filter(s => (s.iv_rank ?? 0) >= 60);
       const surging = ivSnaps.filter(s => (s.iv_rank ?? 0) >= 50);
 
-      const topRaw = ivSnaps.find(s => !openTickers.has(s.ticker) && (s.iv_rank ?? 0) >= 50);
+      const calcOpp = (s: typeof ivSnaps[0]) => {
+        const iv = (s.current_hv ?? 40) / 100;
+        const price = s.current_price ?? 50;
+        const dte = 30;
+        const premium = price * Math.max(iv, 0.2) * Math.sqrt(dte / 365) * 0.4;
+        const strike = price * (1 - Math.max(iv, 0.2) * Math.sqrt(dte / 365) * 0.5);
+        const ann = strike > 0 ? (premium / strike) * (365 / dte) * 100 : 0;
+        return {
+          ticker: s.ticker,
+          ivRank: s.iv_rank ?? 0,
+          estimatedPremium: Math.round(premium * 100) / 100,
+          annualisedReturn: Math.round(ann * 10) / 10,
+        };
+      };
+
+      const eligibleSnaps = ivSnaps.filter(s => !openTickers.has(s.ticker) && (s.iv_rank ?? 0) >= 50);
+      const topOpportunities = eligibleSnaps.slice(0, 5).map(calcOpp);
+
+      const topRaw = eligibleSnaps[0] ?? null;
       const topOpportunity: DashboardIntelligence['topOpportunity'] = topRaw
-        ? (() => {
-            const iv = (topRaw.current_hv ?? 40) / 100;
-            const price = topRaw.current_price ?? 50;
-            const dte = 30;
-            const premium = price * Math.max(iv, 0.2) * Math.sqrt(dte / 365) * 0.4;
-            const strike = price * (1 - Math.max(iv, 0.2) * Math.sqrt(dte / 365) * 0.5);
-            const ann = strike > 0 ? (premium / strike) * (365 / dte) * 100 : 0;
-            return {
-              ticker: topRaw.ticker,
-              ivRank: topRaw.iv_rank ?? 0,
-              ivTrend: 'elevated',
-              estimatedPremium: Math.round(premium * 100) / 100,
-              annualisedReturn: Math.round(ann * 10) / 10,
-              sector: 'Unknown',
-            };
-          })()
+        ? { ...calcOpp(topRaw), ivTrend: 'elevated', sector: 'Unknown' }
         : null;
 
       // ── Watchlist ──────────────────────────────────────────────────────────
@@ -1026,6 +1035,7 @@ export function useDashboardIntelligence() {
         highIVCount: highIV.length,
         surgingIVCount: surging.length,
         topOpportunity,
+        topOpportunities,
         earningsThisWeek,
 
         watchlistCount: watchlist.length,

@@ -423,63 +423,70 @@ function ScreenerPulseColumn({ d }: { d: DashboardIntelligence }) {
   const navigate = useNavigate();
   const ivColor = d.highIVCount >= 10 ? '#00d68f' : d.highIVCount >= 5 ? '#f5c842' : '#ff4d6d';
 
+  const ivRankColor = (rank: number) =>
+    rank >= 80 ? '#00d68f' : rank >= 65 ? '#00e5c4' : rank >= 50 ? '#f5c842' : '#9ab4d4';
+
   return (
-    <div style={{ flex: 1, minWidth: 0, height: '100%', background: 'rgba(13,27,53,0.5)', border: '1px solid rgba(0,229,196,0.08)', borderRadius: 12, padding: '14px 16px', boxSizing: 'border-box' }}>
-      <div style={{ marginBottom: 10 }}>
+    <div style={{ flex: 1, minWidth: 0, height: '100%', background: 'rgba(13,27,53,0.5)', border: '1px solid rgba(0,229,196,0.08)', borderRadius: 12, padding: '14px 16px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
+      {/* Header row */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
         <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ph-text-3)', fontFamily: 'DM Sans, sans-serif', letterSpacing: '0.07em', textTransform: 'uppercase' }}>
           Market pulse
         </span>
+        <span style={{ fontSize: 11, color: ivColor, fontFamily: 'JetBrains Mono, monospace', fontWeight: 600 }}>
+          {d.highIVCount} elevated
+        </span>
       </div>
 
-      {/* High IV count */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-        <span style={{ fontSize: 12, color: 'var(--ph-text-2)', fontFamily: 'DM Sans, sans-serif' }}>Elevated IV stocks (&gt;60)</span>
-        <span style={{ fontSize: 13, fontWeight: 700, color: ivColor, fontFamily: 'JetBrains Mono, monospace' }}>{d.highIVCount}</span>
-      </div>
+      {/* Top 5 opportunities */}
+      {d.topOpportunities.length > 0 ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
+          {/* Column headers */}
+          <div style={{ display: 'grid', gridTemplateColumns: '16px 1fr auto auto', columnGap: 8, paddingBottom: 4, borderBottom: '1px solid rgba(0,229,196,0.08)', marginBottom: 2 }}>
+            <span />
+            <span style={{ fontSize: 10, color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Ticker</span>
+            <span style={{ fontSize: 10, color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'right' }}>IV Rank</span>
+            <span style={{ fontSize: 10, color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'right' }}>Est. Ann.</span>
+          </div>
 
-      {/* Top opportunity */}
-      {d.topOpportunity && (
-        <div style={{ padding: '8px 10px', background: 'rgba(0,229,196,0.05)', border: '1px solid rgba(0,229,196,0.1)', borderRadius: 8, marginBottom: 8 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: 12, fontWeight: 700, color: '#00e5c4', fontFamily: 'JetBrains Mono, monospace' }}>
-              {d.topOpportunity.ticker}
-            </span>
-            <span style={{ fontSize: 11, color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
-              IV rank {d.topOpportunity.ivRank}
-            </span>
-          </div>
-          <div style={{ fontSize: 11, color: 'var(--ph-text-3)', fontFamily: 'DM Sans, sans-serif', marginTop: 2 }}>
-            Est. {d.topOpportunity.annualisedReturn.toFixed(0)}% ann. return at 30-delta
-          </div>
+          {d.topOpportunities.map((opp, i) => (
+            <div
+              key={opp.ticker}
+              style={{ display: 'grid', gridTemplateColumns: '16px 1fr auto auto', columnGap: 8, alignItems: 'center', padding: '3px 0' }}
+            >
+              <span style={{ fontSize: 10, color: '#4a6a8a', fontFamily: 'JetBrains Mono, monospace', textAlign: 'right' }}>
+                {i + 1}
+              </span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: i === 0 ? '#00e5c4' : 'var(--ph-text-1)', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '0.02em' }}>
+                {opp.ticker}
+              </span>
+              <span style={{ fontSize: 11, fontWeight: 600, color: ivRankColor(opp.ivRank), fontFamily: 'JetBrains Mono, monospace', textAlign: 'right' }}>
+                {opp.ivRank}
+              </span>
+              <span style={{ fontSize: 11, color: '#00d68f', fontFamily: 'JetBrains Mono, monospace', textAlign: 'right' }}>
+                {opp.annualisedReturn.toFixed(0)}%
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
+          <span style={{ fontSize: 12, color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>No elevated IV opportunities right now</span>
         </div>
       )}
 
-      {/* Watchlist best */}
-      {d.watchlistBestOpportunity && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-          <span style={{ fontSize: 12, color: 'var(--ph-text-2)', fontFamily: 'DM Sans, sans-serif' }}>
-            Watchlist: <strong style={{ color: '#00e5c4' }}>{d.watchlistBestOpportunity.ticker}</strong>
-          </span>
-          <span style={{ fontSize: 11, color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
-            IV rank {d.watchlistBestOpportunity.ivRank}
-          </span>
-        </div>
-      )}
-
-      {/* Earnings warnings */}
+      {/* Earnings warning — compact */}
       {d.earningsThisWeek.length > 0 && (
-        <div style={{ padding: '6px 10px', background: 'rgba(255,77,109,0.06)', border: '1px solid rgba(255,77,109,0.15)', borderRadius: 8, marginBottom: 8 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#ff4d6d', fontFamily: 'DM Sans, sans-serif', marginBottom: 2 }}>
-            <AlertTriangle size={10} strokeWidth={2} />
-            Earnings this week:
-          </div>
-          <div style={{ fontSize: 12, color: 'var(--ph-text-2)', fontFamily: 'JetBrains Mono, monospace' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 8, padding: '5px 8px', background: 'rgba(255,77,109,0.06)', border: '1px solid rgba(255,77,109,0.15)', borderRadius: 6 }}>
+          <AlertTriangle size={10} strokeWidth={2} style={{ color: '#ff4d6d', flexShrink: 0 }} />
+          <span style={{ fontSize: 11, color: '#ff4d6d', fontFamily: 'DM Sans, sans-serif' }}>Earnings:</span>
+          <span style={{ fontSize: 11, color: 'var(--ph-text-2)', fontFamily: 'JetBrains Mono, monospace' }}>
             {d.earningsThisWeek.map(e => e.ticker).join(', ')}
-          </div>
+          </span>
         </div>
       )}
 
-      <button onClick={() => navigate('/screener')} style={{ marginTop: 6, fontSize: 11, color: '#00e5c4', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', padding: 0 }}>
+      <button onClick={() => navigate('/screener')} style={{ marginTop: 8, fontSize: 11, color: '#00e5c4', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', padding: 0, textAlign: 'left' }}>
         Open screener →
       </button>
     </div>
