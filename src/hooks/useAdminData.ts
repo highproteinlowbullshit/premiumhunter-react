@@ -45,6 +45,9 @@ export function useAdminData() {
       return data.users ?? []
     },
     staleTime: 60 * 1000,
+    refetchOnMount: true,
+    retry: 2,
+    retryDelay: 2000,
     enabled: isSuperuser,
   })
 
@@ -56,6 +59,9 @@ export function useAdminData() {
       return data.logs ?? []
     },
     staleTime: 30 * 1000,
+    refetchOnMount: true,
+    retry: 2,
+    retryDelay: 2000,
     enabled: isSuperuser,
   })
 

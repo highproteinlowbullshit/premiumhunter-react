@@ -49,13 +49,15 @@ function TierBadge({ tier, large = false }: { tier: string; large?: boolean }) {
 interface UsersTableProps {
   users: AdminUser[]
   isLoading: boolean
+  isError: boolean
+  onRetry: () => void
   searchQuery: string
   tierFilter: string
   onSelectUser: (u: AdminUser) => void
   onChangeTier: (userId: string, newTier: string) => void
 }
 
-function UsersTable({ users, isLoading, searchQuery, tierFilter, onSelectUser, onChangeTier }: UsersTableProps) {
+function UsersTable({ users, isLoading, isError, onRetry, searchQuery, tierFilter, onSelectUser, onChangeTier }: UsersTableProps) {
   const filtered = users.filter(u => {
     const matchesSearch = !searchQuery
       || u.email?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -68,6 +70,26 @@ function UsersTable({ users, isLoading, searchQuery, tierFilter, onSelectUser, o
     return (
       <div style={{ padding: 40, textAlign: 'center', color: 'var(--ph-text-3)', fontSize: 13 }}>
         Loading users...
+      </div>
+    )
+  }
+
+  if (isError) {
+    return (
+      <div style={{ padding: 40, textAlign: 'center' }}>
+        <div style={{ color: '#ff4d6d', fontSize: 13, marginBottom: 12 }}>
+          Failed to load users. Your session may have expired.
+        </div>
+        <button
+          onClick={onRetry}
+          style={{
+            padding: '7px 18px', background: 'rgba(0,229,196,0.1)',
+            border: '1px solid rgba(0,229,196,0.25)', borderRadius: 6,
+            color: '#00e5c4', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+          }}
+        >
+          Retry
+        </button>
       </div>
     )
   }
@@ -569,6 +591,8 @@ export function AdminPage() {
             <UsersTable
               users={allUsers}
               isLoading={users.isLoading}
+              isError={users.isError}
+              onRetry={() => users.refetch()}
               searchQuery={searchQuery}
               tierFilter={tierFilter}
               onSelectUser={setSelectedUser}

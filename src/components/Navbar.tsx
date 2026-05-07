@@ -151,8 +151,8 @@ export function Navbar({ onOpenLeapsCalc, onOpenShortcuts }: NavbarProps) {
           {isSuperuser && (
             <NavLink
               to="/admin"
+              className="hidden md:flex"
               style={({ isActive }) => ({
-                display: 'flex',
                 alignItems: 'center',
                 gap: 5,
                 padding: '4px 10px',
@@ -174,9 +174,9 @@ export function Navbar({ onOpenLeapsCalc, onOpenShortcuts }: NavbarProps) {
             </NavLink>
           )}
 
-          {/* Tier badge for non-superusers */}
+          {/* Tier badge for non-superusers — hidden on mobile, shown at md+ */}
           {!isSuperuser && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div className="hidden md:flex" style={{ alignItems: 'center', gap: 8 }}>
               <span style={{
                 padding: '3px 10px',
                 borderRadius: 20,
