@@ -140,6 +140,7 @@ export interface DashboardIntelligence {
     ivRank: number;
     estimatedPremium: number;
     annualisedReturn: number;
+    daysToEarnings: number | null;
   }>;
 
   earningsThisWeek: Array<{
@@ -955,7 +956,23 @@ export function useDashboardIntelligence() {
       };
 
       const eligibleSnaps = ivSnaps.filter(s => !openTickers.has(s.ticker) && (s.iv_rank ?? 0) >= 50);
-      const topOpportunities = eligibleSnaps.slice(0, 5).map(calcOpp);
+      const top5Snaps = eligibleSnaps.slice(0, 5);
+      const top5Tickers = top5Snaps.map(s => s.ticker);
+      const oppEarningsResults = await Promise.allSettled(top5Tickers.map(t => getNextEarnings(t)));
+      const oppEarningsDaysMap = new Map<string, number | null>();
+      top5Tickers.forEach((ticker, i) => {
+        const r = oppEarningsResults[i];
+        if (r.status === 'fulfilled' && r.value) {
+          const days = Math.ceil((new Date(r.value).getTime() - now.getTime()) / 86_400_000);
+          oppEarningsDaysMap.set(ticker, days >= 0 ? days : null);
+        } else {
+          oppEarningsDaysMap.set(ticker, null);
+        }
+      });
+      const topOpportunities = top5Snaps.map(s => ({
+        ...calcOpp(s),
+        daysToEarnings: oppEarningsDaysMap.get(s.ticker) ?? null,
+      }));
 
       const topRaw = eligibleSnaps[0] ?? null;
       const topOpportunity: DashboardIntelligence['topOpportunity'] = topRaw

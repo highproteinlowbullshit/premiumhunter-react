@@ -662,7 +662,7 @@ export function usePositions() {
   // ── Derived values ──────────────────────────────────────────────────────────
   const openPositions = positions.filter((p) => p.status === 'open');
 
-  // Monthly avg P&L: total realized from all completed trades ÷ months elapsed since first trade
+  // Monthly avg P&L: total realized ÷ distinct calendar months that had at least one close
   const closedOnly = positions.filter((p) => p.status === 'closed' || p.status === 'assigned' || p.status === 'expired');
   const totalRealized = closedOnly.reduce(
     (acc, p) => {
@@ -676,15 +676,11 @@ export function usePositions() {
   );
   const monthlyPnL = (() => {
     if (closedOnly.length === 0) return 0;
-    const earliest = closedOnly.reduce(
-      (min, p) => (p.openedAt < min ? p.openedAt : min),
-      closedOnly[0].openedAt
+    // Use closedAt for closed positions; fall back to expiry for assigned/expired
+    const distinctMonths = new Set(
+      closedOnly.map(p => (p.closedAt ?? p.expiry ?? '').slice(0, 7)).filter(Boolean)
     );
-    const monthsElapsed = Math.max(
-      1,
-      (Date.now() - new Date(earliest).getTime()) / (1000 * 60 * 60 * 24 * 30.44)
-    );
-    return totalRealized / monthsElapsed;
+    return totalRealized / Math.max(1, distinctMonths.size);
   })();
 
   return { positions, openPositions, monthlyPnL, isLoading, addPosition, removePosition, closePosition, editPosition, assignPosition };

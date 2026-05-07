@@ -442,32 +442,39 @@ function ScreenerPulseColumn({ d }: { d: DashboardIntelligence }) {
       {d.topOpportunities.length > 0 ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
           {/* Column headers */}
-          <div style={{ display: 'grid', gridTemplateColumns: '16px 1fr auto auto', columnGap: 8, paddingBottom: 4, borderBottom: '1px solid rgba(0,229,196,0.08)', marginBottom: 2 }}>
-            <span />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 40px 44px 46px', columnGap: 6, paddingBottom: 4, borderBottom: '1px solid rgba(0,229,196,0.08)', marginBottom: 2 }}>
             <span style={{ fontSize: 10, color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Ticker</span>
             <span style={{ fontSize: 10, color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'right' }}>IV Rank</span>
+            <span style={{ fontSize: 10, color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'right' }}>Earn.</span>
             <span style={{ fontSize: 10, color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'right' }}>Est. Ann.</span>
           </div>
 
-          {d.topOpportunities.map((opp, i) => (
-            <div
-              key={opp.ticker}
-              style={{ display: 'grid', gridTemplateColumns: '16px 1fr auto auto', columnGap: 8, alignItems: 'center', padding: '3px 0' }}
-            >
-              <span style={{ fontSize: 10, color: '#4a6a8a', fontFamily: 'JetBrains Mono, monospace', textAlign: 'right' }}>
-                {i + 1}
-              </span>
-              <span style={{ fontSize: 12, fontWeight: 700, color: i === 0 ? '#00e5c4' : 'var(--ph-text-1)', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '0.02em' }}>
-                {opp.ticker}
-              </span>
-              <span style={{ fontSize: 11, fontWeight: 600, color: ivRankColor(opp.ivRank), fontFamily: 'JetBrains Mono, monospace', textAlign: 'right' }}>
-                {opp.ivRank}
-              </span>
-              <span style={{ fontSize: 11, color: '#00d68f', fontFamily: 'JetBrains Mono, monospace', textAlign: 'right' }}>
-                {opp.annualisedReturn.toFixed(0)}%
-              </span>
-            </div>
-          ))}
+          {d.topOpportunities.map((opp, i) => {
+            const earningsColor = opp.daysToEarnings != null && opp.daysToEarnings <= 7
+              ? '#ff4d6d'
+              : opp.daysToEarnings != null && opp.daysToEarnings <= 14
+              ? '#f5c842'
+              : '#4a6a8a';
+            return (
+              <div
+                key={opp.ticker}
+                style={{ display: 'grid', gridTemplateColumns: '1fr 40px 44px 46px', columnGap: 6, alignItems: 'center', padding: '3px 0' }}
+              >
+                <span style={{ fontSize: 12, fontWeight: 700, color: i === 0 ? '#00e5c4' : 'var(--ph-text-1)', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '0.02em' }}>
+                  {opp.ticker}
+                </span>
+                <span style={{ fontSize: 11, fontWeight: 600, color: ivRankColor(opp.ivRank), fontFamily: 'JetBrains Mono, monospace', textAlign: 'right' }}>
+                  {opp.ivRank}
+                </span>
+                <span style={{ fontSize: 11, color: earningsColor, fontFamily: 'JetBrains Mono, monospace', textAlign: 'right' }}>
+                  {opp.daysToEarnings != null ? `${opp.daysToEarnings}d` : '—'}
+                </span>
+                <span style={{ fontSize: 11, color: '#00d68f', fontFamily: 'JetBrains Mono, monospace', textAlign: 'right' }}>
+                  {opp.annualisedReturn.toFixed(0)}%
+                </span>
+              </div>
+            );
+          })}
         </div>
       ) : (
         <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
