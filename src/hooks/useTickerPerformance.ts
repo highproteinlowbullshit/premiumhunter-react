@@ -166,7 +166,6 @@ export function useTickerPerformance() {
           } else if (pos.closing_price !== null) {
             pnl = (Number(pos.premium_collected) - Number(pos.closing_price)) * Number(pos.contracts)
             if (pnl > 0) {
-              expiredCount++
               wins++
             }
           } else {

@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, keepPreviousData } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -7,7 +7,6 @@ import { useRealtimePrices } from './useRealtimePrices'
 import {
   calculatePositionGreeks,
   aggregatePortfolioGreeks,
-  emptyPortfolioGreeks,
   estimateVolatility,
   type PositionGreeks,
   type PortfolioGreeks,
@@ -128,7 +127,10 @@ export function usePortfolioGreeks(): {
     enabled: !positionsLoading && !!positions,
     staleTime: 60 * 1000,
     refetchInterval: 60 * 1000,
-    placeholderData: emptyPortfolioGreeks(),
+    // keepPreviousData: when priceKey changes (a live price crosses a dollar boundary),
+    // the queryKey changes and React Query would normally show placeholderData (zeros)
+    // while the new fetch runs. keepPreviousData shows the last good Greeks instead.
+    placeholderData: keepPreviousData,
   })
 
   return {
