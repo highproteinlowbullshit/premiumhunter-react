@@ -59,13 +59,18 @@ export function usePortfolioGreeks(): {
         .eq('calculation_success', true)
         .order('snapshot_date', { ascending: false })
         .limit((tickers.length + 1) * 3)
-      // Keep only the most recent row per ticker
-      const seen = new Set<string>()
-      const deduped: typeof data = []
+      // Most recent row per ticker, preferring rows with non-null current_price.
+      // Today's snapshot is written before market open so current_price can be null;
+      // fall back to yesterday's row which has a valid closing price.
+      type Row = NonNullable<typeof data>[0]
+      const best = new Map<string, Row>()
       for (const row of (data ?? [])) {
-        if (!seen.has(row.ticker)) { seen.add(row.ticker); deduped.push(row) }
+        const existing = best.get(row.ticker)
+        if (!existing || (existing.current_price == null && row.current_price != null)) {
+          best.set(row.ticker, row)
+        }
       }
-      return deduped
+      return Array.from(best.values())
     },
     staleTime: 6 * 60 * 60 * 1000,
     enabled: tickers.length > 0,
