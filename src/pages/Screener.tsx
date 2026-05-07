@@ -354,7 +354,6 @@ export function Screener() {
             your daily source for premium selling opportunities. Upgrade to Pro to access.
           </div>
         )}
-        <FeatureGate feature="screener" blurHeight={600}>
         {/* ── Stats bar ──────────────────────────────────────────────────── */}
         <StatsBar stats={stats} mounted={mounted} />
 
@@ -406,6 +405,7 @@ export function Screener() {
         </div>
       </div>
 
+      <FeatureGate feature="screener" blurHeight={600}>
       {/* ── Top Picks ────────────────────────────────────────────────────── */}
       <TopPicksSection screenerData={stocks} isLoading={isLoading} />
 
