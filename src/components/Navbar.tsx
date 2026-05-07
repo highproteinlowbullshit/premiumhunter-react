@@ -152,6 +152,9 @@ export function Navbar({ onOpenLeapsCalc, onOpenShortcuts }: NavbarProps) {
             <NavLink
               to="/admin"
               style={({ isActive }) => ({
+                display: 'flex',
+                alignItems: 'center',
+                gap: 5,
                 padding: '4px 10px',
                 background: isActive ? 'rgba(245,200,66,0.2)' : 'rgba(245,200,66,0.10)',
                 color: '#f5c842',
@@ -163,7 +166,11 @@ export function Navbar({ onOpenLeapsCalc, onOpenShortcuts }: NavbarProps) {
                 whiteSpace: 'nowrap',
               })}
             >
-              ⚡ Admin
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
+                <path d="M8 1L2 3.5V8C2 11.5 4.5 14.7 8 15.5C11.5 14.7 14 11.5 14 8V3.5L8 1Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+                <path d="M5.5 8L7 9.5L10.5 6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              Admin
             </NavLink>
           )}
 

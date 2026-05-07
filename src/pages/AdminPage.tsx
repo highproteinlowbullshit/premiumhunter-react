@@ -25,7 +25,7 @@ function TierBadge({ tier, large = false }: { tier: string; large?: boolean }) {
     free:      { color: '#64748b', bg: 'rgba(100,116,139,0.12)', label: 'Free' },
     pro:       { color: '#00e5c4', bg: 'rgba(0,229,196,0.12)',   label: 'Pro' },
     premium:   { color: '#8b5cf6', bg: 'rgba(139,92,246,0.12)', label: 'Premium' },
-    superuser: { color: '#f5c842', bg: 'rgba(245,200,66,0.12)', label: '⚡ Superuser' },
+    superuser: { color: '#f5c842', bg: 'rgba(245,200,66,0.12)', label: 'Superuser' },
   }
   const c = config[tier] ?? config.free
   return (
@@ -82,10 +82,19 @@ function UsersTable({ users, isLoading, searchQuery, tierFilter, onSelectUser, o
 
   return (
     <div style={{ overflowX: 'auto' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+      <table style={{ width: '100%', minWidth: 720, borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
+        <colgroup>
+          <col style={{ width: '30%' }} />
+          <col style={{ width: '12%' }} />
+          <col style={{ width: '14%' }} />
+          <col style={{ width: '10%' }} />
+          <col style={{ width: '10%' }} />
+          <col style={{ width: '8%' }} />
+          <col style={{ width: '16%' }} />
+        </colgroup>
         <thead>
           <tr style={{ borderBottom: '1px solid rgba(0,229,196,0.1)' }}>
-            {['User', 'Tier', 'Status', 'Joined', 'Last seen', 'Positions', 'Change tier'].map(col => (
+            {['User', 'Tier', 'Status', 'Joined', 'Last seen', 'Pos.', 'Change tier'].map(col => (
               <th key={col} style={{
                 padding: '8px 12px', textAlign: 'left', fontSize: 11, fontWeight: 600,
                 color: 'var(--ph-text-3)', textTransform: 'uppercase', letterSpacing: '0.05em',
@@ -110,16 +119,18 @@ function UsersTable({ users, isLoading, searchQuery, tierFilter, onSelectUser, o
               onMouseEnter={e => { e.currentTarget.style.background = 'rgba(0,229,196,0.03)' }}
               onMouseLeave={e => { e.currentTarget.style.background = user.is_banned ? 'rgba(255,77,109,0.04)' : 'transparent' }}
             >
-              <td style={{ padding: '10px 12px' }}>
-                <div style={{ fontWeight: 500, color: 'var(--ph-text-1)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                  {user.display_name ?? user.email?.split('@')[0] ?? 'Unknown'}
+              <td style={{ padding: '10px 12px', overflow: 'hidden' }}>
+                <div style={{ fontWeight: 500, color: 'var(--ph-text-1)', display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden' }}>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {user.display_name ?? user.email?.split('@')[0] ?? 'Unknown'}
+                  </span>
                   {user.is_banned && (
-                    <span style={{ fontSize: 10, color: '#ff4d6d', background: 'rgba(255,77,109,0.12)', padding: '1px 6px', borderRadius: 4 }}>
+                    <span style={{ fontSize: 10, color: '#ff4d6d', background: 'rgba(255,77,109,0.12)', padding: '1px 6px', borderRadius: 4, flexShrink: 0 }}>
                       BANNED
                     </span>
                   )}
                 </div>
-                <div style={{ fontSize: 11, color: 'var(--ph-text-3)' }}>{user.email}</div>
+                <div style={{ fontSize: 11, color: 'var(--ph-text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.email}</div>
               </td>
               <td style={{ padding: '10px 12px' }}>
                 <TierBadge tier={user.tier} />
@@ -470,14 +481,15 @@ export function AdminPage() {
   allUsers.forEach(u => { if (u.tier in tierCounts) (tierCounts as any)[u.tier]++ })
 
   return (
-    <div style={{ maxWidth: 1200, margin: '0 auto', padding: '24px 16px' }}>
+    <div className="min-h-screen mesh-bg pt-20 pb-12 px-4 sm:px-6">
       <style>{`@keyframes slideInRight { from { transform: translateX(100%) } to { transform: translateX(0) } }`}</style>
+      <div style={{ maxWidth: 1200, margin: '0 auto' }}>
 
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: 'var(--ph-text-1)' }}>
-            ⚡ Admin Dashboard
+            Admin Dashboard
           </h1>
           <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--ph-text-3)' }}>
             Premium Hunter user management
@@ -597,6 +609,7 @@ export function AdminPage() {
           style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 199 }}
         />
       )}
+      </div>
     </div>
   )
 }
