@@ -33,7 +33,6 @@ export function Navbar({ onOpenLeapsCalc, onOpenShortcuts }: NavbarProps) {
     navigate('/login');
   };
 
-  // Derive a display name: first part of email before @, with per-user overrides
   const DISPLAY_NAME_OVERRIDES: Record<string, string> = {
     'yuanennnn@gmail.com': 'Pobby',
       'branyzp@gmail.com': 'Bran'
@@ -51,10 +50,11 @@ export function Navbar({ onOpenLeapsCalc, onOpenShortcuts }: NavbarProps) {
       WebkitBackdropFilter: 'blur(20px)',
     }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 h-full flex items-center justify-between">
+
         {/* Logo */}
         <button
           onClick={() => navigate('/dashboard')}
-          className="flex items-center gap-2.5 group cursor-pointer"
+          className="flex items-center gap-2.5 group cursor-pointer flex-shrink-0"
         >
           <div className="relative w-8 h-8">
             <div className="absolute inset-0 rounded-lg opacity-20 group-hover:opacity-40 transition-opacity duration-300"
@@ -69,13 +69,13 @@ export function Navbar({ onOpenLeapsCalc, onOpenShortcuts }: NavbarProps) {
           </span>
         </button>
 
-        {/* Desktop nav */}
-        <div className="hidden md:flex items-center gap-1">
+        {/* Desktop nav — only show at lg+ (1024px) where there's room for all 6 items */}
+        <div className="hidden lg:flex items-center gap-0.5">
           {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
               to={to}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap"
               style={({ isActive }) => ({
                 color: isActive ? '#00e5c4' : 'var(--ph-text-nav-inactive)',
                 background: isActive ? 'rgba(0,229,196,0.08)' : 'transparent',
@@ -89,8 +89,8 @@ export function Navbar({ onOpenLeapsCalc, onOpenShortcuts }: NavbarProps) {
         </div>
 
         {/* Right actions */}
-        <div className="flex items-center gap-3">
-          {/* Keyboard shortcuts */}
+        <div className="flex items-center gap-2">
+          {/* Icon-only actions always visible */}
           <button
             onClick={onOpenShortcuts}
             className="w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-200 hover:bg-[rgba(0,229,196,0.08)] text-[#6a8fb0] hover:text-[#00e5c4]"
@@ -105,7 +105,6 @@ export function Navbar({ onOpenLeapsCalc, onOpenShortcuts }: NavbarProps) {
             </svg>
           </button>
 
-          {/* LEAPS Calculator */}
           <button
             onClick={onOpenLeapsCalc}
             className="w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-200 hover:bg-[rgba(0,229,196,0.08)] text-[#6a8fb0] hover:text-[#00e5c4]"
@@ -114,7 +113,6 @@ export function Navbar({ onOpenLeapsCalc, onOpenShortcuts }: NavbarProps) {
             <CalcIcon />
           </button>
 
-          {/* Paper mode toggle */}
           <button
             onClick={togglePaperMode}
             className={
@@ -132,10 +130,10 @@ export function Navbar({ onOpenLeapsCalc, onOpenShortcuts }: NavbarProps) {
             <PaperIcon />
           </button>
 
-          {/* PAPER badge */}
+          {/* PAPER badge + user section — only at xl where there's full room */}
           {isPaperMode && (
             <span
-              className="hidden md:flex items-center px-2 py-1 rounded text-xs font-bold"
+              className="hidden xl:flex items-center px-2 py-1 rounded text-xs font-bold"
               style={{
                 background: 'rgba(245,200,66,0.15)',
                 border: '1px solid rgba(245,200,66,0.3)',
@@ -148,10 +146,8 @@ export function Navbar({ onOpenLeapsCalc, onOpenShortcuts }: NavbarProps) {
             </span>
           )}
 
-          {/* Profile / auth */}
           {user ? (
-            <div className="hidden md:flex items-center gap-2">
-              {/* User chip */}
+            <div className="hidden xl:flex items-center gap-2">
               <div
                 className="flex items-center gap-2 px-3 py-1.5 rounded-lg"
                 style={{
@@ -172,7 +168,6 @@ export function Navbar({ onOpenLeapsCalc, onOpenShortcuts }: NavbarProps) {
                   {displayName}
                 </span>
               </div>
-              {/* Sign out */}
               <button
                 onClick={handleSignOut}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 hover:bg-[rgba(255,77,109,0.1)]"
@@ -186,7 +181,7 @@ export function Navbar({ onOpenLeapsCalc, onOpenShortcuts }: NavbarProps) {
           ) : (
             <button
               onClick={() => navigate('/login')}
-              className="hidden md:flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200"
+              className="hidden xl:flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200"
               style={{
                 background: 'rgba(0, 229, 196, 0.1)',
                 border: '1px solid rgba(0, 229, 196, 0.2)',
@@ -199,10 +194,10 @@ export function Navbar({ onOpenLeapsCalc, onOpenShortcuts }: NavbarProps) {
             </button>
           )}
 
-          {/* Mobile menu */}
+          {/* Hamburger — visible below lg */}
           <button
-            className="md:hidden w-9 h-9 rounded-lg flex items-center justify-center transition-colors"
-          style={{ color: 'var(--ph-text-nav-inactive)' }}
+            className="lg:hidden w-9 h-9 rounded-lg flex items-center justify-center transition-colors"
+            style={{ color: 'var(--ph-text-nav-inactive)' }}
             onClick={() => setMobileOpen(!mobileOpen)}
           >
             {mobileOpen ? <CloseIcon /> : <MenuIcon />}
@@ -210,9 +205,9 @@ export function Navbar({ onOpenLeapsCalc, onOpenShortcuts }: NavbarProps) {
         </div>
       </div>
 
-      {/* Mobile dropdown */}
+      {/* Mobile / tablet dropdown — slides down below header */}
       {mobileOpen && (
-        <div className="md:hidden absolute top-16 left-0 right-0 py-2 px-4"
+        <div className="lg:hidden absolute top-16 left-0 right-0 py-2 px-4"
           style={{
             background: 'var(--ph-navbar-mobile-bg)',
             borderBottom: '1px solid var(--ph-border-md)',
@@ -234,11 +229,10 @@ export function Navbar({ onOpenLeapsCalc, onOpenShortcuts }: NavbarProps) {
             </NavLink>
           ))}
 
-          {/* Mobile auth row */}
           <div className="mt-1 pt-3 pb-1" style={{ borderTop: '1px solid var(--ph-border)' }}>
             {user ? (
               <div className="flex items-center justify-between px-4 py-2">
-                <span className="text-xs truncate max-w-[160px]" style={{ color: 'var(--ph-text-3)', fontFamily: 'JetBrains Mono, monospace' }}>
+                <span className="text-xs truncate max-w-[200px]" style={{ color: 'var(--ph-text-3)', fontFamily: 'JetBrains Mono, monospace' }}>
                   {user.email}
                 </span>
                 <button
@@ -336,7 +330,6 @@ function WheelIconSmall() {
     </svg>
   );
 }
-
 
 function UserIcon() {
   return (

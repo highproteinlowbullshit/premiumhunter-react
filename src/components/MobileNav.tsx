@@ -16,7 +16,7 @@ export function MobileNav() {
 
   return (
     <nav
-      className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex"
+      className="lg:hidden fixed bottom-0 left-0 right-0 z-50 flex"
       style={{
         height: 60,
         background: 'var(--ph-navbar-bg)',

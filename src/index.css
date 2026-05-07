@@ -286,7 +286,7 @@ body {
 }
 
 /* ── Mobile bottom nav body padding ─────────────────────────────────── */
-@media (max-width: 767px) {
+@media (max-width: 1023px) {
   .mobile-nav-pad {
     padding-bottom: 68px;
   }

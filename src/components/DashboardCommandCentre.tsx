@@ -53,8 +53,9 @@ function HealthPopover({ factors, score, label, onClose, wrapperRef }: {
   useLayoutEffect(() => {
     if (!wrapperRef.current) return;
     const rect = wrapperRef.current.getBoundingClientRect();
-    const W = 280, PAD = 12;
-    // Right-align with button, then clamp so neither edge escapes the viewport
+    const W = Math.min(320, window.innerWidth - 24);
+    const PAD = 12;
+    // Right-align with button, clamp so neither edge escapes the viewport
     const left = Math.max(PAD, Math.min(rect.right - W, window.innerWidth - W - PAD));
     setPos({ top: rect.bottom + 8, left });
   }, [wrapperRef]);
@@ -66,13 +67,13 @@ function HealthPopover({ factors, score, label, onClose, wrapperRef }: {
   return (
     <div
       style={{
-        position: 'fixed', top: pos.top, left: pos.left, width: 280, zIndex: 1000,
+        position: 'fixed', top: pos.top, left: pos.left, width: Math.min(320, window.innerWidth - 24), zIndex: 1000,
         background: 'rgba(5,13,26,0.98)', border: '1px solid rgba(0,229,196,0.2)',
-        borderRadius: 12, padding: '14px 16px',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+        borderRadius: 14, padding: '18px 20px',
+        boxShadow: '0 12px 40px rgba(0,0,0,0.7)',
       }}
     >
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', columnGap: 12, rowGap: 8, alignItems: 'center', marginBottom: 8 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', columnGap: 14, rowGap: 10, alignItems: 'center', marginBottom: 10 }}>
         {factors.map(f => (
           <>
             <span key={`${f.factor}-name`} style={{ fontSize: 12, color: '#9ab4d4', fontFamily: 'DM Sans, sans-serif' }}>{f.factor}</span>
@@ -83,7 +84,7 @@ function HealthPopover({ factors, score, label, onClose, wrapperRef }: {
           </>
         ))}
       </div>
-      <div style={{ borderTop: '1px solid rgba(0,229,196,0.1)', paddingTop: 8, marginTop: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ borderTop: '1px solid rgba(0,229,196,0.1)', paddingTop: 12, marginTop: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span style={{ fontSize: 12, fontWeight: 600, color: '#e8f0fe', fontFamily: 'DM Sans, sans-serif' }}>Overall</span>
         <span style={{ fontSize: 13, fontWeight: 700, color: labelColor, fontFamily: 'JetBrains Mono, monospace' }}>
           {score}/100 — {label}
