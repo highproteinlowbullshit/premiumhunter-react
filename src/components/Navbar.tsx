@@ -23,7 +23,7 @@ export function Navbar({ onOpenLeapsCalc, onOpenShortcuts }: NavbarProps) {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const { isPaperMode, togglePaperMode } = usePaperMode();
-  const { isSuperuser, isFree, tier } = useSubscription();
+  const { isSuperuser, isFree, tier, isLoading: subLoading } = useSubscription();
 
   useEffect(() => {
     document.title = isPaperMode ? 'Paper Mode — Premium Hunter' : 'Premium Hunter';
@@ -152,7 +152,7 @@ export function Navbar({ onOpenLeapsCalc, onOpenShortcuts }: NavbarProps) {
             </span>
           )}
 
-          {isSuperuser && (
+          {!subLoading && isSuperuser && (
             <NavLink
               to="/admin"
               className="hidden md:flex"
@@ -179,7 +179,15 @@ export function Navbar({ onOpenLeapsCalc, onOpenShortcuts }: NavbarProps) {
           )}
 
           {/* Tier badge for non-superusers — hidden on mobile, shown at md+ */}
-          {!isSuperuser && (
+          {subLoading ? (
+            <div className="hidden md:flex items-center">
+              <div style={{
+                width: 42, height: 22, borderRadius: 20,
+                background: 'rgba(255,255,255,0.06)',
+                animation: 'pulse 1.5s ease-in-out infinite',
+              }} />
+            </div>
+          ) : !isSuperuser && (
             <div className="hidden md:flex" style={{ alignItems: 'center', gap: 8 }}>
               <span style={{
                 padding: '3px 10px',

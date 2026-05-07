@@ -53,9 +53,12 @@ export function useSubscription() {
     subscription: data,
     tier,
     isLoading,
-    isFree:      tier === 'free',
-    isPro:       tier === 'pro' || tier === 'superuser',
-    isSuperuser: tier === 'superuser',
+    // Never treat the user as free-tier while the subscription is still loading —
+    // this prevents free-tier gating (locked paper toggle, "Upgrade" badge, blur gates)
+    // from flashing on screen before the real tier arrives.
+    isFree:      isLoading ? false : tier === 'free',
+    isPro:       isLoading ? false : (tier === 'pro' || tier === 'superuser'),
+    isSuperuser: isLoading ? false : tier === 'superuser',
     can: (feature: FeatureKey): boolean => {
       if (tier === 'superuser') return true
       return hasAccess(tier, feature)
