@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   AreaChart, Area, ResponsiveContainer, Tooltip,
@@ -126,6 +126,8 @@ function ZoneThetaHero({ greeks }: { greeks: PortfolioGreeks }) {
           </p>
           <p className="text-xs mb-4" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
             Time decay earned today across {greeks.positions.length} position{greeks.positions.length !== 1 ? 's' : ''}
+            {' · '}
+            <span style={{ color: '#2e4060' }}>as of {new Date(greeks.calculatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
           </p>
           <div className="flex items-center gap-5">
             <div>
@@ -793,6 +795,12 @@ export function PortfolioGreeksDashboard({ greeks, isLoading }: PortfolioGreeksD
 }
 
 function SectionHeader({ isPaper, updatedAt }: { isPaper: boolean; updatedAt: string | null }) {
+  const [, tick] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => tick(n => n + 1), 30_000)
+    return () => clearInterval(id)
+  }, [])
+
   return (
     <div className="flex items-center justify-between mb-4">
       <div>
@@ -808,12 +816,12 @@ function SectionHeader({ isPaper, updatedAt }: { isPaper: boolean; updatedAt: st
           )}
         </div>
         <p className="text-xs mt-0.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
-          Real-time risk metrics across your open positions
+          Snapshot recalculated every 60 seconds using live prices
         </p>
       </div>
       {updatedAt && (
-        <span className="text-xs" style={{ color: '#2e4060', fontFamily: 'DM Sans, sans-serif' }}>
-          Updated {timeAgo(updatedAt)}
+        <span className="text-xs" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
+          Calculated {timeAgo(updatedAt)}
         </span>
       )}
     </div>

@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { useMemo } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { usePaperMode } from '../context/PaperModeContext'
@@ -72,13 +73,19 @@ export function usePortfolioGreeks(): {
 
   const { prices: realtimePrices } = useRealtimePrices(tickers)
 
-  const ivMap = new Map((ivData ?? []).map((d: { ticker: string; current_hv: number; current_price: number }) => [d.ticker, d]))
+  // Memoized so the Map object is stable between renders (ivData has a 6h staleTime)
+  const ivMap = useMemo(
+    () => new Map((ivData ?? []).map((d: { ticker: string; current_hv: number; current_price: number }) => [d.ticker, d])),
+    [ivData],
+  )
 
   const positionIds = (positions ?? []).map(p => p.id).join(',')
-  const priceKey = tickers.map(t => realtimePrices.get(t) ?? 0).join(',')
 
   const greeksQuery = useQuery({
-    queryKey: ['portfolio-greeks', positionIds, priceKey],
+    // priceKey intentionally excluded: including it caused theta to flicker on every
+    // per-ticker WebSocket tick (partial price snapshots → intermediate theta values).
+    // The refetchInterval below handles periodic updates with a consistent price snapshot.
+    queryKey: ['portfolio-greeks', positionIds],
     queryFn: async (): Promise<PortfolioGreeks> => {
       if (!positions || positions.length === 0) {
         return aggregatePortfolioGreeks([])
