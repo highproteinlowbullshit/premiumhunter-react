@@ -80,12 +80,12 @@ export function usePortfolioGreeks(): {
   )
 
   const positionIds = (positions ?? []).map(p => p.id).join(',')
+  // Round to nearest dollar so minor ticks don't trigger a full recompute, but a real
+  // price move (or prices first arriving) still invalidates the cache.
+  const priceKey = tickers.map(t => Math.round(realtimePrices.get(t) ?? 0)).join(',')
 
   const greeksQuery = useQuery({
-    // ivData.length (not priceKey) in the key: re-runs once when IV data first loads
-    // so prices fall back to iv.current_price instead of 0. Excludes priceKey to avoid
-    // flickering theta on every per-ticker WebSocket tick.
-    queryKey: ['portfolio-greeks', positionIds, ivData?.length ?? 0],
+    queryKey: ['portfolio-greeks', positionIds, priceKey],
     queryFn: async (): Promise<PortfolioGreeks> => {
       if (!positions || positions.length === 0) {
         return aggregatePortfolioGreeks([])
