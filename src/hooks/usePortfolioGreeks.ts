@@ -82,10 +82,10 @@ export function usePortfolioGreeks(): {
   const positionIds = (positions ?? []).map(p => p.id).join(',')
 
   const greeksQuery = useQuery({
-    // priceKey intentionally excluded: including it caused theta to flicker on every
-    // per-ticker WebSocket tick (partial price snapshots → intermediate theta values).
-    // The refetchInterval below handles periodic updates with a consistent price snapshot.
-    queryKey: ['portfolio-greeks', positionIds],
+    // ivData.length (not priceKey) in the key: re-runs once when IV data first loads
+    // so prices fall back to iv.current_price instead of 0. Excludes priceKey to avoid
+    // flickering theta on every per-ticker WebSocket tick.
+    queryKey: ['portfolio-greeks', positionIds, ivData?.length ?? 0],
     queryFn: async (): Promise<PortfolioGreeks> => {
       if (!positions || positions.length === 0) {
         return aggregatePortfolioGreeks([])
