@@ -1,0 +1,67 @@
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
+
+  const supabase = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+  )
+
+  try {
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) throw new Error('No auth header')
+    const token = authHeader.replace('Bearer ', '')
+    const { data: { user: adminUser }, error: authError } = await supabase.auth.getUser(token)
+    if (authError || !adminUser) throw new Error('Invalid token')
+
+    const { data: adminSub } = await supabase
+      .from('subscriptions').select('tier').eq('user_id', adminUser.id).single()
+    if (adminSub?.tier !== 'superuser') throw new Error('Superuser required')
+
+    const { targetUserId, tier, reason, accessUntil } = await req.json()
+    if (!targetUserId || !tier) throw new Error('targetUserId and tier required')
+    if (!['free', 'pro', 'superuser'].includes(tier)) throw new Error(`Invalid tier: ${tier}`)
+
+    const { data: oldSub } = await supabase
+      .from('subscriptions').select('tier').eq('user_id', targetUserId).single()
+
+    await supabase.from('subscriptions').upsert({
+      user_id: targetUserId,
+      tier,
+      status: tier === 'free' ? 'free' : tier === 'superuser' ? 'superuser' : 'active',
+      manually_set_by: adminUser.id,
+      manually_set_at: new Date().toISOString(),
+      manually_set_reason: reason ?? 'Granted by admin',
+      access_until: accessUntil ?? null,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'user_id' })
+
+    await supabase.from('admin_audit_log').insert({
+      admin_user_id: adminUser.id,
+      action: 'tier_change',
+      target_user_id: targetUserId,
+      old_value: { tier: oldSub?.tier ?? 'free' },
+      new_value: { tier },
+      reason: reason ?? 'Granted by admin',
+      created_at: new Date().toISOString(),
+    })
+
+    return new Response(JSON.stringify({ success: true, tier }), {
+      status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  } catch (err) {
+    return new Response(JSON.stringify({ error: (err as Error).message }), {
+      status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+})
