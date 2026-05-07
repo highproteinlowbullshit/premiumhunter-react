@@ -93,7 +93,7 @@ export function Navbar({ onOpenLeapsCalc, onOpenShortcuts }: NavbarProps) {
           {/* Icon-only actions always visible */}
           <button
             onClick={onOpenShortcuts}
-            className="w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-200 hover:bg-[rgba(0,229,196,0.08)] text-[#6a8fb0] hover:text-[#00e5c4]"
+            className="hidden md:flex w-9 h-9 rounded-lg items-center justify-center transition-all duration-200 hover:bg-[rgba(0,229,196,0.08)] text-[#6a8fb0] hover:text-[#00e5c4]"
             title="Keyboard shortcuts (?)"
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
