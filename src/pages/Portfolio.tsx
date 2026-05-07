@@ -1110,9 +1110,11 @@ function RealPortfolio() {
   const { openPositions } = usePositions();
 
   const [enhancedTimeRange, setEnhancedTimeRange] = useState<EnhancedTimeRange>('3M');
-  const [currency, setCurrency] = useState<Currency>(
-    () => (localStorage.getItem('ph-portfolio-currency') as Currency | null) ?? 'USD'
-  );
+  const [currency, setCurrency] = useState<Currency>(() => {
+    try {
+      return (localStorage.getItem('ph-portfolio-currency') as Currency | null) ?? 'USD';
+    } catch { return 'USD'; }
+  });
   const [sgdRate, setSgdRate] = useState<number>(SGD_FALLBACK_RATE);
   const [rateLoading, setRateLoading] = useState(false);
   const sgdRateFetched = useRef(false);

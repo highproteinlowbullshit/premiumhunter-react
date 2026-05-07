@@ -571,7 +571,8 @@ export function DashboardCommandCentre({ data: d, isLoading }: Props) {
   const [toastDismissed, setToastDismissed] = useState(false);
 
   const newMilestone = d?.milestones.find(m => m.isNew) ?? null;
-  const showToast = newMilestone && !toastDismissed && !sessionStorage.getItem('milestone_shown');
+  const milestoneShown = (() => { try { return !!sessionStorage.getItem('milestone_shown'); } catch { return false; } })();
+  const showToast = newMilestone && !toastDismissed && !milestoneShown;
 
   useEffect(() => {
     if (showToast) sessionStorage.setItem('milestone_shown', 'true');

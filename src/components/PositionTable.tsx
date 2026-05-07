@@ -289,8 +289,10 @@ export function PositionTable({
   onRemove, onClose, onEdit, onAssign, highlightTicker, onOpenAdd,
 }: PositionTableProps) {
   const [sortKey, setSortKey] = useState<SortKey>(() => {
-    const saved = localStorage.getItem('ph-position-sort');
-    return (saved === 'expiry' || saved === 'probability') ? saved : null;
+    try {
+      const saved = localStorage.getItem('ph-position-sort');
+      return (saved === 'expiry' || saved === 'probability') ? saved : null;
+    } catch { return null; }
   });
 
   useEffect(() => {
