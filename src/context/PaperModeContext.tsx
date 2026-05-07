@@ -47,6 +47,7 @@ export function PaperModeProvider({ children }: { children: ReactNode }) {
   const [paperAccount, setPaperAccount] = useState<PaperAccount | null>(null);
   const [showWelcome, setShowWelcome] = useState(false);
   const initialized = useRef(false);
+  const isFreeRef = useRef(false);
 
   // Fetch account
   const fetchAccount = useCallback(async () => {
@@ -55,10 +56,11 @@ export function PaperModeProvider({ children }: { children: ReactNode }) {
     if (data) setPaperAccount(dbToAccount(data as Record<string, unknown>));
   }, [user]);
 
-  // On auth resolve: sync paper_mode from Supabase (authoritative)
+  // On auth resolve: check tier first, then sync paper_mode from Supabase
   useEffect(() => {
     if (!user) {
       setIsPaperMode(false);
+      isFreeRef.current = false;
       try { localStorage.removeItem('ph_paper_mode'); } catch { /* ignore */ }
       setPaperAccount(null);
       initialized.current = false;
@@ -68,14 +70,32 @@ export function PaperModeProvider({ children }: { children: ReactNode }) {
     initialized.current = true;
 
     supabase
-      .from('user_preferences')
-      .select('paper_mode')
+      .from('subscriptions')
+      .select('tier')
       .eq('user_id', user.id)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data && typeof data.paper_mode === 'boolean') {
-          setIsPaperMode(data.paper_mode);
-          try { localStorage.setItem('ph_paper_mode', String(data.paper_mode)); } catch { /* ignore */ }
+      .single()
+      .then(({ data: sub }) => {
+        const free = !sub?.tier || sub.tier === 'free';
+        isFreeRef.current = free;
+
+        if (free) {
+          // Free users are permanently locked to paper mode
+          setIsPaperMode(true);
+          try { localStorage.setItem('ph_paper_mode', 'true'); } catch { /* ignore */ }
+          void supabase.from('user_preferences').update({ paper_mode: true }).eq('user_id', user.id);
+        } else {
+          // Pro/superuser: load saved preference
+          void supabase
+            .from('user_preferences')
+            .select('paper_mode')
+            .eq('user_id', user.id)
+            .maybeSingle()
+            .then(({ data }) => {
+              if (data && typeof data.paper_mode === 'boolean') {
+                setIsPaperMode(data.paper_mode);
+                try { localStorage.setItem('ph_paper_mode', String(data.paper_mode)); } catch { /* ignore */ }
+              }
+            });
         }
       });
 
@@ -85,7 +105,7 @@ export function PaperModeProvider({ children }: { children: ReactNode }) {
   const refreshAccount = useCallback(() => { void fetchAccount(); }, [fetchAccount]);
 
   const togglePaperMode = useCallback(async () => {
-    if (!user) return;
+    if (!user || isFreeRef.current) return;
 
     if (!isPaperMode) {
       // Turning ON
@@ -136,7 +156,7 @@ export function PaperModeProvider({ children }: { children: ReactNode }) {
   // Exposed: force switch off (called from confirm modal)
   useEffect(() => {
     const handler = async () => {
-      if (!user) return;
+      if (!user || isFreeRef.current) return;
       setIsPaperMode(false);
       try { localStorage.setItem('ph_paper_mode', 'false'); } catch { /* ignore */ }
       try { sessionStorage.removeItem('ph_paper_banner_dismissed'); } catch { /* ignore */ }

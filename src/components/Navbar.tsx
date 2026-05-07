@@ -116,18 +116,22 @@ export function Navbar({ onOpenLeapsCalc, onOpenShortcuts }: NavbarProps) {
           </button>
 
           <button
-            onClick={togglePaperMode}
-            className={
-              isPaperMode
-                ? 'w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-200'
-                : 'w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-200 hover:bg-[rgba(245,200,66,0.08)] text-[#6a8fb0] hover:text-[#f5c842]'
-            }
-            style={isPaperMode ? {
+            onClick={isFree ? undefined : togglePaperMode}
+            className="w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-200"
+            style={isFree ? {
               color: '#f5c842',
               background: 'rgba(245,200,66,0.12)',
               border: '1px solid rgba(245,200,66,0.25)',
-            } : undefined}
-            title={isPaperMode ? 'Disable paper trading' : 'Enable paper trading'}
+              cursor: 'not-allowed',
+              opacity: 0.65,
+            } : isPaperMode ? {
+              color: '#f5c842',
+              background: 'rgba(245,200,66,0.12)',
+              border: '1px solid rgba(245,200,66,0.25)',
+            } : {
+              color: '#6a8fb0',
+            }}
+            title={isFree ? 'Paper mode is always on for the free plan' : isPaperMode ? 'Disable paper trading' : 'Enable paper trading'}
           >
             <PaperIcon />
           </button>
