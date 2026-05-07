@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSubscription } from '../hooks/useSubscription';
 import { useQueryClient } from '@tanstack/react-query';
 import { PullToRefresh } from '../components/ui/PullToRefresh';
 import { PositionTable } from '../components/PositionTable';
@@ -28,8 +29,54 @@ import { usePageTitle } from '../hooks/usePageTitle';
 
 export function WheelTracker() {
   usePageTitle('Wheel Tracker');
-  const { isPaperMode } = usePaperMode();
-  if (isPaperMode) return <PaperWheelTracker />;
+  const { isPaperMode, togglePaperMode } = usePaperMode();
+  const { isFree } = useSubscription();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (isFree && !isPaperMode) {
+      togglePaperMode();
+    }
+  }, [isFree, isPaperMode, togglePaperMode]);
+
+  if (isFree || isPaperMode) {
+    return (
+      <>
+        <PaperWheelTracker />
+        {isFree && (
+          <div style={{
+            maxWidth: '88rem',
+            margin: '-8px auto 0',
+            padding: '0 1rem 2rem',
+          }}>
+            <div style={{
+              padding: '16px 20px',
+              background: 'rgba(13,27,53,0.5)',
+              border: '0.5px solid rgba(0,229,196,0.12)',
+              borderRadius: 10,
+            }}>
+              <p style={{ margin: '0 0 6px', fontSize: 13, fontWeight: 500 }}>
+                Ready for real money trading?
+              </p>
+              <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--ph-text-2)', lineHeight: 1.6 }}>
+                Pro unlocks the live tracker with real-time prices, assignment gauges,
+                Greeks, IV screener, and portfolio analytics.
+              </p>
+              <button
+                onClick={() => navigate('/upgrade')}
+                style={{
+                  padding: '7px 18px', background: '#14b8a6', color: '#0f1923',
+                  border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                }}
+              >
+                Get Pro access →
+              </button>
+            </div>
+          </div>
+        )}
+      </>
+    );
+  }
   return <RealWheelTracker />;
 }
 

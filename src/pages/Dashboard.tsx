@@ -14,6 +14,8 @@ import { DashboardCommandCentre } from '../components/DashboardCommandCentre';
 import { PortfolioGreeksDashboard } from '../components/PortfolioGreeksDashboard';
 import { usePortfolioGreeks } from '../hooks/usePortfolioGreeks';
 import type { StockTicker, IVDataPoint } from '../types';
+import { FeatureGate } from '../components/FeatureGate';
+import { useSubscription } from '../hooks/useSubscription';
 
 export function Dashboard() {
   usePageTitle('Dashboard');
@@ -23,8 +25,77 @@ export function Dashboard() {
 }
 
 
+function FreeDashboardBanner() {
+  const navigate = useNavigate();
+  return (
+    <div style={{
+      background: 'rgba(13,27,53,0.5)',
+      border: '0.5px solid rgba(0,229,196,0.12)',
+      borderRadius: 12,
+      padding: '20px 24px',
+      marginBottom: 20,
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      gap: 16,
+      flexWrap: 'wrap',
+    }}>
+      <div>
+        <h2 style={{ margin: '0 0 6px', fontSize: 18, fontWeight: 600, fontFamily: 'Syne, sans-serif' }}>
+          Welcome to Premium Hunter
+        </h2>
+        <p style={{ margin: '0 0 14px', fontSize: 13, color: 'var(--ph-text-2)', lineHeight: 1.6 }}>
+          You're on the free plan. You have full access to paper trading — practice
+          the wheel strategy with $100,000 in virtual money, risk-free.
+        </p>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button
+            onClick={() => navigate('/wheel')}
+            style={{
+              padding: '8px 16px', background: '#14b8a6', color: '#0f1923',
+              border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+            }}
+          >
+            Start paper trading
+          </button>
+          <button
+            onClick={() => navigate('/help')}
+            style={{
+              padding: '8px 16px', background: 'transparent',
+              border: '1px solid rgba(0,229,196,0.2)',
+              borderRadius: 8, fontSize: 13, cursor: 'pointer', color: 'var(--ph-text-1)',
+            }}
+          >
+            Learn the wheel
+          </button>
+        </div>
+      </div>
+      <div style={{
+        padding: '14px 20px',
+        background: 'rgba(20,184,166,0.06)',
+        border: '1px solid rgba(20,184,166,0.2)',
+        borderRadius: 10, minWidth: 190, textAlign: 'center',
+      }}>
+        <div style={{ fontSize: 12, color: 'var(--ph-text-2)', marginBottom: 10, lineHeight: 1.5 }}>
+          Unlock the full toolkit — screener, live tracker, portfolio & more.
+        </div>
+        <button
+          onClick={() => navigate('/upgrade')}
+          style={{
+            width: '100%', padding: 8, background: '#14b8a6', color: '#0f1923',
+            border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+          }}
+        >
+          Get Pro access →
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function RealDashboard() {
   const navigate = useNavigate();
+  const { isFree } = useSubscription();
   const [mounted, setMounted] = useState(false);
   const { tickers } = useWatchlistContext();
   const { data: liveData, isLoading } = useWatchlistData(tickers);
@@ -56,17 +127,25 @@ function RealDashboard() {
     <div className="min-h-screen mesh-bg pt-24 pb-12 px-4 sm:px-6">
       <div className="max-w-7xl mx-auto">
 
+        {isFree && <FreeDashboardBanner />}
+
         {/* Morning Command Centre */}
-        <DashboardCommandCentre
-          data={intelligence ?? null}
-          isLoading={intelligenceLoading}
-        />
+        <FeatureGate feature="dashboard" blurHeight={180}>
+          <DashboardCommandCentre
+            data={intelligence ?? null}
+            isLoading={intelligenceLoading}
+          />
+        </FeatureGate>
 
         {/* Portfolio Greeks */}
-        <PortfolioGreeksDashboard greeks={greeks} isLoading={greeksLoading} />
+        <FeatureGate feature="dashboard_greeks" blurHeight={220}>
+          <PortfolioGreeksDashboard greeks={greeks} isLoading={greeksLoading} />
+        </FeatureGate>
 
         {/* Monthly Premium Income Chart */}
-        <MonthlyPnLChart />
+        <FeatureGate feature="dashboard_monthly_chart" blurHeight={280}>
+          <MonthlyPnLChart />
+        </FeatureGate>
 
         {/* Monthly Income Target (compact) */}
         <MonthlyTargetCompact />

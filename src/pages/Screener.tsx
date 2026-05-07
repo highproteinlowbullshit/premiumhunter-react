@@ -1,6 +1,8 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { PullToRefresh } from '../components/ui/PullToRefresh';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { FeatureGate } from '../components/FeatureGate';
+import { useSubscription } from '../hooks/useSubscription';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -149,6 +151,7 @@ type StockWithAffordability = ScreenerStock & {
 
 export function Screener() {
   usePageTitle('IV Screener');
+  const { isFree } = useSubscription();
   const navigate = useNavigate();
   const { isWatched, addTicker, removeTicker } = useWatchlistContext();
   const { isPaperMode, paperAccount } = usePaperMode();
@@ -340,6 +343,18 @@ export function Screener() {
           </div>
         </div>
 
+        {isFree && (
+          <div style={{
+            padding: '10px 14px', marginBottom: 16,
+            background: 'rgba(20,184,166,0.06)',
+            border: '1px solid rgba(20,184,166,0.2)',
+            borderRadius: 8, fontSize: 13, color: 'var(--ph-text-2)', lineHeight: 1.6,
+          }}>
+            📊 The IV Rank Screener shows 200 stocks ranked by implied volatility —
+            your daily source for premium selling opportunities. Upgrade to Pro to access.
+          </div>
+        )}
+        <FeatureGate feature="screener" blurHeight={600}>
         {/* ── Stats bar ──────────────────────────────────────────────────── */}
         <StatsBar stats={stats} mounted={mounted} />
 
@@ -474,6 +489,7 @@ export function Screener() {
           </>
         )}
       </div>
+      </FeatureGate>
     </div>
     </PullToRefresh>
 

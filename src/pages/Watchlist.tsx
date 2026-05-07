@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { FeatureGate } from '../components/FeatureGate';
+import { useSubscription } from '../hooks/useSubscription';
 import { useQueries, useQueryClient } from '@tanstack/react-query';
 import { PullToRefresh } from '../components/ui/PullToRefresh';
 import { IVBadge } from '../components/IVBadge';
@@ -24,6 +26,7 @@ const SORT_OPTIONS: { field: SortField; label: string }[] = [
 
 export function Watchlist() {
   usePageTitle('Watchlist');
+  const { isFree } = useSubscription();
   const navigate = useNavigate();
   const { tickers, sort, addTicker, removeTicker, updateSort } = useWatchlist();
   const [addInput, setAddInput] = useState('');
@@ -134,6 +137,18 @@ export function Watchlist() {
           </div>
         </div>
 
+        {isFree && (
+          <div style={{
+            padding: '10px 14px', marginBottom: 16,
+            background: 'rgba(20,184,166,0.06)',
+            border: '1px solid rgba(20,184,166,0.2)',
+            borderRadius: 8, fontSize: 13, color: 'var(--ph-text-2)',
+          }}>
+            ⭐ Monitor IV rank on your favourite stocks daily — know when conditions
+            are right to sell premium.
+          </div>
+        )}
+        <FeatureGate feature="watchlist" blurHeight={350}>
         {/* Add Ticker + Sort Controls */}
         <div className="flex flex-col sm:flex-row gap-4 mb-6"
           style={{ opacity: mounted ? 1 : 0, transition: 'opacity 0.5s ease 0.15s' }}>
@@ -338,6 +353,7 @@ export function Watchlist() {
             </div>
           </div>
         )}
+        </FeatureGate>
       </div>
     </div>
     </PullToRefresh>

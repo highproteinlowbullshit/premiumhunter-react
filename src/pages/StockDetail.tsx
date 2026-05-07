@@ -5,6 +5,7 @@ import { IVBadge } from '../components/IVBadge';
 import { useStockDetailData } from '../hooks/useMarketData';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { TrendingUp, Minus } from 'lucide-react';
+import { FeatureGate } from '../components/FeatureGate';
 
 export function StockDetail() {
   const { ticker = '' } = useParams<{ ticker: string }>();
@@ -124,40 +125,42 @@ export function StockDetail() {
         </div>
 
         {/* IV History Chart */}
-        <div className="rounded-2xl p-5 mb-6"
-          style={{
-            background: 'rgba(13,27,53,0.6)',
-            border: '1px solid rgba(0,229,196,0.1)',
-            backdropFilter: 'blur(12px)',
-            opacity: mounted ? 1 : 0,
-            transition: 'opacity 0.5s ease 0.2s',
-          }}>
-          <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
-            <div>
-              <h2 className="text-base font-semibold"
-                style={{ fontFamily: 'Syne, sans-serif', color: '#e8f0fe' }}>
-                IV Rank History
-              </h2>
-              <p className="text-xs mt-0.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
-                52-week implied volatility rank
-              </p>
+        <FeatureGate feature="screener" blurHeight={280}>
+          <div className="rounded-2xl p-5 mb-6"
+            style={{
+              background: 'rgba(13,27,53,0.6)',
+              border: '1px solid rgba(0,229,196,0.1)',
+              backdropFilter: 'blur(12px)',
+              opacity: mounted ? 1 : 0,
+              transition: 'opacity 0.5s ease 0.2s',
+            }}>
+            <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
+              <div>
+                <h2 className="text-base font-semibold"
+                  style={{ fontFamily: 'Syne, sans-serif', color: '#e8f0fe' }}>
+                  IV Rank History
+                </h2>
+                <p className="text-xs mt-0.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
+                  52-week implied volatility rank
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                {[
+                  { label: 'Low', color: '#00d68f' },
+                  { label: 'Med', color: '#f5c842' },
+                  { label: 'High', color: '#ff4d6d' },
+                ].map(({ label, color }) => (
+                  <div key={label} className="flex items-center gap-1.5">
+                    <div className="w-2 h-2 rounded-full" style={{ background: color }} />
+                    <span className="text-xs" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>{label}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div className="flex items-center gap-3">
-              {[
-                { label: 'Low', color: '#00d68f' },
-                { label: 'Med', color: '#f5c842' },
-                { label: 'High', color: '#ff4d6d' },
-              ].map(({ label, color }) => (
-                <div key={label} className="flex items-center gap-1.5">
-                  <div className="w-2 h-2 rounded-full" style={{ background: color }} />
-                  <span className="text-xs" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>{label}</span>
-                </div>
-              ))}
-            </div>
+            <div className="sm:hidden"><IVChart data={ivHistory || []} height={200} /></div>
+            <div className="hidden sm:block"><IVChart data={ivHistory || []} height={300} /></div>
           </div>
-          <div className="sm:hidden"><IVChart data={ivHistory || []} height={200} /></div>
-          <div className="hidden sm:block"><IVChart data={ivHistory || []} height={300} /></div>
-        </div>
+        </FeatureGate>
 
         {/* Earnings + Strategy suggestion */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4"
