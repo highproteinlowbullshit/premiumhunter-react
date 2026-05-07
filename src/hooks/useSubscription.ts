@@ -1,7 +1,8 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { Tier, TIER_ORDER, FeatureKey, hasAccess } from '../lib/featureConfig'
+import type { Tier, FeatureKey } from '../lib/featureConfig'
+import { TIER_ORDER, hasAccess } from '../lib/featureConfig'
 
 export type { Tier }
 

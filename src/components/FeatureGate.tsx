@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { useSubscription } from '../hooks/useSubscription'
-import { FeatureKey } from '../lib/featureConfig'
+import type { FeatureKey } from '../lib/featureConfig'
 import { PageLoader } from './PageLoader'
 
 function UnlockButton() {

@@ -72,12 +72,12 @@ export function Navbar({ onOpenLeapsCalc, onOpenShortcuts }: NavbarProps) {
         </button>
 
         {/* Desktop nav — only show at lg+ (1024px) where there's room for all 6 items */}
-        <div className="hidden lg:flex items-center gap-0.5">
+        <div className="hidden lg:flex items-center gap-1">
           {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
               to={to}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap"
               style={({ isActive }) => ({
                 color: isActive ? '#00e5c4' : 'var(--ph-text-nav-inactive)',
                 background: isActive ? 'rgba(0,229,196,0.08)' : 'transparent',

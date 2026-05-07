@@ -59,7 +59,7 @@ export type FeatureKey = keyof typeof FEATURES
 export function hasAccess(userTier: Tier, feature: FeatureKey): boolean {
   if (userTier === 'superuser') return true
   const required = FEATURES[feature] as Tier
-  if (required === 'superuser') return userTier === 'superuser'
+  if (required === 'superuser') return false
   return TIER_ORDER[userTier] >= TIER_ORDER[required]
 }
 
