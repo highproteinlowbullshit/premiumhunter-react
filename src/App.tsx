@@ -14,6 +14,7 @@ import { PaperBanner } from './components/PaperBanner';
 import * as Sentry from '@sentry/react';
 import { ErrorFallback } from './components/ErrorBoundary';
 import { ProtectedRoute, GuestRoute } from './components/ProtectedRoute';
+import { TierRoute } from './components/FeatureGate';
 import { DemoBanner } from './components/DemoBanner';
 import { PageLoader } from './components/PageLoader';
 import { Dashboard } from './pages/Dashboard';
@@ -128,7 +129,13 @@ function AppInner() {
             <Route path="/stock/:ticker" element={<ProtectedRoute><StockDetail /></ProtectedRoute>} />
             <Route path="/wheel" element={<ProtectedRoute><WheelTracker /></ProtectedRoute>} />
             <Route path="/screener" element={<ProtectedRoute><Screener /></ProtectedRoute>} />
-            <Route path="/portfolio" element={<ProtectedRoute><Portfolio /></ProtectedRoute>} />
+            <Route path="/portfolio" element={
+              <ProtectedRoute>
+                <TierRoute requires="pro">
+                  <Portfolio />
+                </TierRoute>
+              </ProtectedRoute>
+            } />
             <Route path="/upgrade" element={<ProtectedRoute><UpgradePage /></ProtectedRoute>} />
             <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
 

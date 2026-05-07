@@ -23,7 +23,7 @@ export function Navbar({ onOpenLeapsCalc, onOpenShortcuts }: NavbarProps) {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const { isPaperMode, togglePaperMode } = usePaperMode();
-  const { isSuperuser } = useSubscription();
+  const { isSuperuser, isFree, tier } = useSubscription();
 
   useEffect(() => {
     document.title = isPaperMode ? 'Paper Mode — Premium Hunter' : 'Premium Hunter';
@@ -172,6 +172,37 @@ export function Navbar({ onOpenLeapsCalc, onOpenShortcuts }: NavbarProps) {
               </svg>
               Admin
             </NavLink>
+          )}
+
+          {/* Tier badge for non-superusers */}
+          {!isSuperuser && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{
+                padding: '3px 10px',
+                borderRadius: 20,
+                fontSize: 11,
+                fontWeight: 600,
+                background: tier === 'pro' ? 'rgba(20,184,166,0.12)' : 'rgba(13,27,53,0.6)',
+                color: tier === 'pro' ? '#14b8a6' : 'var(--ph-text-3)',
+                border: '1px solid',
+                borderColor: tier === 'pro' ? 'rgba(20,184,166,0.3)' : 'rgba(0,229,196,0.08)',
+              }}>
+                {tier === 'pro' ? 'Pro' : 'Free'}
+              </span>
+              {isFree && (
+                <button
+                  onClick={() => navigate('/upgrade')}
+                  style={{
+                    padding: '5px 12px',
+                    background: '#14b8a6', color: '#0f1923',
+                    border: 'none', borderRadius: 6,
+                    fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                  }}
+                >
+                  Upgrade
+                </button>
+              )}
+            </div>
           )}
 
           {user ? (
