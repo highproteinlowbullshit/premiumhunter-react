@@ -1,6 +1,12 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
 async function verifySuperuser(authHeader: string | null, supabase: ReturnType<typeof createClient>): Promise<string> {
   if (!authHeader) throw new Error('No auth header')
   const token = authHeader.replace('Bearer ', '')
@@ -12,6 +18,10 @@ async function verifySuperuser(authHeader: string | null, supabase: ReturnType<t
 }
 
 serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
+
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
@@ -34,11 +44,11 @@ serve(async (req) => {
     })
 
     return new Response(JSON.stringify({ users }), {
-      status: 200, headers: { 'Content-Type': 'application/json' },
+      status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (err) {
     return new Response(JSON.stringify({ error: (err as Error).message }), {
-      status: 403, headers: { 'Content-Type': 'application/json' },
+      status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }
 })
