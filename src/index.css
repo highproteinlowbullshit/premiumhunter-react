@@ -290,6 +290,10 @@ body {
   .mobile-nav-pad {
     padding-bottom: 80px;
   }
+  /* extra 24px for the market clock strip above the nav */
+  .mobile-nav-pad-clock {
+    padding-bottom: 104px;
+  }
 }
 
 /* ── Touch targets ───────────────────────────────────────────────────── */

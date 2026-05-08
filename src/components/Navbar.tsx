@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { usePaperMode } from '../context/PaperModeContext';
 import { useSubscription } from '../hooks/useSubscription';
+import { useMarketClock } from '../context/MarketClockContext';
+import { useMarketCountdown } from '../hooks/useMarketCountdown';
 
 const NAV_ITEMS = [
   { to: '/dashboard', label: 'Dashboard',    icon: GridIcon      },
@@ -24,6 +26,8 @@ export function Navbar({ onOpenLeapsCalc, onOpenShortcuts }: NavbarProps) {
   const { user, signOut } = useAuth();
   const { isPaperMode, togglePaperMode } = usePaperMode();
   const { isSuperuser, isFree, tier, isLoading: subLoading } = useSubscription();
+  const { show: clockVisible, toggle: toggleClock } = useMarketClock();
+  const { phase, countdown } = useMarketCountdown();
 
   useEffect(() => {
     document.title = isPaperMode ? 'Paper Mode — Premium Hunter' : 'Premium Hunter';
@@ -106,6 +110,43 @@ export function Navbar({ onOpenLeapsCalc, onOpenShortcuts }: NavbarProps) {
               <rect x="3" y="9" width="10" height="2" rx="0.5" fill="currentColor" opacity="0.5" />
             </svg>
           </button>
+
+          {/* Market clock — md:flex only */}
+          {clockVisible ? (
+            <button
+              onClick={toggleClock}
+              className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-opacity duration-200 hover:opacity-70"
+              title="Click to hide market clock"
+              style={phase === 'open' ? {
+                background: 'rgba(20,184,166,0.10)',
+                border: '1px solid rgba(20,184,166,0.25)',
+                color: '#14b8a6',
+              } : phase === 'pre' ? {
+                background: 'rgba(245,159,11,0.08)',
+                border: '1px solid rgba(245,159,11,0.2)',
+                color: '#f59e0b',
+              } : {
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(0,229,196,0.08)',
+                color: 'var(--ph-text-3)',
+              }}
+            >
+              {phase === 'open' && (
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#14b8a6', display: 'inline-block', flexShrink: 0 }} />
+              )}
+              <span style={{ fontSize: 11, fontFamily: 'JetBrains Mono, monospace', whiteSpace: 'nowrap', letterSpacing: '0.03em' }}>
+                {phase === 'open' ? `LIVE · ${countdown}` : phase === 'pre' ? `Pre · ${countdown}` : `Opens · ${countdown}`}
+              </span>
+            </button>
+          ) : (
+            <button
+              onClick={toggleClock}
+              className="hidden md:flex w-9 h-9 rounded-lg items-center justify-center transition-all duration-200 hover:bg-[rgba(0,229,196,0.08)] text-[#6a8fb0] hover:text-[#00e5c4]"
+              title="Show market clock"
+            >
+              <NavClockIcon />
+            </button>
+          )}
 
           <button
             onClick={onOpenLeapsCalc}
@@ -461,6 +502,16 @@ function HelpIcon() {
       <circle cx="7.5" cy="7.5" r="6" stroke="currentColor" strokeWidth="1.2" />
       <path d="M5.5 5.5a2 2 0 0 1 3.9.7c0 1.3-1.9 1.8-1.9 3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
       <circle cx="7.5" cy="11" r="0.75" fill="currentColor" />
+    </svg>
+  );
+}
+
+function NavClockIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.2" />
+      <line x1="8" y1="4.5" x2="8" y2="8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+      <line x1="8" y1="8" x2="10.5" y2="10" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
     </svg>
   );
 }

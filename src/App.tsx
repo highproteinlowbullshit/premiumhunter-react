@@ -6,6 +6,7 @@ import { useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import { WatchlistProvider } from './context/WatchlistContext';
 import { PaperModeProvider } from './context/PaperModeContext';
+import { MarketClockProvider, useMarketClock } from './context/MarketClockContext';
 import { Navbar } from './components/Navbar';
 import { MobileNav } from './components/MobileNav';
 import { ShortcutsModal } from './components/ShortcutsModal';
@@ -63,7 +64,9 @@ export default function App() {
           <ToastProvider>
             <PaperModeProvider>
               <WatchlistProvider>
-                <AppInner />
+                <MarketClockProvider>
+                  <AppInner />
+                </MarketClockProvider>
               </WatchlistProvider>
             </PaperModeProvider>
           </ToastProvider>
@@ -78,6 +81,7 @@ function AppInner() {
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { show: clockVisible } = useMarketClock();
   useLastSeen();
 
   useEffect(() => {
@@ -119,7 +123,7 @@ function AppInner() {
       <ToastContainer />
       <Sentry.ErrorBoundary fallback={(props) => <ErrorFallback onReset={props.resetError} />}>
         <Suspense fallback={<PageLoader />}>
-          <div className={user ? 'mobile-nav-pad' : ''}>
+          <div className={user ? (clockVisible ? 'mobile-nav-pad-clock' : 'mobile-nav-pad') : ''}>
           <Routes>
             {/* Public */}
             <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />

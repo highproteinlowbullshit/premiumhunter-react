@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSubscription } from '../hooks/useSubscription';
+import { useMarketClock } from '../context/MarketClockContext';
+import { useMarketCountdown } from '../hooks/useMarketCountdown';
 
 const TABS = [
   { path: '/dashboard', label: 'Home',      icon: HomeIcon      },
@@ -17,8 +19,17 @@ export function MobileNav() {
   const { signOut } = useAuth();
   const { isSuperuser } = useSubscription();
   const [moreOpen, setMoreOpen] = useState(false);
+  const { show: clockVisible, toggle: toggleClock } = useMarketClock();
+  const { phase, countdown } = useMarketCountdown();
 
   const isActive = (path: string) => location.pathname.startsWith(path);
+
+  const clockColor = phase === 'open' ? '#14b8a6' : phase === 'pre' ? '#f59e0b' : '#4a6a8a'
+  const clockText = phase === 'open'
+    ? `● LIVE · ${countdown}`
+    : phase === 'pre'
+    ? `Pre-Mkt · ${countdown}`
+    : `Opens in · ${countdown}`
 
   return (
     <>
@@ -35,7 +46,7 @@ export function MobileNav() {
           />
           {/* Panel */}
           <div style={{
-            position: 'fixed', bottom: 72, left: 0, right: 0, zIndex: 50,
+            position: 'fixed', bottom: clockVisible ? 96 : 72, left: 0, right: 0, zIndex: 50,
             background: 'var(--ph-navbar-bg)',
             borderTop: '1px solid var(--ph-border-md)',
             borderRadius: '16px 16px 0 0',
@@ -85,20 +96,64 @@ export function MobileNav() {
               <SignOutIcon />
               Sign out
             </button>
+            <div style={{ height: 1, background: 'var(--ph-border-md)', margin: '4px 0' }} />
+            <button
+              onClick={() => { toggleClock(); setMoreOpen(false); }}
+              style={{
+                width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '12px 24px', background: 'none', border: 'none',
+                color: 'var(--ph-text-2)', fontSize: 14, cursor: 'pointer',
+                fontFamily: 'DM Sans, sans-serif',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <MobileClockIcon />
+                Market Clock
+              </div>
+              <span style={{
+                fontSize: 11, fontWeight: 600, letterSpacing: '0.05em',
+                padding: '2px 8px', borderRadius: 10,
+                background: clockVisible ? 'rgba(20,184,166,0.12)' : 'rgba(255,255,255,0.05)',
+                color: clockVisible ? '#14b8a6' : 'var(--ph-text-3)',
+                border: `1px solid ${clockVisible ? 'rgba(20,184,166,0.3)' : 'rgba(0,229,196,0.08)'}`,
+              }}>
+                {clockVisible ? 'ON' : 'OFF'}
+              </span>
+            </button>
           </div>
         </>
       )}
 
       <nav
-        className="lg:hidden fixed bottom-0 left-0 right-0 z-50 flex"
+        className="lg:hidden fixed bottom-0 left-0 right-0 z-50 flex flex-col"
         style={{
-          height: 72,
+          height: clockVisible ? 96 : 72,
           background: 'var(--ph-navbar-bg)',
           borderTop: '1px solid var(--ph-border-md)',
           backdropFilter: 'blur(20px)',
           WebkitBackdropFilter: 'blur(20px)',
         }}
       >
+        {/* Market clock strip */}
+        {clockVisible && (
+          <div style={{
+            height: 24,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            borderBottom: '1px solid rgba(0,229,196,0.07)',
+          }}>
+            <span style={{ color: clockColor, display: 'flex', alignItems: 'center' }}>
+              <MobileClockIcon size={11} />
+            </span>
+            <span style={{
+              fontSize: 11, fontFamily: 'JetBrains Mono, monospace',
+              color: clockColor, letterSpacing: '0.04em',
+            }}>
+              {clockText}
+            </span>
+          </div>
+        )}
+
+        <div className="flex" style={{ flex: 1 }}>
         {TABS.map(({ path, label, icon: Icon }) => {
           const active = isActive(path);
           return (
@@ -141,6 +196,7 @@ export function MobileNav() {
             More
           </span>
         </button>
+        </div>
       </nav>
     </>
   );
@@ -234,6 +290,16 @@ function SignOutIcon() {
       <path d="M8 4H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
       <path d="M13 13l3-3-3-3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
       <line x1="16" y1="10" x2="8" y2="10" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function MobileClockIcon({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+      <circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="1.3" />
+      <line x1="10" y1="5.5" x2="10" y2="10" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+      <line x1="10" y1="10" x2="13" y2="12.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
     </svg>
   );
 }
