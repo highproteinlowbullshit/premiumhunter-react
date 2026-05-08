@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useSubscription } from '../hooks/useSubscription'
 import { useAdminData, type AdminUser, type AuditLogEntry } from '../hooks/useAdminData'
+import { useHeartbeatLog, type HeartbeatEntry, type HeartbeatResult } from '../hooks/useHeartbeatLog'
 import { PageLoader } from '../components/PageLoader'
 import { CURRENT_DISCLAIMER_VERSION } from '../lib/disclaimer'
 
@@ -78,6 +79,249 @@ function TierBadge({ tier, large = false }: { tier: string; large?: boolean }) {
     }}>
       {c.label}
     </span>
+  )
+}
+
+// ── StatusBadge ───────────────────────────────────────────────────────────────
+
+function StatusBadge({ status }: { status: string }) {
+  const cfg: Record<string, { color: string; bg: string; border: string; label: string }> = {
+    ok:       { color: '#00d68f', bg: 'rgba(0,214,143,0.1)',  border: 'rgba(0,214,143,0.3)',  label: '● OK'       },
+    warning:  { color: '#f59e0b', bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.3)', label: '⚠ WARNING'  },
+    critical: { color: '#ef4444', bg: 'rgba(239,68,68,0.1)',  border: 'rgba(239,68,68,0.3)',  label: '✗ CRITICAL' },
+  }
+  const c = cfg[status] ?? { color: 'var(--ph-text-3)', bg: 'transparent', border: 'rgba(0,229,196,0.1)', label: status }
+  return (
+    <span style={{
+      fontSize: 11, padding: '3px 10px', borderRadius: 20, fontWeight: 700,
+      color: c.color, background: c.bg, border: `1px solid ${c.border}`,
+      letterSpacing: '0.05em', whiteSpace: 'nowrap',
+    }}>
+      {c.label}
+    </span>
+  )
+}
+
+// ── HealthTab ─────────────────────────────────────────────────────────────────
+
+function HealthTab() {
+  const { log, runCheck } = useHeartbeatLog()
+  const [lastResult, setLastResult] = useState<HeartbeatResult | null>(null)
+
+  const entries: HeartbeatEntry[] = log.data ?? []
+  const latest = entries[0]
+
+  const handleRun = async (forceAlert: boolean) => {
+    try {
+      const result = await runCheck.mutateAsync(forceAlert)
+      setLastResult(result)
+    } catch {
+      // error surfaced via runCheck.isError
+    }
+  }
+
+  return (
+    <div>
+      {/* ── Latest status card ────────────────────────────────────────── */}
+      <div style={{
+        padding: 20,
+        background: 'rgba(13,27,53,0.4)',
+        border: '1px solid rgba(0,229,196,0.08)',
+        borderRadius: 12, marginBottom: 16,
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <div style={{ fontSize: 11, color: 'var(--ph-text-3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>
+              Last heartbeat check
+            </div>
+            {latest ? (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                  <StatusBadge status={latest.status} />
+                  <span style={{ fontSize: 12, color: 'var(--ph-text-3)' }}>
+                    {timeAgo(latest.checked_at)} · {latest.triggered_by}
+                  </span>
+                </div>
+                <p style={{ margin: 0, fontSize: 13, color: 'var(--ph-text-2)', lineHeight: 1.6 }}>
+                  {latest.message}
+                </p>
+              </>
+            ) : (
+              <p style={{ margin: 0, fontSize: 13, color: 'var(--ph-text-3)' }}>
+                {log.isLoading ? 'Loading…' : 'No checks run yet. Click "Run Check Now" to start.'}
+              </p>
+            )}
+          </div>
+
+          {latest && (
+            <div style={{ display: 'flex', gap: 20, flexShrink: 0, flexWrap: 'wrap' }}>
+              {([
+                { label: 'Coverage',       value: `${latest.tickers_covered ?? 0}/${latest.tickers_expected}`, sub: `${latest.coverage_pct ?? 0}%` },
+                { label: 'Cron runs 26h',  value: String(latest.total_runs ?? 0),  sub: `${latest.failed_runs ?? 0} w/ issues` },
+                { label: 'Snapshot date',  value: latest.snapshot_date ?? '—',      sub: '' },
+              ] as const).map(stat => (
+                <div key={stat.label} style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: 10, color: 'var(--ph-text-3)', marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{stat.label}</div>
+                  <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--ph-text-1)', fontFamily: 'JetBrains Mono, monospace' }}>{stat.value}</div>
+                  {stat.sub && <div style={{ fontSize: 11, color: 'var(--ph-text-3)' }}>{stat.sub}</div>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Coverage bar */}
+        {latest?.coverage_pct != null && (
+          <div style={{ marginTop: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5, fontSize: 11, color: 'var(--ph-text-3)' }}>
+              <span>Ticker coverage</span>
+              <span>{latest.coverage_pct}%</span>
+            </div>
+            <div style={{ height: 4, background: 'rgba(255,255,255,0.06)', borderRadius: 2 }}>
+              <div style={{
+                height: '100%', borderRadius: 2,
+                width: `${Math.min(latest.coverage_pct, 100)}%`,
+                background: latest.coverage_pct >= 90 ? '#14b8a6' : latest.coverage_pct >= 50 ? '#f59e0b' : '#ef4444',
+                transition: 'width 0.5s ease',
+              }} />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Inline result after manual run ────────────────────────────── */}
+      {lastResult && (
+        <div style={{
+          padding: '12px 16px', marginBottom: 16, borderRadius: 8,
+          display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+          background: lastResult.status === 'ok'       ? 'rgba(0,214,143,0.06)'
+                    : lastResult.status === 'critical' ? 'rgba(239,68,68,0.06)'
+                                                       : 'rgba(245,158,11,0.06)',
+          border: `1px solid ${
+            lastResult.status === 'ok'       ? 'rgba(0,214,143,0.2)'
+          : lastResult.status === 'critical' ? 'rgba(239,68,68,0.2)'
+                                             : 'rgba(245,158,11,0.2)'}`,
+        }}>
+          <StatusBadge status={lastResult.status} />
+          <span style={{ fontSize: 13, color: 'var(--ph-text-2)', flex: 1 }}>{lastResult.message}</span>
+          {lastResult.alert_sent && (
+            <span style={{ fontSize: 11, color: '#14b8a6', flexShrink: 0 }}>Alert email sent ✓</span>
+          )}
+        </div>
+      )}
+
+      {runCheck.isError && (
+        <div style={{
+          padding: '10px 14px', marginBottom: 16, borderRadius: 8,
+          background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.2)',
+          fontSize: 13, color: '#ef4444',
+        }}>
+          Check failed. Ensure the edge function is deployed and SUPABASE_SERVICE_ROLE_KEY is set.
+        </div>
+      )}
+
+      {/* ── Actions ───────────────────────────────────────────────────── */}
+      <div style={{ display: 'flex', gap: 10, marginBottom: 20, alignItems: 'center', flexWrap: 'wrap' }}>
+        <button
+          onClick={() => handleRun(false)}
+          disabled={runCheck.isPending}
+          style={{
+            padding: '8px 20px', borderRadius: 8, border: 'none', cursor: 'pointer',
+            background: '#14b8a6', color: '#0d1b35',
+            fontSize: 13, fontWeight: 700,
+            opacity: runCheck.isPending ? 0.6 : 1,
+          }}
+        >
+          {runCheck.isPending ? 'Running…' : 'Run Check Now'}
+        </button>
+        <button
+          onClick={() => handleRun(true)}
+          disabled={runCheck.isPending}
+          style={{
+            padding: '8px 20px', borderRadius: 8, border: '1px solid rgba(245,158,11,0.3)',
+            cursor: 'pointer',
+            background: 'rgba(245,158,11,0.08)', color: '#f59e0b',
+            fontSize: 13, fontWeight: 600,
+            opacity: runCheck.isPending ? 0.6 : 1,
+          }}
+        >
+          Run + Send Test Alert
+        </button>
+        <span style={{ fontSize: 11, color: 'var(--ph-text-3)' }}>
+          Scheduled: daily at 08:00 UTC · requires RESEND_API_KEY secret
+        </span>
+      </div>
+
+      {/* ── History table ─────────────────────────────────────────────── */}
+      <div style={{ background: 'rgba(13,27,53,0.4)', border: '1px solid rgba(0,229,196,0.08)', borderRadius: 12, overflow: 'hidden' }}>
+        <div style={{
+          padding: '12px 16px', borderBottom: '1px solid rgba(0,229,196,0.08)',
+          fontSize: 11, fontWeight: 600, color: 'var(--ph-text-3)',
+          textTransform: 'uppercase', letterSpacing: '0.05em',
+        }}>
+          Recent Checks
+        </div>
+        {log.isLoading ? (
+          <div style={{ padding: 40, textAlign: 'center', color: 'var(--ph-text-3)', fontSize: 13 }}>Loading…</div>
+        ) : entries.length === 0 ? (
+          <div style={{ padding: 40, textAlign: 'center', color: 'var(--ph-text-3)', fontSize: 13 }}>No checks recorded yet.</div>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid rgba(0,229,196,0.08)' }}>
+                  {['Time', 'Status', 'Coverage', 'Cron runs', 'Alert', 'By', 'Message'].map(col => (
+                    <th key={col} style={{
+                      padding: '8px 12px', textAlign: 'left',
+                      fontSize: 11, fontWeight: 600, color: 'var(--ph-text-3)',
+                      textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap',
+                    }}>
+                      {col}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {entries.map(entry => (
+                  <tr key={entry.id} style={{ borderBottom: '1px solid rgba(0,229,196,0.04)' }}>
+                    <td style={{ padding: '8px 12px', fontSize: 12, color: 'var(--ph-text-3)', whiteSpace: 'nowrap' }}>
+                      {timeAgo(entry.checked_at)}
+                    </td>
+                    <td style={{ padding: '8px 12px' }}>
+                      <StatusBadge status={entry.status} />
+                    </td>
+                    <td style={{ padding: '8px 12px', fontSize: 12, fontFamily: 'JetBrains Mono, monospace', color: 'var(--ph-text-2)', whiteSpace: 'nowrap' }}>
+                      {entry.tickers_covered ?? '—'}/{entry.tickers_expected}
+                      <span style={{ color: 'var(--ph-text-3)', marginLeft: 4 }}>({entry.coverage_pct ?? '—'}%)</span>
+                    </td>
+                    <td style={{ padding: '8px 12px', fontSize: 12, color: 'var(--ph-text-2)' }}>
+                      {entry.total_runs ?? '—'}
+                      {(entry.failed_runs ?? 0) > 0 && (
+                        <span style={{ color: '#f59e0b', marginLeft: 6 }}>({entry.failed_runs} issues)</span>
+                      )}
+                    </td>
+                    <td style={{ padding: '8px 12px', fontSize: 12 }}>
+                      {entry.alert_sent
+                        ? <span style={{ color: '#14b8a6' }}>Sent</span>
+                        : <span style={{ color: 'var(--ph-text-3)' }}>—</span>}
+                    </td>
+                    <td style={{ padding: '8px 12px', fontSize: 11, color: 'var(--ph-text-3)' }}>
+                      {entry.triggered_by}
+                    </td>
+                    <td style={{
+                      padding: '8px 12px', fontSize: 12, color: 'var(--ph-text-3)',
+                      maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    }}>
+                      {entry.message ?? '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -533,7 +777,7 @@ export function AdminPage() {
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [tierFilter, setTierFilter] = useState('all')
-  const [activeTab, setActiveTab] = useState<'users' | 'audit'>('users')
+  const [activeTab, setActiveTab] = useState<'users' | 'audit' | 'health'>('users')
 
   if (subLoading) return <PageLoader />
   if (!isSuperuser) return <Navigate to="/dashboard" replace />
@@ -578,7 +822,7 @@ export function AdminPage() {
 
       {/* Tabs */}
       <div style={{ display: 'flex', borderBottom: '1px solid rgba(0,229,196,0.1)', marginBottom: 20 }}>
-        {(['users', 'audit'] as const).map(tab => (
+        {(['users', 'audit', 'health'] as const).map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -588,10 +832,9 @@ export function AdminPage() {
               borderBottom: activeTab === tab ? '2px solid #00e5c4' : '2px solid transparent',
               cursor: 'pointer', fontSize: 14,
               fontWeight: activeTab === tab ? 600 : 400,
-              textTransform: 'capitalize',
             }}
           >
-            {tab === 'audit' ? 'Audit log' : `Users (${allUsers.length})`}
+            {tab === 'audit' ? 'Audit log' : tab === 'health' ? 'Health' : `Users (${allUsers.length})`}
           </button>
         ))}
       </div>
@@ -651,6 +894,9 @@ export function AdminPage() {
           <AuditLogTable logs={auditLog.data ?? []} isLoading={auditLog.isLoading} />
         </div>
       )}
+
+      {/* Health tab */}
+      {activeTab === 'health' && <HealthTab />}
 
       {/* Detail panel */}
       {selectedUser && (
