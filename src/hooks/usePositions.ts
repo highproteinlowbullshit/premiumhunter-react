@@ -178,6 +178,7 @@ export function usePositions() {
           }
         }
 
+        void queryClient.invalidateQueries({ queryKey: ['portfolio'] });
         showToast('Position added', 'success');
       }
     },
@@ -236,6 +237,7 @@ export function usePositions() {
         }
       }
 
+      void queryClient.invalidateQueries({ queryKey: ['portfolio'] });
       showToast('Position deleted', 'success');
     },
     [user, showToast, queryClient, qKey]
@@ -504,6 +506,9 @@ export function usePositions() {
             showToast('Assigned — but failed to record cash outflow. Update manually in Portfolio.', 'error');
           }
         }
+
+        void queryClient.invalidateQueries({ queryKey: ['portfolio'] });
+        void queryClient.invalidateQueries({ queryKey: ['portfolio-enhanced'] });
       } else {
         // CC assigned: close the share lot and record the capital gain
         const today = new Date().toISOString().split('T')[0];
@@ -605,6 +610,7 @@ export function usePositions() {
           }
         }
 
+        void queryClient.invalidateQueries({ queryKey: ['portfolio'] });
         void queryClient.invalidateQueries({ queryKey: ['portfolio-enhanced'] });
 
         const gainLabel = capitalGain !== null
