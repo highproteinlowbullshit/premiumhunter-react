@@ -13,7 +13,16 @@ export function useRealtimePrices(tickers: string[]): {
   prices: Map<string, number>;
   wsStatus: WSStatus;
 } {
-  const [prices, setPrices] = useState<Map<string, number>>(new Map());
+  // Seed from the singleton price cache so navigation doesn't start with empty prices.
+  // The cache persists across component mounts because the WS manager is module-level.
+  const [prices, setPrices] = useState<Map<string, number>>(() => {
+    const seed = new Map<string, number>();
+    for (const t of tickers) {
+      const last = finnhubWS.getLastPrice(t);
+      if (last !== undefined) seed.set(t.toUpperCase(), last);
+    }
+    return seed;
+  });
   const [wsStatus, setWsStatus] = useState<WSStatus>(finnhubWS.getStatus());
 
   // Stable key so useEffect only re-runs when the ticker list actually changes

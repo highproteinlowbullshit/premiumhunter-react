@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { IVBadge, IVLabel } from '../components/IVBadge';
 import { IVSparkline } from '../components/IVChart';
@@ -13,6 +14,7 @@ import { useDashboardIntelligence } from '../hooks/useDashboardIntelligence';
 import { DashboardCommandCentre } from '../components/DashboardCommandCentre';
 import { PortfolioGreeksDashboard } from '../components/PortfolioGreeksDashboard';
 import { usePortfolioGreeks } from '../hooks/usePortfolioGreeks';
+import { PullToRefresh } from '../components/ui/PullToRefresh';
 import type { StockTicker, IVDataPoint } from '../types';
 import { FeatureGate } from '../components/FeatureGate';
 import { useSubscription } from '../hooks/useSubscription';
@@ -95,12 +97,22 @@ function FreeDashboardBanner() {
 
 function RealDashboard() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { isFree } = useSubscription();
   const [mounted, setMounted] = useState(false);
   const { tickers } = useWatchlistContext();
   const { data: liveData, isLoading } = useWatchlistData(tickers);
   const { data: intelligence, isLoading: intelligenceLoading } = useDashboardIntelligence();
   const { greeks, isLoading: greeksLoading } = usePortfolioGreeks();
+
+  const handleRefresh = useCallback(async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['watchlist'] }),
+      queryClient.invalidateQueries({ queryKey: ['dashboard-intelligence'] }),
+      queryClient.invalidateQueries({ queryKey: ['open-positions-for-greeks'] }),
+      queryClient.invalidateQueries({ queryKey: ['portfolio-greeks'] }),
+    ]);
+  }, [queryClient]);
 
   useEffect(() => {
     setMounted(true);
@@ -124,6 +136,7 @@ function RealDashboard() {
   tickers.forEach((t, i) => { ivHistories[t] = liveData?.[i]?.ivHistory ?? []; });
 
   return (
+    <PullToRefresh onRefresh={handleRefresh}>
     <div className="min-h-screen mesh-bg pt-24 pb-12 px-4 sm:px-6">
       <div className="max-w-7xl mx-auto">
 
@@ -199,6 +212,7 @@ function RealDashboard() {
         <IVRankPanel stocks={displayStocks} />
       </div>
     </div>
+    </PullToRefresh>
   );
 }
 

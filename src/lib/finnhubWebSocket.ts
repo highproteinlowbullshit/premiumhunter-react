@@ -47,6 +47,8 @@ class FinnhubWSManager {
   private statusListeners = new Set<StatusCallback>();
   // Track last update time per ticker for throttling
   private lastUpdateTime = new Map<string, number>();
+  // Persistent price cache — survives component unmounts so navigation is instant
+  private priceCache = new Map<string, number>();
 
   static getInstance(): FinnhubWSManager {
     if (!FinnhubWSManager._instance) {
@@ -97,6 +99,11 @@ class FinnhubWSManager {
 
   getStatus(): WSStatus {
     return this.status;
+  }
+
+  /** Returns the last received price for a ticker, or undefined if never seen. */
+  getLastPrice(ticker: string): number | undefined {
+    return this.priceCache.get(ticker.toUpperCase());
   }
 
   private _setStatus(s: WSStatus): void {
@@ -216,6 +223,7 @@ class FinnhubWSManager {
         const lastUpdate = this.lastUpdateTime.get(ticker) ?? 0;
         if (now - lastUpdate < 1000) return;
         this.lastUpdateTime.set(ticker, now);
+        this.priceCache.set(ticker, price);
         this.subscribers.get(ticker)?.forEach((cb) => cb(price));
       });
     } catch {
@@ -250,6 +258,7 @@ class FinnhubWSManager {
       const quote = await getQuote(ticker);
       const price = quote.c > 0 ? quote.c : quote.pc;
       if (price > 0) {
+        this.priceCache.set(ticker, price);
         this.subscribers.get(ticker)?.forEach((cb) => cb(price));
       }
     } catch {
