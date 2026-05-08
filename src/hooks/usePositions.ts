@@ -276,8 +276,6 @@ export function usePositions() {
       void queryClient.invalidateQueries({ queryKey: ['monthly-target'] });
       void queryClient.invalidateQueries({ queryKey: ['monthly-pnl'] });
       void queryClient.invalidateQueries({ queryKey: ['ticker-performance'] });
-      void queryClient.invalidateQueries({ queryKey: ['portfolio'] });
-      void queryClient.invalidateQueries({ queryKey: ['portfolio-enhanced'] });
 
       // Buy To Close — deduct the BTC cost from cash for both CSP and CC.
       if (closingPrice > 0 && position) {
@@ -364,6 +362,10 @@ export function usePositions() {
           }
         }
       }
+
+      // Invalidate portfolio after all DB writes complete so the refetch sees the updated cash.
+      void queryClient.invalidateQueries({ queryKey: ['portfolio'] });
+      void queryClient.invalidateQueries({ queryKey: ['portfolio-enhanced'] });
 
       showToast('Position closed', 'success');
     },
