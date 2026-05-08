@@ -1,5 +1,7 @@
-import { useState, useRef, useMemo, useEffect } from 'react';
+import { useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import { supabase } from '../lib/supabase';
 import { usePaperMode } from '../context/PaperModeContext';
 import { PaperPortfolio } from './PaperPortfolio';
 import { usePortfolio, type HoldingWithPrice } from '../hooks/usePortfolio';
@@ -1148,6 +1150,13 @@ function RealPortfolio() {
   const { prices: wsPrices, wsStatus } = useRealtimePrices(holdingTickers);
   const { data: enhanced } = usePortfolioEnhanced(enhancedTimeRange);
   const { data: performanceSummary, isLoading: perfLoading } = useTickerPerformance();
+  const queryClient = useQueryClient();
+
+  const handleRemoveLot = useCallback(async (id: string) => {
+    await supabase.from('lot_premium_events').delete().eq('lot_id', id);
+    await supabase.from('assigned_share_lots').delete().eq('id', id);
+    void queryClient.invalidateQueries({ queryKey: ['portfolio-enhanced'] });
+  }, [queryClient]);
 
   // Merge REST prices with WebSocket prices (WS takes precedence)
   const livePriceMap = useMemo(() => {
@@ -1494,6 +1503,7 @@ function RealPortfolio() {
           totalLotsPremiumCollected={enhanced?.totalLotsPremiumCollected ?? 0}
           orphanedAssignments={enhanced?.orphanedAssignments ?? 0}
           isLoading={!enhanced}
+          onRemoveLot={handleRemoveLot}
         />
 
         {/* Section C.6 — Ticker Performance League Table */}

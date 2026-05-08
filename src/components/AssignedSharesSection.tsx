@@ -137,7 +137,12 @@ function PremiumHistory({ lot }: { lot: AssignedLot }) {
 
 // ── Active lot card ───────────────────────────────────────────────────────────
 
-function ActiveLotCard({ lot, onAddCC }: { lot: AssignedLot; onAddCC: (ticker: string) => void }) {
+function ActiveLotCard({ lot, onAddCC, onRemoveLot }: {
+  lot: AssignedLot;
+  onAddCC: (ticker: string) => void;
+  onRemoveLot?: (id: string) => void;
+}) {
+  const [confirming, setConfirming] = useState(false);
   const totalShares = lot.shares * lot.contracts;
   const gainColor = (v: number | null) => v === null ? '#9ab4d4' : v >= 0 ? '#00d68f' : '#ff4d6d';
 
@@ -243,6 +248,26 @@ function ActiveLotCard({ lot, onAddCC }: { lot: AssignedLot; onAddCC: (ticker: s
         <span style={{ color: '#2e4a6a', fontFamily: 'DM Sans, sans-serif', fontSize: 12 }}>
           Breakeven: <span style={{ fontFamily: 'JetBrains Mono, monospace' }}>${lot.breakEvenPrice.toFixed(2)}/share</span>
         </span>
+        {onRemoveLot && (
+          confirming ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', fontSize: 11 }}>Remove lot?</span>
+              <button onClick={() => onRemoveLot(lot.id)}
+                style={{ background: 'rgba(255,77,109,0.12)', border: '1px solid rgba(255,77,109,0.3)', borderRadius: 5, color: '#ff4d6d', fontFamily: 'DM Sans, sans-serif', fontSize: 11, padding: '2px 8px', cursor: 'pointer' }}>
+                Yes, remove
+              </button>
+              <button onClick={() => setConfirming(false)}
+                style={{ background: 'none', border: 'none', color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', fontSize: 11, cursor: 'pointer', padding: '2px 4px' }}>
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button onClick={() => setConfirming(true)}
+              style={{ background: 'none', border: 'none', color: '#2e4a6a', fontFamily: 'DM Sans, sans-serif', fontSize: 11, cursor: 'pointer', padding: 0, textDecoration: 'underline', textUnderlineOffset: 2 }}>
+              Remove lot
+            </button>
+          )
+        )}
       </div>
     </div>
   );
@@ -250,7 +275,8 @@ function ActiveLotCard({ lot, onAddCC }: { lot: AssignedLot; onAddCC: (ticker: s
 
 // ── Closed lot card (compact) ─────────────────────────────────────────────────
 
-function ClosedLotCard({ lot }: { lot: AssignedLot }) {
+function ClosedLotCard({ lot, onRemoveLot }: { lot: AssignedLot; onRemoveLot?: (id: string) => void }) {
+  const [confirming, setConfirming] = useState(false);
   const statusLabel = lot.status === 'called_away' ? 'Called away' : 'Sold';
   const statusColor = lot.status === 'called_away' ? '#14b8a6' : '#9ab4d4';
 
@@ -278,6 +304,28 @@ function ClosedLotCard({ lot }: { lot: AssignedLot }) {
           {lot.lotAnnualisedReturn !== null && <span style={{ color: '#9ab4d4', marginLeft: 6 }}>({lot.lotAnnualisedReturn}% ann.)</span>}
         </div>
       </div>
+      {onRemoveLot && (
+        <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid rgba(255,255,255,0.04)', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 6 }}>
+          {confirming ? (
+            <>
+              <span style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', fontSize: 11 }}>Remove lot?</span>
+              <button onClick={() => onRemoveLot(lot.id)}
+                style={{ background: 'rgba(255,77,109,0.12)', border: '1px solid rgba(255,77,109,0.3)', borderRadius: 5, color: '#ff4d6d', fontFamily: 'DM Sans, sans-serif', fontSize: 11, padding: '2px 8px', cursor: 'pointer' }}>
+                Yes, remove
+              </button>
+              <button onClick={() => setConfirming(false)}
+                style={{ background: 'none', border: 'none', color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', fontSize: 11, cursor: 'pointer', padding: '2px 4px' }}>
+                Cancel
+              </button>
+            </>
+          ) : (
+            <button onClick={() => setConfirming(true)}
+              style={{ background: 'none', border: 'none', color: '#2e4a6a', fontFamily: 'DM Sans, sans-serif', fontSize: 11, cursor: 'pointer', padding: 0, textDecoration: 'underline', textUnderlineOffset: 2 }}>
+              Remove lot
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -293,11 +341,12 @@ interface Props {
   isLoading: boolean;
   onAddCC?: (ticker: string) => void;
   onImportAssignments?: () => void;
+  onRemoveLot?: (id: string) => void;
 }
 
 export function AssignedSharesSection({
   activeLots, closedLots, hasAnyLots, totalLotsPremiumCollected,
-  orphanedAssignments, isLoading, onAddCC, onImportAssignments,
+  orphanedAssignments, isLoading, onAddCC, onImportAssignments, onRemoveLot,
 }: Props) {
   const [showAll, setShowAll] = useState(false);
   const [importDismissed, setImportDismissed] = useState(false);
@@ -380,7 +429,7 @@ export function AssignedSharesSection({
 
       {/* Active lots */}
       {activeLots.map(lot => (
-        <ActiveLotCard key={lot.id} lot={lot} onAddCC={onAddCC ?? (() => {})} />
+        <ActiveLotCard key={lot.id} lot={lot} onAddCC={onAddCC ?? (() => {})} onRemoveLot={onRemoveLot} />
       ))}
 
       {/* Closed lots (expandable) */}
@@ -394,7 +443,7 @@ export function AssignedSharesSection({
             </svg>
             {showAll ? 'Hide' : 'Show'} {closedLots.length} closed lot{closedLots.length !== 1 ? 's' : ''}
           </button>
-          {showAll && closedLots.map(lot => <ClosedLotCard key={lot.id} lot={lot} />)}
+          {showAll && closedLots.map(lot => <ClosedLotCard key={lot.id} lot={lot} onRemoveLot={onRemoveLot} />)}
         </>
       )}
     </div>
