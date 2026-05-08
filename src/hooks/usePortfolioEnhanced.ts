@@ -338,7 +338,7 @@ export function usePortfolioEnhanced(timeRange: EnhancedTimeRange) {
         orphanedAssignments,
       };
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: 0,
     refetchOnWindowFocus: false,
     enabled: !!user,
   });

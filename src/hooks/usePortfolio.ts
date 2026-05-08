@@ -360,7 +360,7 @@ export function usePortfolio() {
     queryKey: qKey,
     queryFn: () => fetchPortfolioData(user!.id),
     enabled: !!user,
-    staleTime: 2 * 60 * 1000,
+    staleTime: 0,
     retry: 3,
   });
 
