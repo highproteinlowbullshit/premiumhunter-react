@@ -20,6 +20,8 @@ export interface AdminUser {
   signup_date: string
   manually_set_by: string | null
   manually_set_reason: string | null
+  disclaimer_version: string | null
+  disclaimer_accepted_at: string | null
 }
 
 export interface AuditLogEntry {

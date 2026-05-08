@@ -3,6 +3,7 @@ import { Navigate } from 'react-router-dom'
 import { useSubscription } from '../hooks/useSubscription'
 import { useAdminData, type AdminUser, type AuditLogEntry } from '../hooks/useAdminData'
 import { PageLoader } from '../components/PageLoader'
+import { CURRENT_DISCLAIMER_VERSION } from '../lib/disclaimer'
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -16,6 +17,42 @@ function timeAgo(dateStr: string): string {
   const days = Math.floor(hrs / 24)
   if (days < 30) return `${days}d ago`
   return new Date(dateStr).toLocaleDateString()
+}
+
+// ── DisclaimerBadge ───────────────────────────────────────────────────────────
+
+function DisclaimerBadge({ version }: { version: string | null }) {
+  if (!version) {
+    return (
+      <span style={{
+        fontSize: 11, padding: '2px 7px', borderRadius: 4, fontWeight: 600,
+        color: '#ef4444', background: 'rgba(239,68,68,0.1)',
+        border: '1px solid rgba(239,68,68,0.25)', whiteSpace: 'nowrap',
+      }}>
+        ✗ None
+      </span>
+    )
+  }
+  if (version === CURRENT_DISCLAIMER_VERSION) {
+    return (
+      <span style={{
+        fontSize: 11, padding: '2px 7px', borderRadius: 4, fontWeight: 600,
+        color: '#00d68f', background: 'rgba(0,214,143,0.1)',
+        border: '1px solid rgba(0,214,143,0.25)', whiteSpace: 'nowrap',
+      }}>
+        ✓ {version}
+      </span>
+    )
+  }
+  return (
+    <span style={{
+      fontSize: 11, padding: '2px 7px', borderRadius: 4, fontWeight: 600,
+      color: '#f59e0b', background: 'rgba(245,158,11,0.1)',
+      border: '1px solid rgba(245,158,11,0.25)', whiteSpace: 'nowrap',
+    }}>
+      ⚠ {version}
+    </span>
+  )
 }
 
 // ── TierBadge ─────────────────────────────────────────────────────────────────
@@ -104,19 +141,20 @@ function UsersTable({ users, isLoading, isError, onRetry, searchQuery, tierFilte
 
   return (
     <div style={{ overflowX: 'auto' }}>
-      <table style={{ width: '100%', minWidth: 720, borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
+      <table style={{ width: '100%', minWidth: 820, borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
         <colgroup>
-          <col style={{ width: '30%' }} />
-          <col style={{ width: '12%' }} />
-          <col style={{ width: '14%' }} />
+          <col style={{ width: '26%' }} />
           <col style={{ width: '10%' }} />
-          <col style={{ width: '10%' }} />
-          <col style={{ width: '8%' }} />
-          <col style={{ width: '16%' }} />
+          <col style={{ width: '11%' }} />
+          <col style={{ width: '9%' }} />
+          <col style={{ width: '9%' }} />
+          <col style={{ width: '6%' }} />
+          <col style={{ width: '11%' }} />
+          <col style={{ width: '18%' }} />
         </colgroup>
         <thead>
           <tr style={{ borderBottom: '1px solid rgba(0,229,196,0.1)' }}>
-            {['User', 'Tier', 'Status', 'Joined', 'Last seen', 'Pos.', 'Change tier'].map(col => (
+            {['User', 'Tier', 'Status', 'Joined', 'Last seen', 'Pos.', 'Disclaimer', 'Change tier'].map(col => (
               <th key={col} style={{
                 padding: '8px 12px', textAlign: 'left', fontSize: 11, fontWeight: 600,
                 color: 'var(--ph-text-3)', textTransform: 'uppercase', letterSpacing: '0.05em',
@@ -183,6 +221,9 @@ function UsersTable({ users, isLoading, isError, onRetry, searchQuery, tierFilte
               </td>
               <td style={{ padding: '10px 12px', fontSize: 12, color: 'var(--ph-text-2)' }}>
                 {user.positions_count}
+              </td>
+              <td style={{ padding: '10px 12px' }}>
+                <DisclaimerBadge version={user.disclaimer_version} />
               </td>
               <td style={{ padding: '10px 12px' }} onClick={e => e.stopPropagation()}>
                 <select

@@ -1,5 +1,8 @@
-import { Navigate, useLocation } from 'react-router-dom';
+import { Navigate, useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useDisclaimer } from '../hooks/useDisclaimer';
+import { DisclaimerModal } from './DisclaimerModal';
+import { PageLoader } from './PageLoader';
 
 /** Redirects already-authenticated users away from guest-only pages (login, signup). */
 export function GuestRoute({ children }: { children: React.ReactNode }) {
@@ -11,6 +14,7 @@ export function GuestRoute({ children }: { children: React.ReactNode }) {
 
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
+  const { isLoading: disclaimerLoading } = useDisclaimer();
   const location = useLocation();
 
   if (loading) {
@@ -33,9 +37,18 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) {
-    // Preserve the route they tried to visit so we can redirect after login
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  return <>{children}</>;
+  // Hold until we know disclaimer status — prevents any flash of protected content
+  if (disclaimerLoading) return <PageLoader />;
+
+  // DisclaimerModal renders itself fullscreen when hasAccepted is false;
+  // renders null when accepted — no extra routing needed.
+  return (
+    <>
+      <DisclaimerModal />
+      {children ?? <Outlet />}
+    </>
+  );
 }
