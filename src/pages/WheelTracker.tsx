@@ -469,12 +469,13 @@ function SkeletonRows() {
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared modal shell
 // ─────────────────────────────────────────────────────────────────────────────
-function ModalShell({ title, subtitle, onClose, children, wide = false }: {
+function ModalShell({ title, subtitle, onClose, children, wide = false, stepDots }: {
   title: string;
   subtitle: string;
   onClose: () => void;
   children: React.ReactNode;
   wide?: boolean;
+  stepDots?: React.ReactNode;
 }) {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -499,12 +500,15 @@ function ModalShell({ title, subtitle, onClose, children, wide = false }: {
             <h2 className="text-lg font-bold" style={{ fontFamily: 'Syne, sans-serif', color: '#e8f0fe' }}>{title}</h2>
             <p className="text-xs mt-0.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>{subtitle}</p>
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-[rgba(255,255,255,0.05)]"
-            style={{ color: '#4a6a8a' }}>
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M1 1l12 12M13 1L1 13" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-            </svg>
-          </button>
+          <div className="flex items-center gap-3">
+            {stepDots}
+            <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-[rgba(255,255,255,0.05)]"
+              style={{ color: '#4a6a8a' }}>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path d="M1 1l12 12M13 1L1 13" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+              </svg>
+            </button>
+          </div>
         </div>
         {children}
       </div>
@@ -514,22 +518,57 @@ function ModalShell({ title, subtitle, onClose, children, wide = false }: {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Close Position Modal
+// Close Position Modal (2-step flow)
 // ─────────────────────────────────────────────────────────────────────────────
+function CloseRow({ label, value, valueColor }: { label: string; value: string; valueColor?: string }) {
+  return (
+    <div className="flex items-center justify-between py-2 border-b last:border-0"
+      style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
+      <span className="text-xs" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>{label}</span>
+      <span className="text-sm font-bold tabular-nums"
+        style={{ color: valueColor ?? '#e8f0fe', fontFamily: 'JetBrains Mono, monospace' }}>{value}</span>
+    </div>
+  );
+}
+
 function ClosePositionModal({ position, onClose, onConfirm }: {
   position: WheelPosition;
   onClose: () => void;
   onConfirm: (closingPrice: number) => void;
 }) {
+  const { user } = useAuth();
+  const [step, setStep] = useState(0);
   const [closingPrice, setClosingPrice] = useState('');
   const [error, setError] = useState('');
+  const [openLot, setOpenLot] = useState<{
+    id: string; shares: number; contracts: number;
+    total_premium_collected: number; net_cost_basis: number; cost_basis_per_share: number;
+  } | null>(null);
 
-  const perContractPremium = position.premiumCollected / position.contracts;
-  const perSharePremium = perContractPremium / 100;
+  useEffect(() => {
+    if (position.strategy !== 'CC' || !user) return;
+    supabase
+      .from('assigned_share_lots')
+      .select('id, shares, contracts, total_premium_collected, net_cost_basis, cost_basis_per_share')
+      .eq('user_id', user.id)
+      .eq('ticker', position.ticker)
+      .eq('status', 'holding')
+      .order('assignment_date', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => setOpenLot(data));
+  }, [position.strategy, position.ticker, user]);
+
+  const perSharePremium = position.premiumCollected / position.contracts / 100;
   const closingPriceNum = Number(closingPrice);
-  const previewPnl = closingPrice && !isNaN(closingPriceNum)
-    ? position.premiumCollected - closingPriceNum * 100 * position.contracts
-    : null;
+  const btcCost = closingPriceNum * 100 * position.contracts;
+  const previewPnl = closingPrice && !isNaN(closingPriceNum) ? position.premiumCollected - btcCost : null;
+  const netRetained = previewPnl !== null ? Math.max(0, previewPnl) : 0;
+
+  const lotTotalShares = openLot ? Number(openLot.shares) * Number(openLot.contracts) : 0;
+  const currentNetCost = openLot ? Number(openLot.net_cost_basis) : 0;
+  const newNetCost = openLot && netRetained > 0 ? Math.max(0, currentNetCost - netRetained) : currentNetCost;
+  const newCostPerShare = lotTotalShares > 0 ? newNetCost / lotTotalShares : Number(openLot?.cost_basis_per_share ?? 0);
 
   const inputStyle = {
     background: 'rgba(5, 13, 26, 0.8)',
@@ -540,22 +579,27 @@ function ClosePositionModal({ position, onClose, onConfirm }: {
     outline: 'none',
   };
 
-  const handleConfirm = () => {
-    if (!closingPrice || isNaN(closingPriceNum) || closingPriceNum < 0) {
-      setError('Enter a valid closing price');
-      return;
-    }
-    onConfirm(closingPriceNum * 100);
-  };
+  const btnSecondary = { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#6a8fb0', fontFamily: 'DM Sans, sans-serif' } as const;
+  const btnPrimary = { background: 'linear-gradient(135deg, #00e5c4, #00b4d8)', color: '#050d1a', fontFamily: 'DM Sans, sans-serif', boxShadow: '0 4px 16px rgba(0,229,196,0.2)' } as const;
 
-  return (
+  const stepDots = (
+    <div className="flex items-center gap-1.5">
+      {[0, 1].map((i) => (
+        <div key={i} className="rounded-full transition-all duration-200"
+          style={{ width: i === step ? 16 : 6, height: 6, background: i === step ? '#00e5c4' : 'rgba(0,229,196,0.2)' }} />
+      ))}
+    </div>
+  );
+
+  // ── Step 0: Close Position Details ─────────────────────────────────────────
+  if (step === 0) return (
     <ModalShell
-      title="Close Position"
+      title="Close Position Details"
       subtitle={`${position.ticker} ${position.strategy} · $${position.strike} strike`}
       onClose={onClose}
+      stepDots={stepDots}
     >
-      {/* Position summary */}
-      <div className="rounded-xl p-4 mb-5"
+      <div className="rounded-xl p-4 mb-4"
         style={{ background: 'rgba(0,229,196,0.05)', border: '1px solid rgba(0,229,196,0.12)' }}>
         <div className="grid grid-cols-3 gap-3 text-center">
           <div>
@@ -567,20 +611,18 @@ function ClosePositionModal({ position, onClose, onConfirm }: {
           </div>
           <div>
             <p className="text-xs mb-1" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>Contracts</p>
-            <p className="text-sm font-semibold" style={{ color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace' }}>
-              {position.contracts}x
-            </p>
+            <p className="text-sm font-semibold" style={{ color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace' }}>{position.contracts}×</p>
           </div>
           <div>
             <p className="text-xs mb-1" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>DTE</p>
-            <p className="text-sm font-semibold" style={{ color: position.daysToExpiry <= 7 ? '#ff4d6d' : '#9ab4d4', fontFamily: 'JetBrains Mono, monospace' }}>
+            <p className="text-sm font-semibold"
+              style={{ color: position.daysToExpiry <= 7 ? '#ff4d6d' : '#9ab4d4', fontFamily: 'JetBrains Mono, monospace' }}>
               {position.daysToExpiry}d
             </p>
           </div>
         </div>
       </div>
 
-      {/* Closing price input */}
       <div className="mb-4">
         <label className="block text-xs mb-1.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
           Closing Price <span style={{ color: '#6a8fb0' }}>(buy-back price per share)</span>
@@ -588,10 +630,7 @@ function ClosePositionModal({ position, onClose, onConfirm }: {
         <div className="relative">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: '#4a6a8a' }}>$</span>
           <input
-            type="number"
-            step="0.01"
-            min="0"
-            autoFocus
+            type="number" step="0.01" min="0" autoFocus
             value={closingPrice}
             onChange={(e) => { setClosingPrice(e.target.value); setError(''); }}
             placeholder={`e.g. ${(perSharePremium * 0.25).toFixed(2)}`}
@@ -602,37 +641,91 @@ function ClosePositionModal({ position, onClose, onConfirm }: {
         {error && <p className="text-xs mt-1" style={{ color: '#ff4d6d', fontFamily: 'DM Sans, sans-serif' }}>{error}</p>}
       </div>
 
-      {/* P&L preview */}
       {previewPnl !== null && (
-        <div className="rounded-lg px-4 py-3 mb-5 flex items-center justify-between"
-          style={{
-            background: previewPnl >= 0 ? 'rgba(0,214,143,0.06)' : 'rgba(255,77,109,0.06)',
-            border: `1px solid ${previewPnl >= 0 ? 'rgba(0,214,143,0.15)' : 'rgba(255,77,109,0.15)'}`,
-          }}>
-          <span className="text-xs" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>Realized P&L</span>
-          <span className="text-base font-bold"
-            style={{ color: previewPnl >= 0 ? '#00d68f' : '#ff4d6d', fontFamily: 'JetBrains Mono, monospace' }}>
-            {previewPnl >= 0 ? '+' : ''}${previewPnl.toFixed(2)}
-          </span>
+        <div className="rounded-xl p-4 mb-4"
+          style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.06)' }}>
+          <CloseRow label="Cash position impact" value={`−$${btcCost.toFixed(2)}`} valueColor="#ff8fa3" />
+          <CloseRow label="Net realized P&L"
+            value={`${previewPnl >= 0 ? '+' : ''}$${previewPnl.toFixed(2)}`}
+            valueColor={previewPnl >= 0 ? '#00d68f' : '#ff4d6d'} />
         </div>
       )}
 
       <div className="flex gap-3">
         <button type="button" onClick={onClose}
           className="flex-1 py-2.5 rounded-xl text-sm font-medium hover:bg-[rgba(255,255,255,0.05)] transition-colors"
-          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#6a8fb0', fontFamily: 'DM Sans, sans-serif' }}>
-          Cancel
-        </button>
-        <button type="button" onClick={handleConfirm}
+          style={btnSecondary}>Cancel</button>
+        <button type="button"
+          onClick={() => {
+            if (!closingPrice || isNaN(closingPriceNum) || closingPriceNum < 0) { setError('Enter a valid closing price'); return; }
+            setError(''); setStep(1);
+          }}
           className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 hover:opacity-90"
-          style={{
-            background: 'linear-gradient(135deg, #00e5c4, #00b4d8)',
-            color: '#050d1a',
-            fontFamily: 'DM Sans, sans-serif',
-            boxShadow: '0 4px 16px rgba(0,229,196,0.2)',
-          }}>
-          Close Position
-        </button>
+          style={btnPrimary}>Review →</button>
+      </div>
+    </ModalShell>
+  );
+
+  // ── Step 1: Cost Basis Review ───────────────────────────────────────────────
+  const hasCCLot = position.strategy === 'CC' && openLot !== null;
+  return (
+    <ModalShell
+      title="Cost Basis Review"
+      subtitle={`${position.ticker} · $${closingPriceNum.toFixed(2)}/share buyback`}
+      onClose={onClose}
+      stepDots={stepDots}
+    >
+      {hasCCLot ? (
+        <div className="rounded-xl p-4 mb-4"
+          style={{ background: 'rgba(0,229,196,0.04)', border: '1px solid rgba(0,229,196,0.12)' }}>
+          <p className="text-xs font-semibold mb-3 tracking-widest uppercase"
+            style={{ color: '#00e5c4', fontFamily: 'DM Sans, sans-serif' }}>Cost Basis Update</p>
+          <CloseRow label="CC premium collected" value={`$${position.premiumCollected.toFixed(2)}`} valueColor="#00e5c4" />
+          <CloseRow label="Buyback cost" value={`−$${btcCost.toFixed(2)}`} valueColor="#ff8fa3" />
+          <CloseRow label="Net premium retained"
+            value={`${netRetained > 0 ? '+' : ''}$${netRetained.toFixed(2)}`}
+            valueColor={netRetained > 0 ? '#00d68f' : '#9ab4d4'} />
+          <div className="mt-3 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+            <CloseRow label="Current net cost basis"
+              value={`$${currentNetCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} />
+            <CloseRow label="New net cost basis"
+              value={`$${newNetCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+              valueColor="#e8f0fe" />
+            <CloseRow label="Cost per share (updated)"
+              value={`$${newCostPerShare.toFixed(2)}`}
+              valueColor="#00c6f5" />
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-xl p-4 mb-4"
+          style={{ background: 'rgba(0,229,196,0.04)', border: '1px solid rgba(0,229,196,0.12)' }}>
+          <p className="text-xs font-semibold mb-3 tracking-widest uppercase"
+            style={{ color: '#00e5c4', fontFamily: 'DM Sans, sans-serif' }}>Realized P&amp;L Summary</p>
+          <CloseRow label="Premium collected" value={`$${position.premiumCollected.toFixed(2)}`} valueColor="#00e5c4" />
+          <CloseRow label="Buyback cost" value={`−$${btcCost.toFixed(2)}`} valueColor="#ff8fa3" />
+          <CloseRow label="Net realized P&L"
+            value={`${(previewPnl ?? 0) >= 0 ? '+' : ''}$${(previewPnl ?? 0).toFixed(2)}`}
+            valueColor={(previewPnl ?? 0) >= 0 ? '#00d68f' : '#ff4d6d'} />
+        </div>
+      )}
+
+      {hasCCLot && netRetained > 0 && (
+        <div className="rounded-lg px-4 py-3 mb-4"
+          style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.06)' }}>
+          <p className="text-xs leading-relaxed" style={{ color: '#6a8fb0', fontFamily: 'DM Sans, sans-serif' }}>
+            The net premium retained will reduce your <span style={{ color: '#e8f0fe' }}>{position.ticker}</span> lot
+            cost basis by <span style={{ color: '#00e5c4' }}>${lotTotalShares > 0 ? (netRetained / lotTotalShares).toFixed(2) : '0.00'}/share</span>.
+          </p>
+        </div>
+      )}
+
+      <div className="flex gap-3">
+        <button type="button" onClick={() => setStep(0)}
+          className="flex-1 py-2.5 rounded-xl text-sm font-medium hover:bg-[rgba(255,255,255,0.05)] transition-colors"
+          style={btnSecondary}>← Back</button>
+        <button type="button" onClick={() => onConfirm(closingPriceNum * 100)}
+          className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 hover:opacity-90"
+          style={btnPrimary}>Close Position</button>
       </div>
     </ModalShell>
   );

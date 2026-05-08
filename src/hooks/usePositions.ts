@@ -276,6 +276,8 @@ export function usePositions() {
       void queryClient.invalidateQueries({ queryKey: ['monthly-target'] });
       void queryClient.invalidateQueries({ queryKey: ['monthly-pnl'] });
       void queryClient.invalidateQueries({ queryKey: ['ticker-performance'] });
+      void queryClient.invalidateQueries({ queryKey: ['portfolio'] });
+      void queryClient.invalidateQueries({ queryKey: ['portfolio-enhanced'] });
 
       // Buy To Close — deduct the BTC cost from cash for both CSP and CC.
       if (closingPrice > 0 && position) {
@@ -320,6 +322,45 @@ export function usePositions() {
             Sentry.captureException(cashErr);
             showToast('Position closed — but failed to record cash outflow. Update manually in Portfolio.', 'error');
             return;
+          }
+        }
+
+        // CC early close: record net premium retained as a lot_premium_events entry
+        // and update the assigned_share_lots cost basis columns so Portfolio reflects it immediately.
+        if (position.strategy === 'CC') {
+          const netRetained = position.premiumCollected - btcCost;
+          if (netRetained > 0) {
+            const { data: lot } = await supabase
+              .from('assigned_share_lots')
+              .select('id, shares, contracts, total_premium_collected, net_cost_basis')
+              .eq('user_id', user.id)
+              .eq('ticker', position.ticker)
+              .eq('status', 'holding')
+              .order('assignment_date', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            if (lot) {
+              const lotTotalShares = Number(lot.shares) * Number(lot.contracts);
+              const newTotalPremium = Number(lot.total_premium_collected) + netRetained;
+              const newNetCost = Math.max(0, Number(lot.net_cost_basis) - netRetained);
+              const newCostPerShare = lotTotalShares > 0 ? newNetCost / lotTotalShares : 0;
+
+              await Promise.all([
+                supabase.from('lot_premium_events').insert({
+                  lot_id: lot.id,
+                  user_id: user.id,
+                  event_type: 'cc_premium',
+                  premium_amount: Math.round(netRetained * 100) / 100,
+                  event_date: new Date().toISOString().split('T')[0],
+                }),
+                supabase.from('assigned_share_lots').update({
+                  total_premium_collected: Math.round(newTotalPremium * 100) / 100,
+                  net_cost_basis: Math.round(newNetCost * 100) / 100,
+                  cost_basis_per_share: Math.round(newCostPerShare * 100) / 100,
+                }).eq('id', lot.id),
+              ]);
+            }
           }
         }
       }
