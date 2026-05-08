@@ -52,7 +52,7 @@ export function useHeartbeatLog() {
   })
 
   const runCheck = useMutation({
-    mutationFn: async (forceAlert = false): Promise<HeartbeatResult> => {
+    mutationFn: async (forceAlert: boolean): Promise<HeartbeatResult> => {
       const { data, error } = await supabase.functions.invoke('heartbeat-monitor', {
         body: { force_alert: forceAlert },
       })
