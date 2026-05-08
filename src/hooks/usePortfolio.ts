@@ -361,6 +361,7 @@ export function usePortfolio() {
     queryFn: () => fetchPortfolioData(user!.id),
     enabled: !!user,
     staleTime: 30 * 1000,
+    refetchOnMount: true,
     retry: 3,
   });
 

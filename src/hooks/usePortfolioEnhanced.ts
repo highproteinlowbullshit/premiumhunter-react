@@ -339,6 +339,7 @@ export function usePortfolioEnhanced(timeRange: EnhancedTimeRange) {
       };
     },
     staleTime: 60 * 1000,
+    refetchOnMount: true,
     refetchOnWindowFocus: false,
     enabled: !!user,
   });
