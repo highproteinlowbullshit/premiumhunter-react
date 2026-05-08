@@ -3,7 +3,7 @@ export const CONFIRMATION_PHRASE = 'I understand'
 
 export const DISCLAIMER_SECTIONS = [
   {
-    icon: '⚠️',
+    icon: 'alert-triangle',
     heading: 'Not Financial Advice',
     body:
       'Premium Hunter and the Premium Hunter Team do not provide ' +
@@ -16,7 +16,7 @@ export const DISCLAIMER_SECTIONS = [
       'security, option, or financial instrument whatsoever.',
   },
   {
-    icon: '📚',
+    icon: 'book-open',
     heading: 'Educational Purpose Only',
     body:
       'This platform is designed and intended solely for ' +
@@ -28,7 +28,7 @@ export const DISCLAIMER_SECTIONS = [
       'used as the sole basis for any investment or trading decision.',
   },
   {
-    icon: '🎯',
+    icon: 'trending-down',
     heading: 'You Trade at Your Own Risk',
     body:
       'All trading and investment activities you undertake are ' +
@@ -42,7 +42,7 @@ export const DISCLAIMER_SECTIONS = [
       'provided herein.',
   },
   {
-    icon: '🛡️',
+    icon: 'shield-off',
     heading: 'No Liability for Financial Losses',
     body:
       'Premium Hunter, its founders, employees, contractors, ' +
@@ -58,7 +58,7 @@ export const DISCLAIMER_SECTIONS = [
       'other cause.',
   },
   {
-    icon: '📊',
+    icon: 'bar-chart',
     heading: 'Data Accuracy',
     body:
       'While we make reasonable efforts to provide accurate ' +
@@ -72,7 +72,7 @@ export const DISCLAIMER_SECTIONS = [
       'indicate future results.',
   },
   {
-    icon: '📝',
+    icon: 'file-text',
     heading: 'Paper Trading and Simulations',
     body:
       'Paper trading features use virtual money and do not ' +
@@ -83,7 +83,7 @@ export const DISCLAIMER_SECTIONS = [
       'spreads, broker commissions, and real market conditions.',
   },
   {
-    icon: '👨‍💼',
+    icon: 'briefcase',
     heading: 'Seek Professional Advice',
     body:
       'Before making any investment or trading decisions, ' +
