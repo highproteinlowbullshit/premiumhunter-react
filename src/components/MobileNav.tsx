@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useSubscription } from '../hooks/useSubscription';
 
 const TABS = [
   { path: '/dashboard', label: 'Home',      icon: HomeIcon      },
@@ -14,6 +15,7 @@ export function MobileNav() {
   const location = useLocation();
   const navigate = useNavigate();
   const { signOut } = useAuth();
+  const { isSuperuser } = useSubscription();
   const [moreOpen, setMoreOpen] = useState(false);
 
   const isActive = (path: string) => location.pathname.startsWith(path);
@@ -41,6 +43,23 @@ export function MobileNav() {
             WebkitBackdropFilter: 'blur(20px)',
             padding: '8px 0 4px',
           }}>
+            {isSuperuser && (
+              <>
+                <button
+                  onClick={() => { navigate('/admin'); setMoreOpen(false); }}
+                  style={{
+                    width: '100%', display: 'flex', alignItems: 'center', gap: 14,
+                    padding: '12px 24px', background: 'none', border: 'none',
+                    color: '#f5c842', fontSize: 14, cursor: 'pointer',
+                    fontFamily: 'DM Sans, sans-serif',
+                  }}
+                >
+                  <AdminIcon active={location.pathname.startsWith('/admin')} />
+                  Admin
+                </button>
+                <div style={{ height: 1, background: 'var(--ph-border-md)', margin: '4px 0' }} />
+              </>
+            )}
             <button
               onClick={() => { navigate('/help'); setMoreOpen(false); }}
               style={{
@@ -215,6 +234,17 @@ function SignOutIcon() {
       <path d="M8 4H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
       <path d="M13 13l3-3-3-3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
       <line x1="16" y1="10" x2="8" y2="10" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function AdminIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <path d="M10 2L3 5V10C3 13.9 6.1 17.5 10 18.4C13.9 17.5 17 13.9 17 10V5L10 2Z"
+        stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"
+        fill={active ? 'rgba(245,200,66,0.15)' : 'none'} />
+      <path d="M7 10L9 12L13 8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
