@@ -156,6 +156,28 @@ export function DisclaimerModal() {
             </div>
           ))}
 
+          {/* Confirmation statement — inside scroll so mobile users read it before reaching the controls */}
+          <div style={{
+            padding: '14px 16px', marginTop: 4,
+            background: 'rgba(20,184,166,0.04)',
+            border: '1px solid rgba(20,184,166,0.12)',
+            borderRadius: 8,
+          }}>
+            <p style={{
+              margin: '0 0 6px', fontSize: 11, fontWeight: 600, textTransform: 'uppercase',
+              letterSpacing: '0.06em', color: '#14b8a6', fontFamily: 'DM Sans, sans-serif',
+            }}>
+              By accepting you confirm:
+            </p>
+            <p style={{
+              margin: 0, fontSize: 12, fontStyle: 'italic',
+              color: 'var(--ph-text-2)', lineHeight: 1.7,
+              fontFamily: 'DM Sans, sans-serif',
+            }}>
+              "{CONFIRMATION_STATEMENT}"
+            </p>
+          </div>
+
           {!hasScrolledToBottom && (
             <div style={{
               textAlign: 'center', padding: '12px 0',
@@ -175,22 +197,6 @@ export function DisclaimerModal() {
           background: 'rgba(0,0,0,0.2)',
           flexShrink: 0,
         }}>
-          {/* Confirmation statement */}
-          <div style={{
-            padding: '12px 16px',
-            background: 'rgba(20,184,166,0.04)',
-            border: '1px solid rgba(20,184,166,0.12)',
-            borderRadius: 8, marginBottom: 16,
-          }}>
-            <p style={{
-              margin: 0, fontSize: 12, fontStyle: 'italic',
-              color: 'var(--ph-text-2)', lineHeight: 1.7,
-              fontFamily: 'DM Sans, sans-serif',
-            }}>
-              "{CONFIRMATION_STATEMENT}"
-            </p>
-          </div>
-
           {/* Checkbox */}
           <label style={{
             display: 'flex', alignItems: 'flex-start', gap: 10,
