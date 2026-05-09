@@ -63,11 +63,13 @@ function IVFreshnessBadge({ lastRun }: { lastRun: CronRunLog | null }) {
 
   const completedAt = new Date(lastRun.completed_at);
   const now = new Date();
-  const isToday =
-    completedAt.getDate() === now.getDate() &&
-    completedAt.getMonth() === now.getMonth() &&
-    completedAt.getFullYear() === now.getFullYear();
-  const isYesterday = !isToday && now.getTime() - completedAt.getTime() < 48 * 60 * 60 * 1000;
+  // Compare UTC dates — the last cron batch finishes at ~03:03 UTC which is
+  // "yesterday" in western timezones; local-date comparison would show stale.
+  const completedUTCDate = completedAt.toISOString().split('T')[0];
+  const todayUTCDate = now.toISOString().split('T')[0];
+  const yesterdayUTCDate = new Date(now.getTime() - 86400000).toISOString().split('T')[0];
+  const isToday = completedUTCDate === todayUTCDate;
+  const isYesterday = !isToday && completedUTCDate === yesterdayUTCDate;
   const timeStr = completedAt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 
   if (isToday) {

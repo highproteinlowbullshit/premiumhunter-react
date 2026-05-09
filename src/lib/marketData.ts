@@ -32,6 +32,7 @@ function fallbackStock(ticker: string): StockTicker {
 
 interface SupabaseIVRow {
   ticker: string;
+  snapshot_date: string;
   iv_rank: number;
   iv_percentile: number;
   current_hv: number;
@@ -47,25 +48,37 @@ interface SupabaseIVRow {
   atm_open_interest: number | null;
 }
 
-/** Fetch today's cached IV rows from Supabase for all tickers in STOCK_LIST.
- *  Queries all rows for today without a ticker filter (avoids URL length limits
- *  with 488+ tickers in a .in() clause), then filters to known tickers client-side. */
+/** Fetch cached IV rows from Supabase for all tickers in STOCK_LIST.
+ *  Queries the two most recent calendar dates to handle the nightly cron's
+ *  UTC midnight boundary: batches 0–59 run at 23:xx UTC and write snapshot_date=D,
+ *  while batches 60–243 run at 00:xx–03:xx UTC and write snapshot_date=D+1.
+ *  Querying only "today" would miss the 120 tickers from the prior-date batches.
+ *  When a ticker appears on both dates, the more recent date wins. */
 export async function getSupabaseCachedToday(): Promise<Map<string, SupabaseIVRow>> {
   const today = new Date().toISOString().split('T')[0];
+  const prevDate = new Date();
+  prevDate.setUTCDate(prevDate.getUTCDate() - 1);
+  const yesterday = prevDate.toISOString().split('T')[0];
   const known = new Set(STOCK_LIST.map((s) => s.ticker));
   try {
     const { data, error } = await supabase
       .from('iv_snapshots')
-      .select('ticker,iv_rank,iv_percentile,current_hv,hv_30,hv_52wk_high,hv_52wk_low,iv_hv_ratio,current_price,prev_close,price_change_pct,volume,put_call_skew,atm_open_interest')
-      .eq('snapshot_date', today)
+      .select('ticker,snapshot_date,iv_rank,iv_percentile,current_hv,hv_30,hv_52wk_high,hv_52wk_low,iv_hv_ratio,current_price,prev_close,price_change_pct,volume,put_call_skew,atm_open_interest')
+      .in('snapshot_date', [today, yesterday])
       .eq('calculation_success', true);
 
     if (error || !data) return new Map();
-    return new Map(
-      data
-        .filter((row) => known.has(row.ticker))
-        .map((row) => [row.ticker, row as SupabaseIVRow])
-    );
+
+    // Prefer today's row over yesterday's when both exist for the same ticker
+    const result = new Map<string, SupabaseIVRow>();
+    for (const row of data) {
+      if (!known.has(row.ticker)) continue;
+      const existing = result.get(row.ticker);
+      if (!existing || row.snapshot_date > existing.snapshot_date) {
+        result.set(row.ticker, row as SupabaseIVRow);
+      }
+    }
+    return result;
   } catch {
     return new Map();
   }
