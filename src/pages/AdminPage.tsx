@@ -977,7 +977,7 @@ export function AdminPage() {
               }}
             >
               <option value="">All Actions</option>
-              <option value="change_tier">Change Tier</option>
+              <option value="tier_change">Change Tier</option>
               <option value="ban_user">Ban User</option>
               <option value="add_note">Add Note</option>
             </select>
