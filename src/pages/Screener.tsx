@@ -444,6 +444,7 @@ export function Screener() {
                         onPaperTrade={() => setPaperTradeStock(stock)}
                         isAffordable={(stock as StockWithAffordability).isAffordable}
                         contractsAffordable={(stock as StockWithAffordability).contractsAffordable}
+                        capitalPerTrade={capitalPerTrade > 0 ? capitalPerTrade : undefined}
                       />
                     ))}
                   </tbody>
@@ -887,7 +888,7 @@ function StickyHeader({ filters, set, earningsUrgentCount }: {
 // ─────────────────────────────────────────────────────────────────────────────
 function DesktopRow({
   stock, isLast, watched, onToggleWatch, onClick, isPaperMode, onPaperTrade,
-  isAffordable, contractsAffordable,
+  isAffordable, contractsAffordable, capitalPerTrade,
 }: {
   stock: ScreenerStock;
   isLast: boolean;
@@ -898,11 +899,13 @@ function DesktopRow({
   onPaperTrade: () => void;
   isAffordable?: boolean | null;
   contractsAffordable?: number;
+  capitalPerTrade?: number;
 }) {
   const [hovered, setHovered] = useState(false);
   const ivColors = ivRankColors(stock.ivRank);
   const sectorColors = SECTOR_COLORS[stock.sector];
   const earningsDte = stock.earningsDate ? daysUntil(stock.earningsDate) : null;
+  const fmt = (n: number) => `$${Math.round(n).toLocaleString('en-US')}`;
 
   return (
     <tr
@@ -922,7 +925,17 @@ function DesktopRow({
         <div>
           <p className="text-sm font-bold" style={{ fontFamily: 'Syne, sans-serif', color: '#e8f0fe', display: 'flex', alignItems: 'center', gap: 4 }}>
             {isAffordable === false && (
-              <Lock size={11} color="#4a6a8a" strokeWidth={2} style={{ flexShrink: 0 }} />
+              <Tooltip
+                position="right"
+                maxWidth={260}
+                content={
+                  stock.capitalRequired != null && capitalPerTrade
+                    ? `Collateral needed: ~${fmt(stock.capitalRequired)} (≈10% OTM CSP) · exceeds your ${fmt(capitalPerTrade)} per-trade limit`
+                    : 'Collateral required exceeds your per-trade limit'
+                }
+              >
+                <Lock size={11} color="#4a6a8a" strokeWidth={2} style={{ flexShrink: 0 }} />
+              </Tooltip>
             )}
             {stock.ticker}
           </p>
@@ -952,15 +965,25 @@ function DesktopRow({
           {stock.priceChange != null ? `${stock.priceChange >= 0 ? '+' : ''}${stock.priceChange.toFixed(2)}%` : '--'}
         </p>
         {isAffordable !== false && contractsAffordable != null && contractsAffordable > 0 && (
-          <div style={{
-            display: 'inline-block', marginTop: 2, fontSize: 9, padding: '1px 5px', borderRadius: 8,
-            color: contractsAffordable === 1 ? '#f59e0b' : '#00e5c4',
-            background: contractsAffordable === 1 ? 'rgba(245,158,11,0.1)' : 'rgba(0,229,196,0.08)',
-            border: `1px solid ${contractsAffordable === 1 ? 'rgba(245,158,11,0.2)' : 'rgba(0,229,196,0.15)'}`,
-            fontFamily: 'JetBrains Mono, monospace',
-          }}>
-            {contractsAffordable >= 5 ? '5+' : contractsAffordable === 1 ? '1 only' : contractsAffordable} contracts
-          </div>
+          <Tooltip
+            position="bottom"
+            maxWidth={280}
+            content={
+              stock.capitalRequired != null && capitalPerTrade
+                ? `~${fmt(stock.capitalRequired)} collateral per contract (≈10% OTM CSP) · ${fmt(capitalPerTrade)} per-trade limit → up to ${contractsAffordable >= 5 ? '5+' : contractsAffordable} contract${contractsAffordable === 1 ? '' : 's'}`
+                : `Up to ${contractsAffordable >= 5 ? '5+' : contractsAffordable} contract${contractsAffordable === 1 ? '' : 's'} fit within your per-trade limit`
+            }
+          >
+            <div style={{
+              display: 'inline-block', marginTop: 2, fontSize: 9, padding: '1px 5px', borderRadius: 8,
+              color: contractsAffordable === 1 ? '#f59e0b' : '#00e5c4',
+              background: contractsAffordable === 1 ? 'rgba(245,158,11,0.1)' : 'rgba(0,229,196,0.08)',
+              border: `1px solid ${contractsAffordable === 1 ? 'rgba(245,158,11,0.2)' : 'rgba(0,229,196,0.15)'}`,
+              fontFamily: 'JetBrains Mono, monospace',
+            }}>
+              {contractsAffordable >= 5 ? '5+' : contractsAffordable === 1 ? '1 only' : contractsAffordable} contracts
+            </div>
+          </Tooltip>
         )}
       </td>
 
