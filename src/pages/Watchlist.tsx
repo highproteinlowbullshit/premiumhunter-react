@@ -12,7 +12,7 @@ import { fetchWatchlistStock } from '../lib/marketData';
 import type { SortOption, IVDataPoint } from '../types';
 import type { WatchlistStockData } from '../lib/marketData';
 import { usePageTitle } from '../hooks/usePageTitle';
-import { ClipboardList } from 'lucide-react';
+import { ClipboardList, Eye } from 'lucide-react';
 import { EmptyState } from '../components/ui/EmptyState';
 
 type SortField = SortOption['field'];
@@ -139,12 +139,14 @@ export function Watchlist() {
 
         {isFree && (
           <div style={{
+            display: 'flex', alignItems: 'flex-start', gap: 10,
             padding: '10px 14px', marginBottom: 16,
             background: 'rgba(20,184,166,0.06)',
             border: '1px solid rgba(20,184,166,0.2)',
-            borderRadius: 8, fontSize: 13, color: 'var(--ph-text-2)',
+            borderRadius: 8, fontSize: 13, color: 'var(--ph-text-2)', lineHeight: 1.6,
           }}>
-            ⭐ Monitor IV rank on your favourite stocks daily — know when conditions
+            <Eye size={15} strokeWidth={1.8} style={{ flexShrink: 0, marginTop: 2, color: '#14b8a6' }} />
+            Monitor IV rank on your favourite stocks daily — know when conditions
             are right to sell premium.
           </div>
         )}

@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom'
+import { Lock } from 'lucide-react'
 import { useSubscription } from '../hooks/useSubscription'
 import type { FeatureKey } from '../lib/featureConfig'
 import { PageLoader } from './PageLoader'
@@ -20,7 +21,8 @@ function UnlockButton() {
         boxShadow: '0 2px 12px rgba(20,184,166,0.35)',
       }}
     >
-      🔒 Unlock with Pro
+      <Lock size={13} strokeWidth={2.5} style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: 6, marginTop: -1 }} />
+      Unlock with Pro
     </button>
   )
 }
@@ -35,7 +37,7 @@ function LockCard() {
       padding: '36px 24px',
       textAlign: 'center',
     }}>
-      <div style={{ fontSize: 32, marginBottom: 12 }}>🔒</div>
+      <Lock size={28} strokeWidth={1.5} style={{ marginBottom: 12, color: '#14b8a6' }} />
       <h3 style={{ margin: '0 0 8px', fontSize: 15, fontWeight: 600, color: 'var(--ph-text-1)' }}>
         Pro feature
       </h3>
@@ -93,7 +95,7 @@ export function FeatureGate({
       <div style={{
         position: 'absolute', inset: 0,
         display: 'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'center', gap: 10,
+        alignItems: 'center', justifyContent: 'flex-start', paddingTop: 48, gap: 10,
         background: 'rgba(10, 18, 26, 0.72)', borderRadius: 8,
       }}>
         <UnlockButton />
