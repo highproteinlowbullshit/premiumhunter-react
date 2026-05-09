@@ -39,6 +39,7 @@ export function Tooltip({ content, children, position = 'top', maxWidth = 240 }:
           lineHeight: 1.5,
           padding: '6px 10px',
           borderRadius: 6,
+          width: 'max-content',
           maxWidth,
           whiteSpace: 'normal',
           pointerEvents: 'none',
