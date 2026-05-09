@@ -927,7 +927,7 @@ function DesktopRow({
             {isAffordable === false && (
               <Tooltip
                 position="right"
-                maxWidth={260}
+                maxWidth={320}
                 content={
                   stock.capitalRequired != null && capitalPerTrade
                     ? `Collateral needed: ~${fmt(stock.capitalRequired)} (≈10% OTM CSP) · exceeds your ${fmt(capitalPerTrade)} per-trade limit`
@@ -967,7 +967,7 @@ function DesktopRow({
         {isAffordable !== false && contractsAffordable != null && contractsAffordable > 0 && (
           <Tooltip
             position="bottom"
-            maxWidth={280}
+            maxWidth={320}
             content={
               stock.capitalRequired != null && capitalPerTrade
                 ? `~${fmt(stock.capitalRequired)} collateral per contract (≈10% OTM CSP) · ${fmt(capitalPerTrade)} per-trade limit → up to ${contractsAffordable >= 5 ? '5+' : contractsAffordable} contract${contractsAffordable === 1 ? '' : 's'}`
