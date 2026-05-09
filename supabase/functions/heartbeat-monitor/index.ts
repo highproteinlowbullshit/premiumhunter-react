@@ -73,12 +73,15 @@ serve(async (req) => {
     prevDate.setUTCDate(prevDate.getUTCDate() - 1)
     const prevDateStr = prevDate.toISOString().split('T')[0]
 
-    const { count } = await supabase
+    // Fetch ticker values rather than using count:exact — PostgREST can't do
+    // COUNT(DISTINCT), so we deduplicate in JS. Max ~976 rows (488 × 2 dates).
+    const { data: coverageRows } = await supabase
       .from('iv_snapshots')
-      .select('ticker', { count: 'exact', head: true })
+      .select('ticker')
       .in('snapshot_date', [latestDate, prevDateStr])
       .eq('calculation_success', true)
-    tickersCovered = count ?? 0
+      .eq('data_source', 'edge_function')
+    tickersCovered = new Set(coverageRows?.map((r: { ticker: string }) => r.ticker) ?? []).size
   }
 
   // ── 2. Cron activity in the last 26 hours ─────────────────────────────────

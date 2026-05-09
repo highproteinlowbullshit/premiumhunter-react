@@ -65,7 +65,8 @@ export async function getSupabaseCachedToday(): Promise<Map<string, SupabaseIVRo
       .from('iv_snapshots')
       .select('ticker,snapshot_date,iv_rank,iv_percentile,current_hv,hv_30,hv_52wk_high,hv_52wk_low,iv_hv_ratio,current_price,prev_close,price_change_pct,volume,put_call_skew,atm_open_interest')
       .in('snapshot_date', [today, yesterday])
-      .eq('calculation_success', true);
+      .eq('calculation_success', true)
+      .eq('data_source', 'edge_function'); // exclude frontend-written rows (no price/volume)
 
     if (error || !data) return new Map();
 

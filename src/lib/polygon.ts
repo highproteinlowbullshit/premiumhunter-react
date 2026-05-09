@@ -58,12 +58,18 @@ export interface PolygonIVData {
 
 async function getSupabaseSnapshot(ticker: string): Promise<PolygonIVData | null> {
   const today = new Date().toISOString().split('T')[0];
+  const prevDate = new Date();
+  prevDate.setUTCDate(prevDate.getUTCDate() - 1);
+  const yesterday = prevDate.toISOString().split('T')[0];
   try {
     const { data, error } = await supabase
       .from('iv_snapshots')
-      .select('iv_rank,iv_percentile,current_hv,hv_30,hv_52wk_high,hv_52wk_low,iv_hv_ratio,weekly_history')
+      .select('snapshot_date,iv_rank,iv_percentile,current_hv,hv_30,hv_52wk_high,hv_52wk_low,iv_hv_ratio,weekly_history')
       .eq('ticker', ticker)
-      .eq('snapshot_date', today)
+      .in('snapshot_date', [today, yesterday])
+      .eq('data_source', 'edge_function')
+      .order('snapshot_date', { ascending: false })
+      .limit(1)
       .maybeSingle();
     if (error || !data) return null;
     return {
@@ -74,7 +80,7 @@ async function getSupabaseSnapshot(ticker: string): Promise<PolygonIVData | null
       hv52wkHigh: data.hv_52wk_high,
       hv52wkLow: data.hv_52wk_low,
       ivHvRatio: data.iv_hv_ratio,
-      volume: null, // not stored in Supabase snapshot
+      volume: null,
       weeklyHistory: data.weekly_history as IVDataPoint[],
     };
   } catch { return null; }
