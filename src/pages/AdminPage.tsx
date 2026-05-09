@@ -819,6 +819,12 @@ function UserDetailPanel({ user, onClose, onChangeTier, onBanUser, onAddNote, is
 
 export function AdminPage() {
   const { isSuperuser, isLoading: subLoading } = useSubscription()
+
+  const [auditPage, setAuditPage] = useState(1)
+  const [auditAction, setAuditAction] = useState('')
+  const [auditTarget, setAuditTarget] = useState('')
+  const [auditTimeRange, setAuditTimeRange] = useState('all')
+
   const { users, auditLog, changeTier, banUser, addNote } = useAdminData(
     {
       action: auditAction,
@@ -834,10 +840,6 @@ export function AdminPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [tierFilter, setTierFilter] = useState('all')
   const [activeTab, setActiveTab] = useState<'users' | 'audit' | 'health'>('users')
-  const [auditPage, setAuditPage] = useState(1)
-  const [auditAction, setAuditAction] = useState('')
-  const [auditTarget, setAuditTarget] = useState('')
-  const [auditTimeRange, setAuditTimeRange] = useState('all')
 
   if (subLoading) return <PageLoader />
   if (!isSuperuser) return <Navigate to="/dashboard" replace />
