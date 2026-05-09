@@ -54,6 +54,9 @@ serve(async (req) => {
   const now = new Date()
 
   // ── 1. Latest snapshot coverage ───────────────────────────────────────────
+  // The 244 nightly batches span midnight UTC (23:00–03:03), so they write to
+  // two consecutive calendar dates. Count distinct tickers across both to get
+  // an accurate picture of total coverage.
   const { data: latestSnap } = await supabase
     .from('iv_snapshots')
     .select('snapshot_date')
@@ -66,10 +69,14 @@ serve(async (req) => {
   let tickersCovered = 0
 
   if (latestDate) {
+    const prevDate = new Date(latestDate + 'T00:00:00Z')
+    prevDate.setUTCDate(prevDate.getUTCDate() - 1)
+    const prevDateStr = prevDate.toISOString().split('T')[0]
+
     const { count } = await supabase
       .from('iv_snapshots')
       .select('ticker', { count: 'exact', head: true })
-      .eq('snapshot_date', latestDate)
+      .in('snapshot_date', [latestDate, prevDateStr])
       .eq('calculation_success', true)
     tickersCovered = count ?? 0
   }
