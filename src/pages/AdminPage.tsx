@@ -134,7 +134,11 @@ function HealthTab() {
             <div style={{ fontSize: 11, color: 'var(--ph-text-3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>
               Last heartbeat check
             </div>
-            {latest ? (
+            {log.error ? (
+              <p style={{ margin: 0, fontSize: 12, color: '#ef4444', fontFamily: 'JetBrains Mono, monospace', wordBreak: 'break-all' }}>
+                Query error: {(log.error as Error).message}
+              </p>
+            ) : latest ? (
               <>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
                   <StatusBadge status={latest.status} />

@@ -21,7 +21,6 @@ import { TickerPerformanceTable } from '../components/TickerPerformanceTable';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { Banknote, TrendingUp, RefreshCw, AlertTriangle, CheckCircle, X } from 'lucide-react';
 import { EmptyState } from '../components/ui/EmptyState';
-import { FeatureGate } from '../components/FeatureGate';
 
 type Currency = 'USD' | 'SGD';
 const SGD_FALLBACK_RATE = 1.275; // fallback if Finnhub fetch fails
@@ -1366,7 +1365,6 @@ function RealPortfolio() {
           </button>
         </div>
 
-        <FeatureGate feature="portfolio" blurHeight={500}>
         {/* Section A — Stat Cards */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginBottom: 10 }}>
           <div
@@ -2007,7 +2005,6 @@ function RealPortfolio() {
             </>
           )}
         </div>
-        </FeatureGate>
       </div>
 
       {/* Modals */}

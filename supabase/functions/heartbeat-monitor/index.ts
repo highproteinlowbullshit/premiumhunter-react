@@ -141,7 +141,7 @@ serve(async (req) => {
   }
 
   // ── 5. Persist result ─────────────────────────────────────────────────────
-  await supabase.from('heartbeat_log').insert({
+  const { error: insertError } = await supabase.from('heartbeat_log').insert({
     checked_at:       now.toISOString(),
     status,
     snapshot_date:    latestDate,
@@ -156,6 +156,12 @@ serve(async (req) => {
     message,
     details:          { issues, errorSamples },
   })
+  if (insertError) {
+    console.error('heartbeat_log insert failed:', insertError.message)
+    return new Response(JSON.stringify({ error: `DB insert failed: ${insertError.message}` }), {
+      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
 
   return new Response(JSON.stringify({
     status, message, alert_sent: alertSent,
