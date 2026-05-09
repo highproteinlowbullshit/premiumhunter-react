@@ -499,7 +499,16 @@ function UsersTable({ users, isLoading, isError, onRetry, searchQuery, tierFilte
 
 // ── AuditLogTable ─────────────────────────────────────────────────────────────
 
-function AuditLogTable({ logs, isLoading }: { logs: AuditLogEntry[]; isLoading: boolean }) {
+function AuditLogTable({ logs, isLoading, totalCount, page, setPage }: {
+  logs: AuditLogEntry[];
+  isLoading: boolean;
+  totalCount: number;
+  page: number;
+  setPage: (p: number) => void;
+}) {
+  const pageSize = 50
+  const totalPages = Math.ceil(totalCount / pageSize)
+
   if (isLoading) {
     return <div style={{ padding: 40, textAlign: 'center', color: 'var(--ph-text-3)', fontSize: 13 }}>Loading audit log...</div>
   }
@@ -550,6 +559,39 @@ function AuditLogTable({ logs, isLoading }: { logs: AuditLogEntry[]; isLoading: 
           ))}
         </tbody>
       </table>
+      {totalPages > 1 && (
+        <div style={{
+          display: 'flex', justifyContent: 'center', alignItems: 'center',
+          padding: '16px', gap: 12, background: 'rgba(13,27,53,0.2)',
+          borderTop: '1px solid rgba(0,229,196,0.08)'
+        }}>
+          <button
+            onClick={() => setPage(Math.max(1, page - 1))}
+            disabled={page === 1}
+            style={{
+              padding: '4px 12px', background: 'rgba(13,27,53,0.8)', color: 'var(--ph-text-1)',
+              border: '1px solid rgba(0,229,196,0.15)', borderRadius: 4, cursor: page === 1 ? 'not-allowed' : 'pointer',
+              fontSize: 12, opacity: page === 1 ? 0.5 : 1
+            }}
+          >
+            Previous
+          </button>
+          <span style={{ fontSize: 12, color: 'var(--ph-text-3)' }}>
+            Page {page} of {totalPages}
+          </span>
+          <button
+            onClick={() => setPage(Math.min(totalPages, page + 1))}
+            disabled={page === totalPages}
+            style={{
+              padding: '4px 12px', background: 'rgba(13,27,53,0.8)', color: 'var(--ph-text-1)',
+              border: '1px solid rgba(0,229,196,0.15)', borderRadius: 4, cursor: page === totalPages ? 'not-allowed' : 'pointer',
+              fontSize: 12, opacity: page === totalPages ? 0.5 : 1
+            }}
+          >
+            Next
+          </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -777,11 +819,25 @@ function UserDetailPanel({ user, onClose, onChangeTier, onBanUser, onAddNote, is
 
 export function AdminPage() {
   const { isSuperuser, isLoading: subLoading } = useSubscription()
-  const { users, auditLog, changeTier, banUser, addNote } = useAdminData()
+  const { users, auditLog, changeTier, banUser, addNote } = useAdminData(
+    {
+      action: auditAction,
+      target_user_id: auditTarget,
+      start_time: auditTimeRange === '24h' ? new Date(Date.now() - 86400000).toISOString() :
+                  auditTimeRange === '7d' ? new Date(Date.now() - 604800000).toISOString() :
+                  auditTimeRange === '30d' ? new Date(Date.now() - 2592000000).toISOString() : undefined,
+      end_time: undefined
+    },
+    auditPage
+  )
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [tierFilter, setTierFilter] = useState('all')
   const [activeTab, setActiveTab] = useState<'users' | 'audit' | 'health'>('users')
+  const [auditPage, setAuditPage] = useState(1)
+  const [auditAction, setAuditAction] = useState('')
+  const [auditTarget, setAuditTarget] = useState('')
+  const [auditTimeRange, setAuditTimeRange] = useState('all')
 
   if (subLoading) return <PageLoader />
   if (!isSuperuser) return <Navigate to="/dashboard" replace />
@@ -894,9 +950,71 @@ export function AdminPage() {
 
       {/* Audit log tab */}
       {activeTab === 'audit' && (
-        <div style={{ background: 'rgba(13,27,53,0.4)', border: '1px solid rgba(0,229,196,0.08)', borderRadius: 12, overflow: 'hidden' }}>
-          <AuditLogTable logs={auditLog.data ?? []} isLoading={auditLog.isLoading} />
-        </div>
+        <>
+          <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+            <input
+              type="text"
+              placeholder="Filter by target user ID…"
+              value={auditTarget}
+              onChange={e => { setAuditTarget(e.target.value); setAuditPage(1); }}
+              style={{
+                flex: 1, minWidth: 200, padding: '8px 12px',
+                background: 'rgba(13,27,53,0.6)',
+                border: '1px solid rgba(0,229,196,0.12)',
+                borderRadius: 8, color: 'var(--ph-text-1)', fontSize: 13,
+              }}
+            />
+            <select
+              value={auditAction}
+              onChange={e => { setAuditAction(e.target.value); setAuditPage(1); }}
+              style={{
+                padding: '8px 12px',
+                background: 'rgba(13,27,53,0.6)',
+                border: '1px solid rgba(0,229,196,0.12)',
+                borderRadius: 8, color: 'var(--ph-text-1)', fontSize: 13,
+              }}
+            >
+              <option value="">All Actions</option>
+              <option value="change_tier">Change Tier</option>
+              <option value="ban_user">Ban User</option>
+              <option value="add_note">Add Note</option>
+            </select>
+            <select
+              value={auditTimeRange}
+              onChange={e => { setAuditTimeRange(e.target.value); setAuditPage(1); }}
+              style={{
+                padding: '8px 12px',
+                background: 'rgba(13,27,53,0.6)',
+                border: '1px solid rgba(0,229,196,0.12)',
+                borderRadius: 8, color: 'var(--ph-text-1)', fontSize: 13,
+              }}
+            >
+              <option value="all">All Time</option>
+              <option value="24h">Last 24h</option>
+              <option value="7d">Last 7 days</option>
+              <option value="30d">Last 30 days</option>
+            </select>
+            <button
+              onClick={() => { setAuditTarget(''); setAuditAction(''); setAuditTimeRange('all'); setAuditPage(1); }}
+              style={{
+                padding: '8px 12px', background: 'transparent',
+                border: '1px solid rgba(0,229,196,0.15)', borderRadius: 8,
+                color: 'var(--ph-text-3)', fontSize: 12, cursor: 'pointer',
+              }}
+            >
+              Reset
+            </button>
+          </div>
+          <div style={{ background: 'rgba(13,27,53,0.4)', border: '1px solid rgba(0,229,196,0.08)', borderRadius: 12, overflow: 'hidden' }}>
+            <AuditLogTable
+              logs={auditLog.data?.logs ?? []}
+              isLoading={auditLog.isLoading}
+              totalCount={auditLog.data?.totalCount ?? 0}
+              page={auditPage}
+              setPage={setAuditPage}
+            />
+          </div>
+        </>
       )}
 
       {/* Health tab */}

@@ -35,7 +35,7 @@ export interface AuditLogEntry {
   created_at: string
 }
 
-export function useAdminData() {
+export function useAdminData(auditFilters: any = {}, auditPage: number = 1) {
   const { isSuperuser } = useSubscription()
   const queryClient = useQueryClient()
 
@@ -54,11 +54,20 @@ export function useAdminData() {
   })
 
   const auditLog = useQuery({
-    queryKey: ['admin-audit-log'],
-    queryFn: async (): Promise<AuditLogEntry[]> => {
-      const { data, error } = await supabase.functions.invoke('admin-get-audit-log', { body: {} })
+    queryKey: ['admin-audit-log', auditFilters, auditPage],
+    queryFn: async (): Promise<{ logs: AuditLogEntry[], totalCount: number }> => {
+      const { data, error } = await supabase.functions.invoke('admin-get-audit-log', {
+        body: {
+          ...auditFilters,
+          page: auditPage,
+          pageSize: 50
+        }
+      })
       if (error) throw error
-      return data.logs ?? []
+      return {
+        logs: data.logs ?? [],
+        totalCount: data.totalCount ?? 0
+      }
     },
     staleTime: 30 * 1000,
     refetchOnMount: true,
@@ -66,6 +75,8 @@ export function useAdminData() {
     retryDelay: 2000,
     enabled: isSuperuser,
   })
+
+
 
   const changeTier = useMutation({
     mutationFn: async (params: { userId: string; newTier: string; reason: string }) => {

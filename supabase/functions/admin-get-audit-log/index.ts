@@ -30,17 +30,38 @@ serve(async (req) => {
   try {
     await verifySuperuser(req.headers.get('Authorization'), supabase)
 
-    const { data: logs, error } = await supabase
+    const { page = 1, pageSize = 50, action, target_user_id, start_time, end_time } = await req.json()
+
+    let query = supabase
       .from('admin_audit_log')
-      .select('*')
+      .select('*', { count: 'exact' })
+
+    if (action) {
+      query = query.eq('action', action)
+    }
+    if (target_user_id) {
+      query = query.eq('target_user_id', target_user_id)
+    }
+    if (start_time) {
+      query = query.gte('created_at', start_time)
+    }
+    if (end_time) {
+      query = query.lte('created_at', end_time)
+    }
+
+    const from = (page - 1) * pageSize
+    const to = from + pageSize - 1
+
+    const { data: logs, error, count } = await query
       .order('created_at', { ascending: false })
-      .limit(200)
+      .range(from, to)
 
     if (error) throw error
 
-    return new Response(JSON.stringify({ logs }), {
+    return new Response(JSON.stringify({ logs, totalCount: count }), {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
+
   } catch (err) {
     return new Response(JSON.stringify({ error: (err as Error).message }), {
       status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
