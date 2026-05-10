@@ -604,12 +604,14 @@ function Panel({
 interface TopPicksSectionProps {
   screenerData: ScreenerStock[];
   isLoading: boolean;
+  prefs: ReturnType<typeof useScoringPreferences>['prefs'];
+  setPrefs: ReturnType<typeof useScoringPreferences>['setPrefs'];
+  resetPrefs: () => void;
 }
 
-export function TopPicksSection({ screenerData, isLoading }: TopPicksSectionProps) {
+export function TopPicksSection({ screenerData, isLoading, prefs, setPrefs, resetPrefs }: TopPicksSectionProps) {
   const [collapsed, setCollapsed] = useState(getInitialCollapsed);
   const [showPrefs, setShowPrefs] = useState(false);
-  const { prefs, setPrefs, resetPrefs } = useScoringPreferences();
 
   const qualifiedData = useMemo(
     () => screenerData.filter((s) => s.ivRank != null && s.price != null),
@@ -678,7 +680,7 @@ export function TopPicksSection({ screenerData, isLoading }: TopPicksSectionProp
       </div>
 
       {/* Preferences panel */}
-      {showPrefs && !collapsed && (
+      {showPrefs && (
         <PreferencesPanel
           prefs={prefs}
           setPrefs={setPrefs}

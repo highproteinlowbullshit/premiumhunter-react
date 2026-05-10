@@ -176,7 +176,7 @@ export function Screener() {
     setRefreshVersion(v => v + 1);
     await new Promise<void>(r => setTimeout(r, 1500));
   }, []);
-  const { prefs } = useScoringPreferences();
+  const { prefs, setPrefs, resetPrefs } = useScoringPreferences();
   const capitalPerTrade = prefs.capitalPerTrade ?? 0;
   const [filterAffordable, setFilterAffordable] = useState(false);
   const mobileScrollRef = useRef<HTMLDivElement>(null);
@@ -411,7 +411,13 @@ export function Screener() {
 
       <FeatureGate feature="screener" blurHeight={600}>
       {/* ── Top Picks ────────────────────────────────────────────────────── */}
-      <TopPicksSection screenerData={stocks} isLoading={isLoading} />
+      <TopPicksSection
+        screenerData={stocks}
+        isLoading={isLoading}
+        prefs={prefs}
+        setPrefs={setPrefs}
+        resetPrefs={resetPrefs}
+      />
 
       {/* ── Table ────────────────────────────────────────────────────────── */}
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 mt-4">
