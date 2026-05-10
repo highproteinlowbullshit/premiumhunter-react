@@ -108,7 +108,7 @@ export function useScreenerStream(version = 0): ScreenerStreamState {
             ticker: s.ticker,
             name: s.name,
             sector: s.sector,
-            price: row.current_price ?? null,
+            price: row.current_price ?? row.prev_close ?? null,
             priceChange: row.price_change_pct ?? null,
             ivRank: row.iv_rank,
             ivPercentile: row.iv_percentile,
@@ -122,9 +122,10 @@ export function useScreenerStream(version = 0): ScreenerStreamState {
             putCallSkew: row.put_call_skew ?? null,
             atmOpenInterest: row.atm_open_interest ?? null,
             dataSource: 'cached' as const,
-            capitalRequired: row.current_price != null && row.current_price > 0
-              ? Math.round(row.current_price * 0.90 * 100)
-              : null,
+            capitalRequired: (() => {
+              const p = row.current_price ?? row.prev_close ?? null;
+              return p != null && p > 0 ? Math.round(p * 0.90 * 100) : null;
+            })(),
           };
         });
         if (!cancelledRef.current) {

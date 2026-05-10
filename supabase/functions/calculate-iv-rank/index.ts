@@ -295,10 +295,15 @@ async function fetchOHLCV(
   if (!res.ok) throw new Error(`Polygon ${ticker}: HTTP ${res.status}`)
 
   const json = await res.json()
-  const results: Array<{ c: number; t: number; v: number }> = json.results ?? []
+  const raw: Array<{ c: number; t: number; v: number }> = json.results ?? []
+
+  // Drop bars with a null/zero close — Polygon includes a partial bar for the
+  // current trading day before market open (c = null or 0). Keeping it would
+  // produce NaN log-returns in the HV calculation and a null current_price.
+  const results = raw.filter(r => r.c != null && r.c > 0)
 
   if (results.length < 83) {
-    throw new Error(`Insufficient data for ${ticker}: only ${results.length} bars`)
+    throw new Error(`Insufficient data for ${ticker}: only ${results.length} valid bars`)
   }
 
   const closes = results.map(r => r.c)
