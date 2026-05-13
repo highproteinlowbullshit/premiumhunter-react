@@ -22,6 +22,7 @@ import { PageLoader } from './components/PageLoader';
 import { Dashboard } from './pages/Dashboard';
 import { useLastSeen } from './hooks/useLastSeen';
 
+const LandingPage      = lazy(() => import('./pages/LandingPage'));
 const LeapsCalculator  = lazy(() => import('./components/LeapsCalculator').then(m => ({ default: m.LeapsCalculator })));
 const Watchlist        = lazy(() => import('./pages/Watchlist').then(m => ({ default: m.Watchlist })));
 const StockDetail      = lazy(() => import('./pages/StockDetail').then(m => ({ default: m.StockDetail })));
@@ -74,6 +75,13 @@ export default function App() {
       </BrowserRouter>
     </QueryClientProvider>
   );
+}
+
+function LandingPageRoute() {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  if (user) return <Navigate to="/dashboard" replace />;
+  return <LandingPage />;
 }
 
 function AppInner() {
@@ -132,8 +140,10 @@ function AppInner() {
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/help" element={<HelpPage />} />
 
+            {/* Landing / root */}
+            <Route path="/" element={<LandingPageRoute />} />
+
             {/* Protected */}
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/watchlist" element={<ProtectedRoute><Watchlist /></ProtectedRoute>} />
             <Route path="/stock/:ticker" element={<ProtectedRoute><StockDetail /></ProtectedRoute>} />
