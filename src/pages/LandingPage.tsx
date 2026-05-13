@@ -986,6 +986,7 @@ interface FeatureConfig {
   badge?: string
   badgeBg?: string
   badgeColor?: string
+  badgeBorder?: string
   mock: React.ReactNode
   textRight?: boolean
   bg: string
