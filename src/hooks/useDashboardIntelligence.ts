@@ -1081,7 +1081,7 @@ export function useDashboardIntelligence() {
 
       return partial;
     },
-    staleTime: 2 * 60 * 1000,
+    staleTime: 0,
     refetchOnWindowFocus: true,
     refetchInterval: 5 * 60 * 1000,
     enabled: !!user,
