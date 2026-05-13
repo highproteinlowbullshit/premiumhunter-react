@@ -40,6 +40,14 @@ function fmtExpiry(expiry: string): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+// ── Shared: probability → color (keeps dots and text in sync) ─────────────────
+
+function dotGaugeColor(probability: number): string {
+  if (probability < 40) return C.teal;
+  if (probability < 60) return C.amber;
+  return C.red;
+}
+
 // ── Dot gauge ─────────────────────────────────────────────────────────────────
 
 function DotGauge({ probability }: { probability: number }) {
@@ -49,10 +57,7 @@ function DotGauge({ probability }: { probability: number }) {
     probability < 60 ? 3 :
     probability < 80 ? 4 : 5;
 
-  const color =
-    filledCount <= 2 ? C.teal :
-    filledCount === 3 ? C.amber :
-    C.red;
+  const color = dotGaugeColor(probability);
 
   return (
     <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
@@ -134,6 +139,54 @@ function PositionTooltip({ pos }: { pos: PositionSnapshot }) {
       <div style={{ color: pos.suggestedAction === 'urgent' ? C.red : pos.suggestedAction === 'review' ? C.amber : C.text2, fontStyle: 'italic' }}>
         {pos.actionReason}
       </div>
+    </div>
+  );
+}
+
+// ── Probability badge with tooltip ───────────────────────────────────────────
+
+function ProbabilityBadge({ probability }: { probability: number | null }) {
+  const [hovered, setHovered] = useState(false);
+  const pct = probability ?? 0;
+  const color = dotGaugeColor(pct);
+
+  return (
+    <div
+      style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <span style={{ fontSize: 13, fontWeight: 600, color }}>
+        {probability?.toFixed(0) ?? '--'}%
+      </span>
+      <span style={{ fontSize: 11, color: C.muted, cursor: 'default', lineHeight: 1 }}>ⓘ</span>
+
+      {hovered && (
+        <div style={{
+          position: 'absolute', bottom: 'calc(100% + 6px)', left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 1001, width: 220,
+          background: 'rgba(5,13,26,0.97)',
+          border: '1px solid rgba(20,184,166,0.2)',
+          borderRadius: 8, padding: '10px 12px',
+          fontSize: 11, fontFamily: 'DM Sans, sans-serif',
+          lineHeight: 1.55, color: C.text2,
+          boxShadow: '0 6px 24px rgba(0,0,0,0.6)',
+          pointerEvents: 'none', whiteSpace: 'normal',
+        }}>
+          <div style={{ fontWeight: 700, color: C.text1, marginBottom: 5 }}>
+            Assignment probability
+          </div>
+          <div>
+            The estimated chance this option gets assigned at expiry, based on Black-Scholes delta (≈ |Δ| × 100).
+          </div>
+          <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <span style={{ color: C.teal }}>● Under 40% — low risk</span>
+            <span style={{ color: C.amber }}>● 40–60% — moderate, monitor</span>
+            <span style={{ color: C.red }}>● Over 60% — high, consider closing</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -227,9 +280,13 @@ function PositionRow({ position, isLast, index }: {
         {' · '}
         {position.distanceFromStrike !== null ? (
           <span style={{ color: position.isITM ? C.red : C.text2 }}>
-            {position.isITM
-              ? `$${position.distanceFromStrike.toFixed(2)} below strike`
-              : `${position.distancePercent?.toFixed(1)}% above strike`
+            {position.strategy === 'CSP'
+              ? position.isITM
+                ? `$${position.distanceFromStrike.toFixed(2)} below strike`
+                : `${position.distancePercent?.toFixed(1)}% above strike`
+              : position.isITM
+                ? `$${position.distanceFromStrike.toFixed(2)} above strike`
+                : `${position.distancePercent?.toFixed(1)}% below strike`
             }
           </span>
         ) : '--'}
@@ -239,15 +296,7 @@ function PositionRow({ position, isLast, index }: {
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
         <DotGauge probability={position.assignmentProbability ?? 0} />
 
-        <span style={{
-          fontSize: 13, fontWeight: 600,
-          color:
-            position.isITM ? C.red :
-            (position.assignmentProbability ?? 0) > 35 ? C.amber :
-            C.text1,
-        }}>
-          {position.assignmentProbability?.toFixed(0) ?? '--'}%
-        </span>
+        <ProbabilityBadge probability={position.assignmentProbability} />
 
         <span style={{ color: C.text2, fontSize: 10 }}>·</span>
 

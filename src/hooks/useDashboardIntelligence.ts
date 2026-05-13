@@ -668,7 +668,12 @@ export function useDashboardIntelligence() {
           : screenIV?.current_price
           ? Number(screenIV.current_price)
           : null;
-        const rawIV = posIV?.current_hv ? Number(posIV.current_hv) / 100 : null;
+        // Prefer position-specific current_hv, then iv_snapshots hv_30 (same source WheelTracker uses), then estimate
+        const rawIV = posIV?.current_hv
+          ? Number(posIV.current_hv) / 100
+          : screenIV?.hv_30
+          ? Number(screenIV.hv_30) / 100
+          : null;
         const iv = rawIV ?? estimateVolatility(pos.ticker as string);
 
         // Price distance and safety
