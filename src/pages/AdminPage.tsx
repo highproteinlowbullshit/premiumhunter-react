@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
+import { Check, X, AlertTriangle, CheckCircle, XCircle } from 'lucide-react'
 import { useSubscription } from '../hooks/useSubscription'
 import { useAdminData, type AdminUser, type AuditLogEntry } from '../hooks/useAdminData'
 import { useHeartbeatLog, type HeartbeatEntry, type HeartbeatResult } from '../hooks/useHeartbeatLog'
@@ -29,8 +30,9 @@ function DisclaimerBadge({ version }: { version: string | null }) {
         fontSize: 11, padding: '2px 7px', borderRadius: 4, fontWeight: 600,
         color: '#ef4444', background: 'rgba(239,68,68,0.1)',
         border: '1px solid rgba(239,68,68,0.25)', whiteSpace: 'nowrap',
+        display: 'inline-flex', alignItems: 'center', gap: 3,
       }}>
-        ✗ None
+        <X size={10} /> None
       </span>
     )
   }
@@ -40,8 +42,9 @@ function DisclaimerBadge({ version }: { version: string | null }) {
         fontSize: 11, padding: '2px 7px', borderRadius: 4, fontWeight: 600,
         color: '#00d68f', background: 'rgba(0,214,143,0.1)',
         border: '1px solid rgba(0,214,143,0.25)', whiteSpace: 'nowrap',
+        display: 'inline-flex', alignItems: 'center', gap: 3,
       }}>
-        ✓ {version}
+        <Check size={10} /> {version}
       </span>
     )
   }
@@ -50,8 +53,9 @@ function DisclaimerBadge({ version }: { version: string | null }) {
       fontSize: 11, padding: '2px 7px', borderRadius: 4, fontWeight: 600,
       color: '#f59e0b', background: 'rgba(245,158,11,0.1)',
       border: '1px solid rgba(245,158,11,0.25)', whiteSpace: 'nowrap',
+      display: 'inline-flex', alignItems: 'center', gap: 3,
     }}>
-      ⚠ {version}
+      <AlertTriangle size={10} /> {version}
     </span>
   )
 }
@@ -86,18 +90,20 @@ function TierBadge({ tier, large = false }: { tier: string; large?: boolean }) {
 
 function StatusBadge({ status }: { status: string }) {
   const cfg: Record<string, { color: string; bg: string; border: string; label: string }> = {
-    ok:       { color: '#00d68f', bg: 'rgba(0,214,143,0.1)',  border: 'rgba(0,214,143,0.3)',  label: '● OK'       },
-    warning:  { color: '#f59e0b', bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.3)', label: '⚠ WARNING'  },
-    critical: { color: '#ef4444', bg: 'rgba(239,68,68,0.1)',  border: 'rgba(239,68,68,0.3)',  label: '✗ CRITICAL' },
+    ok:       { color: '#00d68f', bg: 'rgba(0,214,143,0.1)',  border: 'rgba(0,214,143,0.3)',  label: 'OK'       },
+    warning:  { color: '#f59e0b', bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.3)', label: 'WARNING'  },
+    critical: { color: '#ef4444', bg: 'rgba(239,68,68,0.1)',  border: 'rgba(239,68,68,0.3)',  label: 'CRITICAL' },
   }
   const c = cfg[status] ?? { color: 'var(--ph-text-3)', bg: 'transparent', border: 'rgba(0,229,196,0.1)', label: status }
+  const Icon = status === 'ok' ? CheckCircle : status === 'warning' ? AlertTriangle : status === 'critical' ? XCircle : null
   return (
     <span style={{
       fontSize: 11, padding: '3px 10px', borderRadius: 20, fontWeight: 700,
       color: c.color, background: c.bg, border: `1px solid ${c.border}`,
       letterSpacing: '0.05em', whiteSpace: 'nowrap',
+      display: 'inline-flex', alignItems: 'center', gap: 4,
     }}>
-      {c.label}
+      {Icon && <Icon size={10} />}{c.label}
     </span>
   )
 }

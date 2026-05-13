@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Check, Mail } from 'lucide-react'
 import { useSubscription } from '../hooks/useSubscription'
 import { PricingCards } from '../components/PricingCards'
 
@@ -89,7 +90,7 @@ export function UpgradePage() {
                 color: emailCopied ? '#14b8a6' : 'var(--ph-text-2)',
                 cursor: 'pointer', transition: 'all 0.2s ease',
               }}>
-                {emailCopied ? 'Copied ✓' : 'Copy'}
+                {emailCopied ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>Copied <Check size={11} /></span> : 'Copy'}
               </button>
             </div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -97,14 +98,14 @@ export function UpgradePage() {
                 padding: '11px 28px', background: '#14b8a6', color: '#0f1923',
                 border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: 'pointer',
               }}>
-                ✉ Send us an email
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Mail size={14} /> Send us an email</span>
               </button>
               <button onClick={handleCopyEmail} style={{
                 padding: '11px 22px', background: 'transparent',
                 border: '1px solid rgba(0,229,196,0.2)',
                 borderRadius: 8, fontSize: 14, cursor: 'pointer', color: 'var(--ph-text-1)',
               }}>
-                {emailCopied ? 'Copied ✓' : 'Copy email address'}
+                {emailCopied ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>Copied <Check size={11} /></span> : 'Copy email address'}
               </button>
             </div>
             <p style={{ margin: '16px 0 0', fontSize: 12, color: 'var(--ph-text-3)', lineHeight: 1.6 }}>

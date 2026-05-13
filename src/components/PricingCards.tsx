@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom'
+import { Check } from 'lucide-react'
 import { useSubscription } from '../hooks/useSubscription'
 import { FREE_FEATURES_LIST, PRO_FEATURES_LIST } from '../lib/featureConfig'
 
@@ -45,7 +46,7 @@ export function PricingCards({ isLanding = false }: PricingCardsProps) {
         <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 24px', flex: 1 }}>
           {FREE_FEATURES_LIST.map((f, i) => (
             <li key={i} style={{ display: 'flex', gap: 8, padding: '5px 0', fontSize: 13 }}>
-              <span style={{ color: '#14b8a6', flexShrink: 0 }}>✓</span>
+              <Check size={13} style={{ color: '#14b8a6', flexShrink: 0 }} />
               <span style={{ color: '#9ab4d4' }}>{f}</span>
             </li>
           ))}
@@ -79,7 +80,7 @@ export function PricingCards({ isLanding = false }: PricingCardsProps) {
             borderRadius: 8, fontSize: 13,
             color: '#4a6a8a', cursor: 'not-allowed',
           }}>
-            {tier === 'free' ? '✓ Your current plan' : 'Free plan'}
+            {tier === 'free' ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Check size={12} /> Your current plan</span> : 'Free plan'}
           </button>
         )}
       </div>
@@ -113,9 +114,10 @@ export function PricingCards({ isLanding = false }: PricingCardsProps) {
         <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 24px', flex: 1 }}>
           {PRO_FEATURES_LIST.map((f, i) => (
             <li key={i} style={{ display: 'flex', gap: 8, padding: '5px 0', fontSize: 13 }}>
-              <span style={{ color: i === 0 ? 'transparent' : '#14b8a6', flexShrink: 0 }}>
-                {i === 0 ? '·' : '✓'}
-              </span>
+              {i === 0
+                ? <span style={{ width: 13, flexShrink: 0 }} />
+                : <Check size={13} style={{ color: '#14b8a6', flexShrink: 0 }} />
+              }
               <span style={{
                 color: i === 0 ? '#e8f0fe' : '#9ab4d4',
                 fontWeight: i === 0 ? 500 : 400,
@@ -131,7 +133,7 @@ export function PricingCards({ isLanding = false }: PricingCardsProps) {
             border: '1px solid rgba(0,229,196,0.12)', borderRadius: 8,
             fontSize: 13, color: '#4a6a8a', cursor: 'not-allowed',
           }}>
-            ✓ Your current plan
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Check size={12} /> Your current plan</span>
           </button>
         ) : (
           <button

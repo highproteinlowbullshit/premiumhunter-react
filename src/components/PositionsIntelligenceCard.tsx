@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AlertTriangle, Eye, Lightbulb, CheckCircle, AlertCircle } from 'lucide-react';
 import type { PositionSnapshot, DashboardIntelligence } from '../hooks/useDashboardIntelligence';
 import { usePaperMode } from '../context/PaperModeContext';
 import { blackScholes } from '../lib/blackScholes';
@@ -319,13 +320,10 @@ function PositionRow({ position, isLast, index }: {
 
         {/* Warning icon */}
         {showWarning && (
-          <span style={{
-            marginLeft: 'auto',
-            color: position.safetyStatus === 'itm' ? C.red : C.amber,
-            fontSize: 16, flexShrink: 0,
-          }}>
-            ⚠
-          </span>
+          <AlertTriangle
+            size={14}
+            style={{ marginLeft: 'auto', color: position.safetyStatus === 'itm' ? C.red : C.amber, flexShrink: 0 }}
+          />
         )}
       </div>
 
@@ -375,15 +373,12 @@ function PositionRow({ position, isLast, index }: {
           display: 'flex', alignItems: 'center', gap: 6,
           marginBottom: 10, fontSize: 12, fontStyle: 'italic',
         }}>
-          <span style={{
-            color:
-              position.suggestedAction === 'urgent' ? C.red :
-              position.suggestedAction === 'review' ? C.amber :
-              C.teal,
-          }}>
-            {position.suggestedAction === 'urgent' ? '⚠' :
-             position.suggestedAction === 'review' ? '👁' : '○'}
-          </span>
+          {position.suggestedAction === 'urgent'
+            ? <AlertTriangle size={12} style={{ color: C.red, flexShrink: 0 }} />
+            : position.suggestedAction === 'review'
+            ? <Eye size={12} style={{ color: C.amber, flexShrink: 0 }} />
+            : <span style={{ width: 7, height: 7, borderRadius: '50%', background: C.teal, display: 'inline-block', flexShrink: 0, marginTop: 1 }} />
+          }
           <span style={{
             color:
               position.suggestedAction === 'urgent' ? C.red :
@@ -534,11 +529,12 @@ function FiftyPercentCallout({ positions, onNavigate }: {
       borderLeft: '3px solid rgba(20,184,166,0.4)',
       animation: 'softPulse 3s ease infinite',
     }}>
-      <div style={{ fontSize: 12, color: C.teal, marginBottom: 3 }}>
-        💡 {single
+      <div style={{ fontSize: 12, color: C.teal, marginBottom: 3, display: 'flex', alignItems: 'center', gap: 5 }}>
+        <Lightbulb size={12} style={{ flexShrink: 0 }} />
+        <span>{single
           ? `${single.ticker} at ${single.percentOfMaxProfit?.toFixed(0)}% max profit`
           : `${positions.length} positions at or above 50% profit`
-        }
+        }</span>
       </div>
       <div style={{ fontSize: 11, color: C.text2, marginBottom: 6, lineHeight: 1.4 }}>
         {single
@@ -560,12 +556,12 @@ function FiftyPercentCallout({ positions, onNavigate }: {
 
 function RiskSummaryStrip({ summary }: { summary: DashboardIntelligence['positionsSummary'] }) {
   const riskPill = summary.itmCount > 0
-    ? { label: `⚠ ${summary.itmCount} ITM`, color: C.red, bg: 'rgba(239,68,68,0.12)', border: 'rgba(239,68,68,0.25)' }
+    ? { icon: <AlertTriangle size={11} />, text: `${summary.itmCount} ITM`, color: C.red, bg: 'rgba(239,68,68,0.12)', border: 'rgba(239,68,68,0.25)' }
     : summary.nearCount > 0
-    ? { label: `◎ ${summary.nearCount} near strike`, color: C.amber, bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.25)' }
+    ? { icon: <AlertCircle size={11} />, text: `${summary.nearCount} near strike`, color: C.amber, bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.25)' }
     : summary.watchCount > 0
-    ? { label: `○ ${summary.watchCount} watching`, color: C.orange, bg: 'rgba(249,115,22,0.10)', border: 'rgba(249,115,22,0.2)' }
-    : { label: '✓ All positions safe', color: C.teal, bg: 'rgba(20,184,166,0.10)', border: 'rgba(20,184,166,0.2)' };
+    ? { icon: <Eye size={11} />, text: `${summary.watchCount} watching`, color: C.orange, bg: 'rgba(249,115,22,0.10)', border: 'rgba(249,115,22,0.2)' }
+    : { icon: <CheckCircle size={11} />, text: 'All positions safe', color: C.teal, bg: 'rgba(20,184,166,0.10)', border: 'rgba(20,184,166,0.2)' };
 
   return (
     <div style={{
@@ -578,8 +574,9 @@ function RiskSummaryStrip({ summary }: { summary: DashboardIntelligence['positio
         background: riskPill.bg,
         border: `1px solid ${riskPill.border}`,
         padding: '4px 12px', borderRadius: 20,
+        display: 'inline-flex', alignItems: 'center', gap: 5,
       }}>
-        {riskPill.label}
+        {riskPill.icon}{riskPill.text}
       </span>
 
       {summary.bestPerformer && (

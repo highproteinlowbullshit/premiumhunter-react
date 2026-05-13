@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   AreaChart, Area, ResponsiveContainer, Tooltip,
 } from 'recharts'
+import { Zap, TrendingUp, Target, Clock } from 'lucide-react'
 import { usePaperMode } from '../context/PaperModeContext'
 import type { PortfolioGreeks } from '../lib/blackScholes'
 
@@ -272,8 +273,8 @@ function ZoneThetaHero({ greeks }: { greeks: PortfolioGreeks }) {
       {/* Theta acceleration banner */}
       {greeks.thetaAccelerationNote && (
         <div className="px-6 py-3" style={{ background: 'rgba(245,158,11,0.06)', borderTop: '1px solid rgba(245,158,11,0.15)' }}>
-          <p className="text-xs italic" style={{ color: '#f59e0b', fontFamily: 'DM Sans, sans-serif' }}>
-            ⚡ {greeks.thetaAccelerationNote}
+          <p className="text-xs italic" style={{ color: '#f59e0b', fontFamily: 'DM Sans, sans-serif', display: 'flex', alignItems: 'center', gap: 5 }}>
+            <Zap size={11} style={{ flexShrink: 0 }} /> {greeks.thetaAccelerationNote}
           </p>
         </div>
       )}
@@ -304,7 +305,7 @@ const GAMMA_RISK_CONFIG: Record<PortfolioGreeks['gammaRisk'], { label: string; c
   low:      { label: 'Low gamma risk',      color: '#14b8a6' },
   moderate: { label: 'Moderate',            color: '#f59e0b' },
   high:     { label: 'High gamma risk',     color: '#ef4444' },
-  extreme:  { label: 'Extreme ⚠',          color: '#ef4444' },
+  extreme:  { label: 'Extreme',             color: '#ef4444' },
 }
 
 function GreekCard({
@@ -699,22 +700,22 @@ function ZoneEducation({ greeks }: { greeks: PortfolioGreeks }) {
 
   const cards = [
     {
-      icon: '⏳',
+      icon: <Clock size={18} color="#14b8a6" />,
       title: 'Theta is your daily income',
       body: `Every day that passes, your options lose time value. As the seller, you keep that lost value as profit. Your $${greeks.dailyThetaIncome.toFixed(2)}/day theta means the market is paying you that amount today for taking on assignment risk — even if stocks don't move.`,
     },
     {
-      icon: '📈',
+      icon: <TrendingUp size={18} color="#14b8a6" />,
       title: 'Delta tells your market bias',
       body: `Your portfolio delta of ${greeks.totalDelta.toFixed(1)} means you ${greeks.totalDelta > 0 ? 'benefit slightly from rising markets' : 'benefit slightly from falling markets'}. As a CSP seller, you naturally have positive delta because you agreed to buy shares — you want stocks to stay stable or rise slightly.`,
     },
     {
-      icon: '⚡',
+      icon: <Zap size={18} color="#14b8a6" />,
       title: 'Vega: the IV risk',
       body: 'You sold options when IV was high — now you want IV to drop or stay stable. If IV spikes further, your positions show unrealised losses even if stocks don\'t move. This is temporary — if you hold to expiry, vega risk disappears completely.',
     },
     {
-      icon: '🎯',
+      icon: <Target size={18} color="#14b8a6" />,
       title: 'Gamma near expiry',
       body: 'As your positions approach expiry, gamma risk increases. This means a $1 stock move has a bigger impact on your position than it did when you opened it. Positions under 7 DTE carry the highest gamma risk — be especially careful with near-strike positions this close to expiry.',
     },

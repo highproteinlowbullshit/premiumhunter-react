@@ -1,5 +1,6 @@
 // src/components/TopPicksSection.tsx
 import { useState, useMemo, useEffect } from 'react';
+import { Check } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useWatchlistContext } from '../context/WatchlistContext';
 import { getTopPicks, type TopPick } from '../lib/topPicksEngine';
@@ -400,7 +401,10 @@ function PickCard({ pick, rank, strategy }: { pick: TopPick; rank: number; strat
             fontFamily: 'DM Sans, sans-serif',
           }}
         >
-          {watched ? '✓ Watching' : '+ Watchlist'}
+          {watched
+            ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}><Check size={11} /> Watching</span>
+            : '+ Watchlist'
+          }
         </button>
       </div>
     </div>

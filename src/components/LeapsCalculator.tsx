@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSubscription } from '../hooks/useSubscription';
-import { AlertTriangle, Check } from 'lucide-react';
+import { AlertTriangle, Check, Lock } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, Tooltip as RechartsTooltip,
   ResponsiveContainer, ReferenceLine,
@@ -382,7 +382,7 @@ export function LeapsCalculator({
                 borderRadius: 12, padding: '28px 32px',
                 textAlign: 'center', maxWidth: 300,
               }}>
-                <div style={{ fontSize: 28, marginBottom: 12 }}>🔒</div>
+                <div style={{ marginBottom: 12, color: '#14b8a6' }}><Lock size={28} /></div>
                 <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8, fontFamily: 'Syne, sans-serif', color: '#e8f0fe' }}>
                   Pro Feature
                 </div>

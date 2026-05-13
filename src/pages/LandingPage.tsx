@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useInView } from 'react-intersection-observer'
+import { BarChart2, FileText, TrendingUp, Leaf, Settings, Target, AlertTriangle } from 'lucide-react'
 import { PricingCards } from '../components/PricingCards'
 import '../styles/landing-mobile.css'
 
@@ -363,7 +364,7 @@ function HeroDashboardMock() {
           padding: '10px 10px 10px 14px',
         }}>
           <div style={{ fontSize: 12, fontWeight: 600, color: '#e8f0fe', fontFamily: 'DM Sans, sans-serif', marginBottom: 3 }}>
-            🎯 SOFI at IV rank 74 — elevated premium
+            SOFI at IV rank 74 — elevated premium
           </div>
           <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', fontFamily: 'DM Sans, sans-serif' }}>
             Estimated 28% annualised at 30-delta
@@ -845,7 +846,7 @@ function ScreenerMock() {
         borderTop: '1px solid rgba(20,184,166,0.12)',
       }}>
         <div style={{ fontSize: 11, color: '#14b8a6', fontFamily: 'DM Sans, sans-serif', fontWeight: 600 }}>
-          🏆 Top CSP pick: GME $24 Feb 21 · est. $1.20 premium · 34% ann.
+          Top CSP pick: GME $24 Feb 21 · est. $1.20 premium · 34% ann.
         </div>
       </div>
     </div>
@@ -901,7 +902,7 @@ function WheelTrackerMock() {
                 · {pos.exp} · {pos.dte} DTE
               </span>
             </div>
-            {pos.warning && <span style={{ fontSize: 12 }}>⚠</span>}
+            {pos.warning && <AlertTriangle size={12} style={{ color: '#f59e0b' }} />}
           </div>
           <div style={{ fontSize: 11, color: '#9ab4d4', fontFamily: 'DM Sans, sans-serif', marginBottom: 8 }}>
             Stock: {pos.stock} · {pos.relation}
@@ -1012,7 +1013,7 @@ function DashboardMock() {
         padding: '12px 14px',
       }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: '#e8f0fe', fontFamily: 'DM Sans, sans-serif', marginBottom: 4 }}>
-          🎯 MARA at 74 IV rank — elevated premium
+          MARA at 74 IV rank — elevated premium
         </div>
         <div style={{ fontSize: 12, color: '#9ab4d4', fontFamily: 'DM Sans, sans-serif', lineHeight: 1.5, marginBottom: 8 }}>
           Estimated 28% annualised at 30-delta. IV trend is rising — conditions improving.
@@ -1030,7 +1031,7 @@ function DashboardMock() {
         {[
           'This month: $2,840',
           'Win rate: 84%',
-          '🔥 Streak: 6',
+          'Streak: 6',
           'Open: 4',
           'Target: 81% ▓▓▓▓▓▓▓▓░░',
         ].map(stat => (
@@ -1300,7 +1301,7 @@ function FeaturesSection() {
 
 // ── Vertical timeline (mobile how-it-works) ───────────────────────────────────
 
-function VerticalTimeline({ steps }: { steps: { num: string; icon: string; title: string; desc: string }[] }) {
+function VerticalTimeline({ steps }: { steps: { num: string; icon: React.ReactNode; title: string; desc: string }[] }) {
   return (
     <div style={{ padding: '0 4px' }}>
       {steps.map((step, i) => (
@@ -1323,7 +1324,7 @@ function VerticalTimeline({ steps }: { steps: { num: string; icon: string; title
           </div>
           {/* Right: content */}
           <div style={{ paddingTop: 8, paddingBottom: i < steps.length - 1 ? 0 : 0 }}>
-            <div style={{ fontSize: 22, marginBottom: 8 }}>{step.icon}</div>
+            <div style={{ marginBottom: 8 }}>{step.icon}</div>
             <h3 style={{
               margin: '0 0 6px', fontSize: 15, fontWeight: 600,
               color: '#e8f0fe', fontFamily: 'DM Sans, sans-serif',
@@ -1347,17 +1348,17 @@ function HowItWorksSection() {
   const isMobile = useIsMobile()
   const steps = [
     {
-      num: '01', icon: '📊',
+      num: '01', icon: <BarChart2 size={22} color="#14b8a6" />,
       title: 'Find high-IV opportunities',
       desc: 'Open the screener each morning. The top picks engine surfaces the 5 best CSP and CC candidates ranked by IV rank, earnings safety, and estimated return.',
     },
     {
-      num: '02', icon: '📝',
+      num: '02', icon: <FileText size={22} color="#14b8a6" />,
       title: 'Log your positions',
       desc: 'Enter your CSPs and covered calls as you open them. Premium Hunter tracks DTE, assignment probability, daily theta, and cost basis automatically.',
     },
     {
-      num: '03', icon: '📈',
+      num: '03', icon: <TrendingUp size={22} color="#14b8a6" />,
       title: 'Watch premium compound',
       desc: 'Every expiry cycle, see your premium income tracked against your monthly target. Watch your theta work for you daily — even when the market is flat.',
     },
@@ -1417,7 +1418,7 @@ function HowItWorksSection() {
                     width: 44, height: 44, borderRadius: '50%',
                     background: 'rgba(20,184,166,0.1)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 22, marginBottom: 16,
+                    marginBottom: 16,
                   }}>
                     {step.icon}
                   </div>
@@ -1476,19 +1477,19 @@ function WhoItsForSection() {
 
   const personas = [
     {
-      icon: '🌱', title: 'New to the wheel',
+      icon: <Leaf size={28} color="#14b8a6" />, title: 'New to the wheel',
       desc: 'Start with paper trading — full access for free, forever. Practice with $100,000 in virtual money until you\'re confident going live.',
       tag: 'Free plan', tagBg: 'rgba(255,255,255,0.07)', tagColor: '#9ab4d4', tagBorder: 'rgba(255,255,255,0.12)',
       highlight: false,
     },
     {
-      icon: '⚙️', title: 'Active wheel trader',
+      icon: <Settings size={28} color="#14b8a6" />, title: 'Active wheel trader',
       desc: 'You run 3–6 positions monthly and want to know your IV rank entry conditions, see assignment probability in real time, and track monthly income.',
       tag: 'Pro plan', tagBg: 'rgba(20,184,166,0.12)', tagColor: '#14b8a6', tagBorder: 'rgba(20,184,166,0.25)',
       highlight: true,
     },
     {
-      icon: '🎯', title: 'Income-focused trader',
+      icon: <Target size={28} color="#14b8a6" />, title: 'Income-focused trader',
       desc: 'The wheel is your primary income strategy. You need portfolio Greeks, cost basis tracking, AI picks, and a morning briefing before the market opens.',
       tag: 'Pro plan', tagBg: 'rgba(20,184,166,0.12)', tagColor: '#14b8a6', tagBorder: 'rgba(20,184,166,0.25)',
       highlight: false,
@@ -1540,7 +1541,7 @@ function WhoItsForSection() {
                         Most common
                       </div>
                     )}
-                    <div style={{ fontSize: 30, marginBottom: 14 }}>{p.icon}</div>
+                    <div style={{ marginBottom: 14 }}>{p.icon}</div>
                     <h3 style={{ margin: '0 0 10px', fontSize: 16, fontWeight: 600, color: '#e8f0fe', fontFamily: 'DM Sans, sans-serif' }}>
                       {p.title}
                     </h3>
@@ -1581,7 +1582,7 @@ function WhoItsForSection() {
                       Most common
                     </div>
                   )}
-                  <div style={{ fontSize: 32, marginBottom: 16 }}>{p.icon}</div>
+                  <div style={{ marginBottom: 16 }}>{p.icon}</div>
                   <h3 style={{ margin: '0 0 10px', fontSize: 17, fontWeight: 600, color: '#e8f0fe', fontFamily: 'DM Sans, sans-serif' }}>
                     {p.title}
                   </h3>
