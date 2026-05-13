@@ -1081,9 +1081,9 @@ export function useDashboardIntelligence() {
 
       return partial;
     },
-    staleTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: false,
-    refetchInterval: 10 * 60 * 1000,
+    staleTime: 2 * 60 * 1000,
+    refetchOnWindowFocus: true,
+    refetchInterval: 5 * 60 * 1000,
     enabled: !!user,
   });
 }

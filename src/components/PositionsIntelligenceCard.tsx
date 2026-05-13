@@ -419,10 +419,7 @@ function PositionRow({ position, isLast, index }: {
 
 // ── Summary bar ───────────────────────────────────────────────────────────────
 
-function SummaryBar({ summary, totalDailyTheta }: {
-  summary: DashboardIntelligence['positionsSummary'];
-  totalDailyTheta: number;
-}) {
+function SummaryBar({ summary }: { summary: DashboardIntelligence['positionsSummary'] }) {
   const avgColor = profitColor(summary.avgPercentOfMaxProfit);
   const cells = [
     {
@@ -462,9 +459,9 @@ function SummaryBar({ summary, totalDailyTheta }: {
       value: (
         <span style={{
           fontSize: 22, fontWeight: 600,
-          color: totalDailyTheta > 0 ? C.teal : C.muted,
+          color: summary.totalDailyTheta > 0 ? C.teal : C.muted,
         }}>
-          {totalDailyTheta > 0 ? `+${fmt$(totalDailyTheta)}/d` : '—'}
+          {summary.totalDailyTheta > 0 ? `+${fmt$(summary.totalDailyTheta)}/d` : '—'}
         </span>
       ),
       noBorder: true,
@@ -623,12 +620,28 @@ export function PositionsIntelligenceCard({ positions, summary, isLoading, onNav
     });
   }, [positions, livePrices]);
 
-  // Recompute total daily theta from live-price-updated positions so the summary
-  // stays in sync with the individual row values (snapshot prices would diverge).
-  const liveTotalDailyTheta = useMemo(() => {
-    const withTheta = livePositions.filter(p => p.dailyTheta !== null);
-    return Math.round(withTheta.reduce((s, p) => s + p.dailyTheta!, 0) * 100) / 100;
-  }, [livePositions]);
+  // Recompute all price-derived summary fields from live-price-updated positions.
+  // snapshot summary.safeCount / itmCount / avgPercentOfMaxProfit etc. are frozen at
+  // fetch time; this keeps the header dots, risk strip, and summary bar in sync with
+  // the same live prices already shown in individual rows.
+  const liveSummary = useMemo(() => {
+    const withProfit = livePositions.filter(p => p.percentOfMaxProfit !== null);
+    const withTheta  = livePositions.filter(p => p.dailyTheta !== null);
+    return {
+      ...summary,
+      safeCount:  livePositions.filter(p => p.safetyStatus === 'safe').length,
+      watchCount: livePositions.filter(p => p.safetyStatus === 'watch').length,
+      nearCount:  livePositions.filter(p => p.safetyStatus === 'near').length,
+      itmCount:   livePositions.filter(p => p.safetyStatus === 'itm').length,
+      totalDailyTheta: Math.round(withTheta.reduce((s, p) => s + p.dailyTheta!, 0) * 100) / 100,
+      avgPercentOfMaxProfit: withProfit.length > 0
+        ? Math.round(withProfit.reduce((s, p) => s + p.percentOfMaxProfit!, 0) / withProfit.length * 10) / 10
+        : 0,
+      bestPerformer: withProfit.reduce<PositionSnapshot | null>(
+        (best, p) => (p.percentOfMaxProfit! > (best?.percentOfMaxProfit ?? -Infinity) ? p : best), null,
+      ),
+    };
+  }, [livePositions, summary]);
 
   const visiblePositions = livePositions.slice(0, MAX_VISIBLE);
   const hiddenCount = livePositions.length - MAX_VISIBLE;
@@ -706,7 +719,7 @@ export function PositionsIntelligenceCard({ positions, summary, isLoading, onNav
               <span style={{ fontSize: 12, color: C.muted, fontFamily: 'DM Sans, sans-serif' }}>
                 {summary.totalCount} open
               </span>
-              <HealthDots summary={summary} />
+              <HealthDots summary={liveSummary} />
             </div>
             <button
               onClick={onNavigateToTracker}
@@ -717,7 +730,7 @@ export function PositionsIntelligenceCard({ positions, summary, isLoading, onNav
           </div>
 
           {/* Summary bar */}
-          <SummaryBar summary={summary} totalDailyTheta={liveTotalDailyTheta} />
+          <SummaryBar summary={liveSummary} />
 
           {/* Position rows */}
           {visiblePositions.map((pos, i) => (
@@ -752,7 +765,7 @@ export function PositionsIntelligenceCard({ positions, summary, isLoading, onNav
           )}
 
           {/* Risk summary strip */}
-          <RiskSummaryStrip summary={summary} />
+          <RiskSummaryStrip summary={liveSummary} />
         </>
       )}
     </div>
