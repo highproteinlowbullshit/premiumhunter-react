@@ -419,7 +419,10 @@ function PositionRow({ position, isLast, index }: {
 
 // ── Summary bar ───────────────────────────────────────────────────────────────
 
-function SummaryBar({ summary }: { summary: DashboardIntelligence['positionsSummary'] }) {
+function SummaryBar({ summary, totalDailyTheta }: {
+  summary: DashboardIntelligence['positionsSummary'];
+  totalDailyTheta: number;
+}) {
   const avgColor = profitColor(summary.avgPercentOfMaxProfit);
   const cells = [
     {
@@ -459,9 +462,9 @@ function SummaryBar({ summary }: { summary: DashboardIntelligence['positionsSumm
       value: (
         <span style={{
           fontSize: 22, fontWeight: 600,
-          color: summary.totalDailyTheta > 0 ? C.teal : C.muted,
+          color: totalDailyTheta > 0 ? C.teal : C.muted,
         }}>
-          {summary.totalDailyTheta > 0 ? `+${fmt$(summary.totalDailyTheta)}/d` : '—'}
+          {totalDailyTheta > 0 ? `+${fmt$(totalDailyTheta)}/d` : '—'}
         </span>
       ),
       noBorder: true,
@@ -620,6 +623,13 @@ export function PositionsIntelligenceCard({ positions, summary, isLoading, onNav
     });
   }, [positions, livePrices]);
 
+  // Recompute total daily theta from live-price-updated positions so the summary
+  // stays in sync with the individual row values (snapshot prices would diverge).
+  const liveTotalDailyTheta = useMemo(() => {
+    const withTheta = livePositions.filter(p => p.dailyTheta !== null);
+    return Math.round(withTheta.reduce((s, p) => s + p.dailyTheta!, 0) * 100) / 100;
+  }, [livePositions]);
+
   const visiblePositions = livePositions.slice(0, MAX_VISIBLE);
   const hiddenCount = livePositions.length - MAX_VISIBLE;
   const at50 = livePositions.filter(p => (p.percentOfMaxProfit ?? 0) >= 50);
@@ -698,24 +708,16 @@ export function PositionsIntelligenceCard({ positions, summary, isLoading, onNav
               </span>
               <HealthDots summary={summary} />
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <span>
-                <span style={{ fontSize: 13, color: C.muted }}>Θ </span>
-                <span style={{ fontSize: 13, fontWeight: 600, color: summary.totalDailyTheta > 0 ? C.teal : C.muted }}>
-                  {summary.totalDailyTheta > 0 ? `+${fmt$(summary.totalDailyTheta)}/day` : '—'}
-                </span>
-              </span>
-              <button
-                onClick={onNavigateToTracker}
-                style={{ fontSize: 12, color: C.muted, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', padding: 0 }}
-              >
-                View all →
-              </button>
-            </div>
+            <button
+              onClick={onNavigateToTracker}
+              style={{ fontSize: 12, color: C.muted, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', padding: 0 }}
+            >
+              View all →
+            </button>
           </div>
 
           {/* Summary bar */}
-          <SummaryBar summary={summary} />
+          <SummaryBar summary={summary} totalDailyTheta={liveTotalDailyTheta} />
 
           {/* Position rows */}
           {visiblePositions.map((pos, i) => (
