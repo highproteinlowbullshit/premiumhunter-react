@@ -52,7 +52,7 @@ export function usePortfolioGreeks(): {
       if (tickers.length === 0) return []
       const { data } = await supabase
         .from('iv_snapshots')
-        .select('ticker, current_hv, current_price, iv_rank')
+        .select('ticker, current_hv, hv_30, current_price, iv_rank')
         .in('ticker', tickers)
         .gte('snapshot_date', threeDaysAgo)
         .eq('calculation_success', true)
@@ -79,7 +79,7 @@ export function usePortfolioGreeks(): {
 
   // Memoized so the Map object is stable between renders (ivData has a 6h staleTime)
   const ivMap = useMemo(
-    () => new Map((ivData ?? []).map((d: { ticker: string; current_hv: number; current_price: number }) => [d.ticker, d])),
+    () => new Map((ivData ?? []).map((d: { ticker: string; current_hv: number | null; hv_30: number | null; current_price: number | null }) => [d.ticker, d])),
     [ivData],
   )
 
@@ -102,11 +102,14 @@ export function usePortfolioGreeks(): {
         const currentPrice = livePrice ?? iv?.current_price ?? 0
         const impliedVolatility = iv?.current_hv != null
           ? Number(iv.current_hv) / 100
+          : iv?.hv_30 != null
+          ? Number(iv.hv_30) / 100
           : estimateVolatility(pos.ticker)
 
         const ivSource: PositionGreeks['ivSource'] =
           livePrice && iv?.current_hv ? 'polygon_live'
           : iv?.current_hv ? 'supabase_cache'
+          : iv?.hv_30 ? 'supabase_cache'
           : 'estimated'
 
         return calculatePositionGreeks({
