@@ -71,7 +71,7 @@ export function usePortfolioGreeks(): {
       }
       return Array.from(best.values())
     },
-    staleTime: 6 * 60 * 60 * 1000,
+    staleTime: 30 * 60 * 1000,
     enabled: tickers.length > 0,
   })
 
@@ -85,8 +85,14 @@ export function usePortfolioGreeks(): {
 
   const positionIds = (positions ?? []).map(p => p.id).join(',')
   // Round to nearest dollar so minor ticks don't trigger a full recompute, but a real
-  // price move (or prices first arriving) still invalidates the cache.
-  const priceKey = tickers.map(t => Math.round(realtimePrices.get(t) ?? 0)).join(',')
+  // price move (or snapshot prices loading for the first time) still invalidates the cache.
+  // Using snapshot price as fallback means greeksQuery reruns when ivData loads, not just
+  // when WS prices arrive — fixing the zero-on-initial-load race condition.
+  const priceKey = tickers.map(t => {
+    const live = realtimePrices.get(t)
+    const snap = Number(ivMap.get(t)?.current_price ?? 0)
+    return Math.round(live ?? snap)
+  }).join(',')
 
   const greeksQuery = useQuery({
     queryKey: ['portfolio-greeks', positionIds, priceKey],
