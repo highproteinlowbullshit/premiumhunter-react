@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useInView } from 'react-intersection-observer'
 import { PricingCards } from '../components/PricingCards'
+import '../styles/landing-mobile.css'
 
 // ── Keyframes injected once ───────────────────────────────────────────────────
 const LANDING_STYLES = `
@@ -74,6 +75,44 @@ function FadeIn({
   )
 }
 
+// ── Mobile helpers ─────────────────────────────────────────────────────────────
+
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth < 768
+  )
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 768)
+    window.addEventListener('resize', handler, { passive: true })
+    return () => window.removeEventListener('resize', handler)
+  }, [])
+  return isMobile
+}
+
+function HamburgerIcon({ open }: { open: boolean }) {
+  const base: React.CSSProperties = { transition: 'transform 0.2s ease, opacity 0.15s ease', transformOrigin: '11px 11px' }
+  return (
+    <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden>
+      <rect x="3" y="5.2" width="16" height="1.6" rx="0.8" fill="currentColor"
+        style={{ ...base, transform: open ? 'rotate(45deg) translateY(5.8px)' : 'none' }} />
+      <rect x="3" y="10.2" width="16" height="1.6" rx="0.8" fill="currentColor"
+        style={{ ...base, opacity: open ? 0 : 1 }} />
+      <rect x="3" y="15.2" width="16" height="1.6" rx="0.8" fill="currentColor"
+        style={{ ...base, transform: open ? 'rotate(-45deg) translateY(-5.8px)' : 'none' }} />
+    </svg>
+  )
+}
+
+function ScrollDots({ total, active }: { total: number; active: number }) {
+  return (
+    <div className="lp-scroll-dots">
+      {Array.from({ length: total }, (_, i) => (
+        <div key={i} className={`lp-scroll-dot${i === active ? ' active' : ''}`} />
+      ))}
+    </div>
+  )
+}
+
 // ── Navbar ─────────────────────────────────────────────────────────────────────
 
 function LandingNavbar() {
@@ -85,6 +124,19 @@ function LandingNavbar() {
     const handler = () => setScrolled(window.scrollY > 20)
     window.addEventListener('scroll', handler, { passive: true })
     return () => window.removeEventListener('scroll', handler)
+  }, [])
+
+  // Body scroll lock while drawer is open
+  useEffect(() => {
+    document.body.style.overflow = menuOpen ? 'hidden' : ''
+    return () => { document.body.style.overflow = '' }
+  }, [menuOpen])
+
+  // Close drawer on browser back
+  useEffect(() => {
+    const handler = () => setMenuOpen(false)
+    window.addEventListener('popstate', handler)
+    return () => window.removeEventListener('popstate', handler)
   }, [])
 
   const navLink = (label: string, id: string) => (
@@ -148,19 +200,13 @@ function LandingNavbar() {
           onClick={() => setMenuOpen(v => !v)}
           style={{
             background: 'none', border: 'none', cursor: 'pointer',
-            color: '#e8f0fe', padding: 8,
+            color: '#e8f0fe', padding: 0,
+            width: 44, height: 44,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}
-          aria-label="Open menu"
+          aria-label={menuOpen ? 'Close menu' : 'Open menu'}
         >
-          {menuOpen ? (
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-              <path d="M4 4l12 12M16 4L4 16" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
-            </svg>
-          ) : (
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-              <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
-            </svg>
-          )}
+          <HamburgerIcon open={menuOpen} />
         </button>
       </nav>
 
@@ -328,6 +374,38 @@ function HeroDashboardMock() {
   )
 }
 
+// ── Mobile hero stats strip ───────────────────────────────────────────────────
+
+function MobileHeroStats() {
+  const stats = [
+    { value: '+$47/day', label: 'theta' },
+    { value: '84%',      label: 'win rate' },
+    { value: '$2,840',   label: 'this month' },
+  ]
+  return (
+    <div className="md:hidden" style={{
+      display: 'flex', marginTop: 20,
+      background: 'rgba(20,184,166,0.07)',
+      border: '1px solid rgba(20,184,166,0.15)',
+      borderRadius: 10, overflow: 'hidden',
+    }}>
+      {stats.map((s, i) => (
+        <div key={s.label} style={{
+          flex: 1, textAlign: 'center', padding: '11px 8px',
+          borderRight: i < stats.length - 1 ? '1px solid rgba(20,184,166,0.12)' : 'none',
+        }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: '#14b8a6', fontFamily: 'Syne, sans-serif', lineHeight: 1 }}>
+            {s.value}
+          </div>
+          <div style={{ fontSize: 10, color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', marginTop: 3 }}>
+            {s.label}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // ── Hero section ──────────────────────────────────────────────────────────────
 
 function HeroSection() {
@@ -448,6 +526,9 @@ function HeroSection() {
               <span>✓ No credit card required</span>
               <span>✓ Pro access via email</span>
             </div>
+
+            {/* Mobile-only stats strip */}
+            <MobileHeroStats />
           </div>
 
           {/* Right col — mock (hidden on mobile via inline responsive style) */}
@@ -523,6 +604,8 @@ function SocialProofBar() {
 // ── Problem section ───────────────────────────────────────────────────────────
 
 function ProblemSection() {
+  const isMobile = useIsMobile()
+  const [activeTab, setActiveTab] = useState<'without' | 'with'>('without')
   const xIcon = (
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ flexShrink: 0, marginTop: 2 }}>
       <circle cx="7" cy="7" r="6.5" fill="rgba(239,68,68,0.12)" stroke="rgba(239,68,68,0.3)" strokeWidth="0.8"/>
@@ -576,47 +659,118 @@ function ProblemSection() {
           </div>
         </FadeIn>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 20 }}>
-          <FadeIn delay={80}>
+        {isMobile ? (
+          /* Mobile: tab toggle */
+          <div>
             <div style={{
-              background: 'rgba(239,68,68,0.04)',
-              border: '0.5px solid rgba(239,68,68,0.2)',
-              borderRadius: 12, padding: '24px 28px',
+              display: 'flex', gap: 0, marginBottom: 16,
+              background: 'rgba(0,0,0,0.3)', borderRadius: 10, padding: 4,
             }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: '#9ab4d4', fontFamily: 'DM Sans, sans-serif', marginBottom: 20 }}>
-                Without Premium Hunter
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                {pains.map(p => (
-                  <div key={p} style={{ display: 'flex', gap: 10 }}>
-                    {xIcon}
-                    <span style={{ fontSize: 14, color: '#9ab4d4', lineHeight: 1.55, fontFamily: 'DM Sans, sans-serif' }}>{p}</span>
-                  </div>
-                ))}
-              </div>
+              {(['without', 'with'] as const).map(tab => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  style={{
+                    flex: 1, padding: '9px 0',
+                    background: activeTab === tab
+                      ? (tab === 'without' ? 'rgba(239,68,68,0.12)' : 'rgba(20,184,166,0.12)')
+                      : 'transparent',
+                    border: 'none', borderRadius: 8,
+                    fontSize: 13, fontWeight: 600,
+                    color: activeTab === tab
+                      ? (tab === 'without' ? '#ef4444' : '#14b8a6')
+                      : '#4a6a8a',
+                    cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  {tab === 'without' ? 'Without PH' : 'With PH'}
+                </button>
+              ))}
             </div>
-          </FadeIn>
 
-          <FadeIn delay={160}>
-            <div style={{
-              background: 'rgba(20,184,166,0.04)',
-              border: '0.5px solid rgba(20,184,166,0.3)',
-              borderRadius: 12, padding: '24px 28px',
-            }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: '#14b8a6', fontFamily: 'DM Sans, sans-serif', marginBottom: 20 }}>
-                With Premium Hunter
+            {activeTab === 'without' ? (
+              <div style={{
+                background: 'rgba(239,68,68,0.04)',
+                border: '0.5px solid rgba(239,68,68,0.2)',
+                borderRadius: 12, padding: '24px 20px',
+              }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#9ab4d4', fontFamily: 'DM Sans, sans-serif', marginBottom: 20 }}>
+                  Without Premium Hunter
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  {pains.map(p => (
+                    <div key={p} style={{ display: 'flex', gap: 10 }}>
+                      {xIcon}
+                      <span style={{ fontSize: 14, color: '#9ab4d4', lineHeight: 1.55, fontFamily: 'DM Sans, sans-serif' }}>{p}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                {solutions.map(s => (
-                  <div key={s} style={{ display: 'flex', gap: 10 }}>
-                    {checkIcon}
-                    <span style={{ fontSize: 14, color: '#e8f0fe', lineHeight: 1.55, fontFamily: 'DM Sans, sans-serif' }}>{s}</span>
-                  </div>
-                ))}
+            ) : (
+              <div style={{
+                background: 'rgba(20,184,166,0.04)',
+                border: '0.5px solid rgba(20,184,166,0.3)',
+                borderRadius: 12, padding: '24px 20px',
+              }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#14b8a6', fontFamily: 'DM Sans, sans-serif', marginBottom: 20 }}>
+                  With Premium Hunter
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  {solutions.map(s => (
+                    <div key={s} style={{ display: 'flex', gap: 10 }}>
+                      {checkIcon}
+                      <span style={{ fontSize: 14, color: '#e8f0fe', lineHeight: 1.55, fontFamily: 'DM Sans, sans-serif' }}>{s}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          </FadeIn>
-        </div>
+            )}
+          </div>
+        ) : (
+          /* Desktop: two-column grid */
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 20 }}>
+            <FadeIn delay={80}>
+              <div style={{
+                background: 'rgba(239,68,68,0.04)',
+                border: '0.5px solid rgba(239,68,68,0.2)',
+                borderRadius: 12, padding: '24px 28px',
+              }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#9ab4d4', fontFamily: 'DM Sans, sans-serif', marginBottom: 20 }}>
+                  Without Premium Hunter
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  {pains.map(p => (
+                    <div key={p} style={{ display: 'flex', gap: 10 }}>
+                      {xIcon}
+                      <span style={{ fontSize: 14, color: '#9ab4d4', lineHeight: 1.55, fontFamily: 'DM Sans, sans-serif' }}>{p}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </FadeIn>
+
+            <FadeIn delay={160}>
+              <div style={{
+                background: 'rgba(20,184,166,0.04)',
+                border: '0.5px solid rgba(20,184,166,0.3)',
+                borderRadius: 12, padding: '24px 28px',
+              }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#14b8a6', fontFamily: 'DM Sans, sans-serif', marginBottom: 20 }}>
+                  With Premium Hunter
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  {solutions.map(s => (
+                    <div key={s} style={{ display: 'flex', gap: 10 }}>
+                      {checkIcon}
+                      <span style={{ fontSize: 14, color: '#e8f0fe', lineHeight: 1.55, fontFamily: 'DM Sans, sans-serif' }}>{s}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </FadeIn>
+          </div>
+        )}
       </div>
     </section>
   )
@@ -1144,10 +1298,53 @@ function FeaturesSection() {
   )
 }
 
+// ── Vertical timeline (mobile how-it-works) ───────────────────────────────────
+
+function VerticalTimeline({ steps }: { steps: { num: string; icon: string; title: string; desc: string }[] }) {
+  return (
+    <div style={{ padding: '0 4px' }}>
+      {steps.map((step, i) => (
+        <div key={step.num} style={{ display: 'flex', gap: 16, paddingBottom: i < steps.length - 1 ? 28 : 0 }}>
+          {/* Left: circle + connecting line */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
+            <div style={{
+              width: 42, height: 42, borderRadius: '50%',
+              background: 'rgba(20,184,166,0.1)',
+              border: '1px solid rgba(20,184,166,0.3)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 13, fontWeight: 700, color: '#14b8a6',
+              fontFamily: 'Syne, sans-serif',
+            }}>
+              {step.num}
+            </div>
+            {i < steps.length - 1 && (
+              <div style={{ width: 1, flex: 1, background: 'rgba(20,184,166,0.15)', marginTop: 8 }} />
+            )}
+          </div>
+          {/* Right: content */}
+          <div style={{ paddingTop: 8, paddingBottom: i < steps.length - 1 ? 0 : 0 }}>
+            <div style={{ fontSize: 22, marginBottom: 8 }}>{step.icon}</div>
+            <h3 style={{
+              margin: '0 0 6px', fontSize: 15, fontWeight: 600,
+              color: '#e8f0fe', fontFamily: 'DM Sans, sans-serif',
+            }}>
+              {step.title}
+            </h3>
+            <p style={{ margin: 0, fontSize: 13, color: '#4a6a8a', lineHeight: 1.65, fontFamily: 'DM Sans, sans-serif' }}>
+              {step.desc}
+            </p>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // ── How it works ──────────────────────────────────────────────────────────────
 
 function HowItWorksSection() {
   const navigate = useNavigate()
+  const isMobile = useIsMobile()
   const steps = [
     {
       num: '01', icon: '📊',
@@ -1193,51 +1390,48 @@ function HowItWorksSection() {
           </div>
         </FadeIn>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 20, marginBottom: 48 }}>
-          {steps.map((step, i) => (
-            <FadeIn key={step.num} delay={i * 80}>
-              <div style={{
-                background: '#0a1628',
-                border: '0.5px solid rgba(0,229,196,0.1)',
-                borderRadius: 14, padding: '28px 24px',
-                position: 'relative', overflow: 'hidden',
-              }}>
-                {/* Decorative big number */}
+        {isMobile ? (
+          <div style={{ marginBottom: 48 }}>
+            <VerticalTimeline steps={steps} />
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 20, marginBottom: 48 }}>
+            {steps.map((step, i) => (
+              <FadeIn key={step.num} delay={i * 80}>
                 <div style={{
-                  position: 'absolute', top: 8, right: 16,
-                  fontSize: 72, fontWeight: 800,
-                  color: 'rgba(20,184,166,0.06)',
-                  fontFamily: 'Syne, sans-serif', lineHeight: 1,
-                  pointerEvents: 'none', userSelect: 'none',
+                  background: '#0a1628',
+                  border: '0.5px solid rgba(0,229,196,0.1)',
+                  borderRadius: 14, padding: '28px 24px',
+                  position: 'relative', overflow: 'hidden',
                 }}>
-                  {step.num}
+                  <div style={{
+                    position: 'absolute', top: 8, right: 16,
+                    fontSize: 72, fontWeight: 800,
+                    color: 'rgba(20,184,166,0.06)',
+                    fontFamily: 'Syne, sans-serif', lineHeight: 1,
+                    pointerEvents: 'none', userSelect: 'none',
+                  }}>
+                    {step.num}
+                  </div>
+                  <div style={{
+                    width: 44, height: 44, borderRadius: '50%',
+                    background: 'rgba(20,184,166,0.1)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 22, marginBottom: 16,
+                  }}>
+                    {step.icon}
+                  </div>
+                  <h3 style={{ margin: '0 0 10px', fontSize: 16, fontWeight: 600, color: '#e8f0fe', fontFamily: 'DM Sans, sans-serif' }}>
+                    {step.title}
+                  </h3>
+                  <p style={{ margin: 0, fontSize: 14, color: '#4a6a8a', lineHeight: 1.7, fontFamily: 'DM Sans, sans-serif' }}>
+                    {step.desc}
+                  </p>
                 </div>
-
-                <div style={{
-                  width: 44, height: 44, borderRadius: '50%',
-                  background: 'rgba(20,184,166,0.1)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 22, marginBottom: 16,
-                }}>
-                  {step.icon}
-                </div>
-
-                <h3 style={{
-                  margin: '0 0 10px', fontSize: 16, fontWeight: 600,
-                  color: '#e8f0fe', fontFamily: 'DM Sans, sans-serif',
-                }}>
-                  {step.title}
-                </h3>
-                <p style={{
-                  margin: 0, fontSize: 14, color: '#4a6a8a',
-                  lineHeight: 1.7, fontFamily: 'DM Sans, sans-serif',
-                }}>
-                  {step.desc}
-                </p>
-              </div>
-            </FadeIn>
-          ))}
-        </div>
+              </FadeIn>
+            ))}
+          </div>
+        )}
 
         <FadeIn delay={240}>
           <div style={{ textAlign: 'center' }}>
@@ -1265,6 +1459,21 @@ function HowItWorksSection() {
 // ── Who it's for ──────────────────────────────────────────────────────────────
 
 function WhoItsForSection() {
+  const isMobile = useIsMobile()
+  const carouselRef = useRef<HTMLDivElement>(null)
+  const [activeSlide, setActiveSlide] = useState(0)
+
+  useEffect(() => {
+    const el = carouselRef.current
+    if (!el || !isMobile) return
+    const handler = () => {
+      const slideW = el.clientWidth * 0.85 + 12
+      setActiveSlide(Math.round(el.scrollLeft / slideW))
+    }
+    el.addEventListener('scroll', handler, { passive: true })
+    return () => el.removeEventListener('scroll', handler)
+  }, [isMobile])
+
   const personas = [
     {
       icon: '🌱', title: 'New to the wheel',
@@ -1309,55 +1518,88 @@ function WhoItsForSection() {
           </div>
         </FadeIn>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 20 }}>
-          {personas.map((p, i) => (
-            <FadeIn key={p.title} delay={i * 80}>
-              <div style={{
-                background: 'rgba(13,27,53,0.5)',
-                border: p.highlight ? '1px solid rgba(20,184,166,0.4)' : '0.5px solid rgba(0,229,196,0.1)',
-                borderRadius: 14, padding: '28px 24px',
-                position: 'relative',
-              }}>
-                {p.highlight && (
+        {isMobile ? (
+          <>
+            <div ref={carouselRef} className="lp-carousel">
+              {personas.map((p) => (
+                <div key={p.title} className="lp-carousel-slide">
                   <div style={{
-                    position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)',
-                    padding: '3px 14px', borderRadius: 20,
-                    background: 'rgba(20,184,166,0.15)', border: '1px solid rgba(20,184,166,0.3)',
-                    color: '#14b8a6', fontSize: 10, fontWeight: 700, whiteSpace: 'nowrap',
-                    fontFamily: 'DM Sans, sans-serif',
+                    background: 'rgba(13,27,53,0.5)',
+                    border: p.highlight ? '1px solid rgba(20,184,166,0.4)' : '0.5px solid rgba(0,229,196,0.1)',
+                    borderRadius: 14, padding: '28px 20px',
+                    position: 'relative', height: '100%', boxSizing: 'border-box',
                   }}>
-                    Most common
+                    {p.highlight && (
+                      <div style={{
+                        position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)',
+                        padding: '3px 14px', borderRadius: 20,
+                        background: 'rgba(20,184,166,0.15)', border: '1px solid rgba(20,184,166,0.3)',
+                        color: '#14b8a6', fontSize: 10, fontWeight: 700, whiteSpace: 'nowrap',
+                        fontFamily: 'DM Sans, sans-serif',
+                      }}>
+                        Most common
+                      </div>
+                    )}
+                    <div style={{ fontSize: 30, marginBottom: 14 }}>{p.icon}</div>
+                    <h3 style={{ margin: '0 0 10px', fontSize: 16, fontWeight: 600, color: '#e8f0fe', fontFamily: 'DM Sans, sans-serif' }}>
+                      {p.title}
+                    </h3>
+                    <p style={{ margin: '0 0 18px', fontSize: 13, color: '#9ab4d4', lineHeight: 1.65, fontFamily: 'DM Sans, sans-serif' }}>
+                      {p.desc}
+                    </p>
+                    <div style={{
+                      display: 'inline-flex', padding: '4px 12px', borderRadius: 20,
+                      background: p.tagBg, border: `1px solid ${p.tagBorder}`,
+                      color: p.tagColor, fontSize: 11, fontWeight: 600, fontFamily: 'DM Sans, sans-serif',
+                    }}>
+                      {p.tag}
+                    </div>
                   </div>
-                )}
-
-                <div style={{ fontSize: 32, marginBottom: 16 }}>{p.icon}</div>
-
-                <h3 style={{
-                  margin: '0 0 10px', fontSize: 17, fontWeight: 600,
-                  color: '#e8f0fe', fontFamily: 'DM Sans, sans-serif',
-                }}>
-                  {p.title}
-                </h3>
-
-                <p style={{
-                  margin: '0 0 20px', fontSize: 14, color: '#9ab4d4',
-                  lineHeight: 1.7, fontFamily: 'DM Sans, sans-serif',
-                }}>
-                  {p.desc}
-                </p>
-
-                <div style={{
-                  display: 'inline-flex', padding: '4px 12px', borderRadius: 20,
-                  background: p.tagBg, border: `1px solid ${p.tagBorder}`,
-                  color: p.tagColor, fontSize: 11, fontWeight: 600,
-                  fontFamily: 'DM Sans, sans-serif',
-                }}>
-                  {p.tag}
                 </div>
-              </div>
-            </FadeIn>
-          ))}
-        </div>
+              ))}
+            </div>
+            <ScrollDots total={personas.length} active={activeSlide} />
+          </>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 20 }}>
+            {personas.map((p, i) => (
+              <FadeIn key={p.title} delay={i * 80}>
+                <div style={{
+                  background: 'rgba(13,27,53,0.5)',
+                  border: p.highlight ? '1px solid rgba(20,184,166,0.4)' : '0.5px solid rgba(0,229,196,0.1)',
+                  borderRadius: 14, padding: '28px 24px',
+                  position: 'relative',
+                }}>
+                  {p.highlight && (
+                    <div style={{
+                      position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)',
+                      padding: '3px 14px', borderRadius: 20,
+                      background: 'rgba(20,184,166,0.15)', border: '1px solid rgba(20,184,166,0.3)',
+                      color: '#14b8a6', fontSize: 10, fontWeight: 700, whiteSpace: 'nowrap',
+                      fontFamily: 'DM Sans, sans-serif',
+                    }}>
+                      Most common
+                    </div>
+                  )}
+                  <div style={{ fontSize: 32, marginBottom: 16 }}>{p.icon}</div>
+                  <h3 style={{ margin: '0 0 10px', fontSize: 17, fontWeight: 600, color: '#e8f0fe', fontFamily: 'DM Sans, sans-serif' }}>
+                    {p.title}
+                  </h3>
+                  <p style={{ margin: '0 0 20px', fontSize: 14, color: '#9ab4d4', lineHeight: 1.7, fontFamily: 'DM Sans, sans-serif' }}>
+                    {p.desc}
+                  </p>
+                  <div style={{
+                    display: 'inline-flex', padding: '4px 12px', borderRadius: 20,
+                    background: p.tagBg, border: `1px solid ${p.tagBorder}`,
+                    color: p.tagColor, fontSize: 11, fontWeight: 600, fontFamily: 'DM Sans, sans-serif',
+                  }}>
+                    {p.tag}
+                  </div>
+                </div>
+              </FadeIn>
+            ))}
+          </div>
+        )}
       </div>
     </section>
   )
@@ -1366,6 +1608,28 @@ function WhoItsForSection() {
 // ── Testimonials ──────────────────────────────────────────────────────────────
 
 function TestimonialsSection() {
+  const isMobile = useIsMobile()
+  const carouselRef = useRef<HTMLDivElement>(null)
+  const [activeSlide, setActiveSlide] = useState(0)
+
+  useEffect(() => {
+    const el = carouselRef.current
+    if (!el || !isMobile) return
+    const handler = () => {
+      const slideW = el.clientWidth * 0.85 + 12
+      setActiveSlide(Math.round(el.scrollLeft / slideW))
+    }
+    el.addEventListener('scroll', handler, { passive: true })
+    return () => el.removeEventListener('scroll', handler)
+  }, [isMobile])
+
+  const scrollToSlide = (index: number) => {
+    const el = carouselRef.current
+    if (!el) return
+    const slideW = el.clientWidth * 0.85 + 12
+    el.scrollTo({ left: index * slideW, behavior: 'smooth' })
+  }
+
   const testimonials = [
     {
       quote: '"The IV screener alone is worth it. I used to spend 30 minutes every morning checking TradingView for each stock manually. Now I open Premium Hunter and the top picks are right there."',
@@ -1407,39 +1671,88 @@ function TestimonialsSection() {
           </div>
         </FadeIn>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20 }}>
-          {testimonials.map((t, i) => (
-            <FadeIn key={t.name} delay={i * 80}>
-              <div style={{
-                background: '#0a1628',
-                border: '0.5px solid rgba(0,229,196,0.1)',
-                borderRadius: 14, padding: '24px',
-                display: 'flex', flexDirection: 'column', gap: 16,
-              }}>
-                {/* Stars */}
-                <div style={{ color: '#14b8a6', fontSize: 14, letterSpacing: 2 }}>★★★★★</div>
-
-                <blockquote style={{
-                  margin: 0, flex: 1,
-                  fontSize: 14, color: '#9ab4d4',
-                  lineHeight: 1.7, fontStyle: 'italic',
-                  fontFamily: 'DM Sans, sans-serif',
-                }}>
-                  {t.quote}
-                </blockquote>
-
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#e8f0fe', fontFamily: 'DM Sans, sans-serif' }}>
-                    {t.name}
-                  </div>
-                  <div style={{ fontSize: 12, color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', marginTop: 2 }}>
-                    {t.role}
+        {isMobile ? (
+          <>
+            <div ref={carouselRef} className="lp-carousel">
+              {testimonials.map((t) => (
+                <div key={t.name} className="lp-carousel-slide">
+                  <div style={{
+                    background: '#0a1628',
+                    border: '0.5px solid rgba(0,229,196,0.1)',
+                    borderRadius: 14, padding: '22px 20px',
+                    display: 'flex', flexDirection: 'column', gap: 14, height: '100%', boxSizing: 'border-box',
+                  }}>
+                    <div style={{ color: '#14b8a6', fontSize: 13, letterSpacing: 2 }}>★★★★★</div>
+                    <blockquote style={{ margin: 0, flex: 1, fontSize: 13, color: '#9ab4d4', lineHeight: 1.7, fontStyle: 'italic', fontFamily: 'DM Sans, sans-serif' }}>
+                      {t.quote}
+                    </blockquote>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: '#e8f0fe', fontFamily: 'DM Sans, sans-serif' }}>{t.name}</div>
+                      <div style={{ fontSize: 12, color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', marginTop: 2 }}>{t.role}</div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </FadeIn>
-          ))}
-        </div>
+              ))}
+            </div>
+
+            {/* Prev / next controls */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, marginTop: 16 }}>
+              <button
+                onClick={() => scrollToSlide(Math.max(0, activeSlide - 1))}
+                disabled={activeSlide === 0}
+                style={{
+                  width: 36, height: 36, borderRadius: '50%',
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  color: activeSlide === 0 ? '#2a3a50' : '#e8f0fe',
+                  cursor: activeSlide === 0 ? 'default' : 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 16,
+                }}
+              >
+                ←
+              </button>
+              <ScrollDots total={testimonials.length} active={activeSlide} />
+              <button
+                onClick={() => scrollToSlide(Math.min(testimonials.length - 1, activeSlide + 1))}
+                disabled={activeSlide === testimonials.length - 1}
+                style={{
+                  width: 36, height: 36, borderRadius: '50%',
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  color: activeSlide === testimonials.length - 1 ? '#2a3a50' : '#e8f0fe',
+                  cursor: activeSlide === testimonials.length - 1 ? 'default' : 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 16,
+                }}
+              >
+                →
+              </button>
+            </div>
+          </>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20 }}>
+            {testimonials.map((t, i) => (
+              <FadeIn key={t.name} delay={i * 80}>
+                <div style={{
+                  background: '#0a1628',
+                  border: '0.5px solid rgba(0,229,196,0.1)',
+                  borderRadius: 14, padding: '24px',
+                  display: 'flex', flexDirection: 'column', gap: 16,
+                }}>
+                  <div style={{ color: '#14b8a6', fontSize: 14, letterSpacing: 2 }}>★★★★★</div>
+                  <blockquote style={{ margin: 0, flex: 1, fontSize: 14, color: '#9ab4d4', lineHeight: 1.7, fontStyle: 'italic', fontFamily: 'DM Sans, sans-serif' }}>
+                    {t.quote}
+                  </blockquote>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: '#e8f0fe', fontFamily: 'DM Sans, sans-serif' }}>{t.name}</div>
+                    <div style={{ fontSize: 12, color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', marginTop: 2 }}>{t.role}</div>
+                  </div>
+                </div>
+              </FadeIn>
+            ))}
+          </div>
+        )}
       </div>
     </section>
   )
@@ -1534,7 +1847,15 @@ const FAQ_ITEMS = [
 ]
 
 function FAQSection() {
-  const [openIndex, setOpenIndex] = useState<number | null>(0)
+  const isMobile = useIsMobile()
+  const [openIndex, setOpenIndex] = useState<number | null>(() =>
+    typeof window !== 'undefined' && window.innerWidth < 768 ? null : 0
+  )
+  // Sync initial state once isMobile resolves after hydration
+  useEffect(() => {
+    setOpenIndex(isMobile ? null : 0)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const answerRefs = useRef<(HTMLDivElement | null)[]>([])
 
   return (
@@ -1781,6 +2102,70 @@ function LandingFooter() {
   )
 }
 
+// ── Sticky bottom CTA (mobile only) ──────────────────────────────────────────
+
+function StickyBottomCTA() {
+  const navigate = useNavigate()
+  const isMobile = useIsMobile()
+  const [visible, setVisible] = useState(false)
+  const [dismissed, setDismissed] = useState(false)
+
+  useEffect(() => {
+    if (!isMobile) return
+    const handler = () => setVisible(window.scrollY > window.innerHeight * 0.85)
+    window.addEventListener('scroll', handler, { passive: true })
+    return () => window.removeEventListener('scroll', handler)
+  }, [isMobile])
+
+  if (!isMobile || !visible || dismissed) return null
+
+  return (
+    <div style={{
+      position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 200,
+      background: 'rgba(10,22,40,0.97)',
+      backdropFilter: 'blur(14px)',
+      borderTop: '1px solid rgba(0,229,196,0.15)',
+      padding: '12px 16px',
+      paddingBottom: 'max(12px, env(safe-area-inset-bottom))',
+      display: 'flex', gap: 10, alignItems: 'center',
+    }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: '#e8f0fe', fontFamily: 'DM Sans, sans-serif', marginBottom: 1 }}>
+          Free paper trading — no card needed
+        </div>
+        <div style={{ fontSize: 11, color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
+          Practice the wheel risk-free
+        </div>
+      </div>
+      <button
+        onClick={() => navigate('/signup')}
+        style={{
+          padding: '10px 18px', background: '#14b8a6', color: '#0f1923',
+          border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 700,
+          cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
+          whiteSpace: 'nowrap', minHeight: 44, flexShrink: 0,
+        }}
+      >
+        Start free
+      </button>
+      <button
+        onClick={() => setDismissed(true)}
+        style={{
+          width: 44, height: 44, flexShrink: 0,
+          background: 'transparent',
+          border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10,
+          color: 'rgba(255,255,255,0.45)', cursor: 'pointer', fontSize: 20,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontFamily: 'DM Sans, sans-serif',
+        }}
+        aria-label="Dismiss"
+      >
+        ×
+      </button>
+    </div>
+  )
+}
+
 // ── Main export ───────────────────────────────────────────────────────────────
 
 export default function LandingPage() {
@@ -1793,8 +2178,15 @@ export default function LandingPage() {
     return () => { document.getElementById('lp-styles')?.remove() }
   }, [])
 
+  // Prevent pull-to-refresh and horizontal overscroll on the marketing page
+  useEffect(() => {
+    const prev = document.body.style.overscrollBehavior
+    document.body.style.overscrollBehavior = 'none'
+    return () => { document.body.style.overscrollBehavior = prev }
+  }, [])
+
   return (
-    <div style={{ fontFamily: 'DM Sans, sans-serif', background: '#0a1628', minHeight: '100vh' }}>
+    <div className="lp-root" style={{ fontFamily: 'DM Sans, sans-serif', background: '#0a1628', minHeight: '100vh' }}>
       <LandingNavbar />
       <HeroSection />
       <SocialProofBar />
@@ -1807,6 +2199,7 @@ export default function LandingPage() {
       <FAQSection />
       <FinalCTASection />
       <LandingFooter />
+      <StickyBottomCTA />
     </div>
   )
 }

@@ -1,0 +1,90 @@
+/* Landing page — mobile-first additions. Desktop styles are untouched. */
+
+/* Prevent horizontal scroll & tap flash on the landing root */
+.lp-root {
+  -webkit-tap-highlight-color: transparent;
+  overflow-x: hidden;
+}
+
+/* Smooth anchor offset for fixed 64px navbar */
+#features,
+#how-it-works,
+#pricing,
+#problem {
+  scroll-margin-top: 64px;
+}
+
+/* ── Horizontal snap carousel ───────────────────────────── */
+.lp-carousel {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  gap: 12px;
+  padding: 4px 2px 8px;
+}
+.lp-carousel::-webkit-scrollbar {
+  display: none;
+}
+.lp-carousel-slide {
+  flex: 0 0 85%;
+  max-width: 340px;
+  scroll-snap-align: start;
+}
+
+/* ── Scroll dots ────────────────────────────────────────── */
+.lp-scroll-dots {
+  display: flex;
+  gap: 7px;
+  justify-content: center;
+  margin-top: 14px;
+}
+.lp-scroll-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+  transition: background 0.25s ease, transform 0.25s ease;
+  cursor: pointer;
+  border: none;
+  padding: 0;
+}
+.lp-scroll-dot.active {
+  background: #14b8a6;
+  transform: scale(1.3);
+}
+
+/* ── Touch feedback (coarse pointer only = touch screens) ── */
+@media (hover: none) and (pointer: coarse) {
+  .lp-root button:active {
+    opacity: 0.72;
+    transition: opacity 0.05s ease;
+  }
+}
+
+/* ── Tablet (768–1023px) ────────────────────────────────── */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .hero-grid {
+    gap: 32px;
+  }
+}
+
+/* ── Mobile: < 768px ────────────────────────────────────── */
+@media (max-width: 767px) {
+  .hero-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ── Reduced motion ─────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
