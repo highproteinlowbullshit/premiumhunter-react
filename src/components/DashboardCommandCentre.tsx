@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AlertTriangle, Search, Trophy, Lightbulb, BarChart2,
@@ -7,6 +7,7 @@ import {
 import { usePaperMode } from '../context/PaperModeContext';
 import type { DashboardIntelligence } from '../hooks/useDashboardIntelligence';
 import { PositionsIntelligenceCard } from './PositionsIntelligenceCard';
+import { useRealtimePrices } from '../hooks/useRealtimePrices';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -583,6 +584,14 @@ interface Props {
 export function DashboardCommandCentre({ data: d, isLoading }: Props) {
   const { isPaperMode } = usePaperMode();
   const navigate = useNavigate();
+
+  // Subscribe to live WebSocket prices for open positions — same feed as WheelTracker.
+  const openTickers = useMemo(
+    () => (d?.positions ?? []).map(p => p.ticker),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [(d?.positions ?? []).map(p => p.ticker).join(',')]
+  );
+  const { prices: livePrices } = useRealtimePrices(openTickers);
   const [toastDismissed, setToastDismissed] = useState(false);
 
   const newMilestone = d?.milestones.find(m => m.isNew) ?? null;
@@ -622,6 +631,7 @@ export function DashboardCommandCentre({ data: d, isLoading }: Props) {
             summary={d.positionsSummary}
             isLoading={false}
             onNavigateToTracker={() => navigate('/wheel')}
+            livePrices={livePrices}
           />
         </div>
         <div style={{ flex: '1 1 240px', display: 'flex', flexDirection: 'column' }}>

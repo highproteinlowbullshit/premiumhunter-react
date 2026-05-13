@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { PositionSnapshot, DashboardIntelligence } from '../hooks/useDashboardIntelligence';
 import { usePaperMode } from '../context/PaperModeContext';
+import { blackScholes } from '../lib/blackScholes';
 
 // ── Color constants ───────────────────────────────────────────────────────────
 
@@ -38,6 +39,63 @@ function fmt$(n: number, abs = false): string {
 function fmtExpiry(expiry: string): string {
   const d = new Date(expiry);
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+// ── Live price override ───────────────────────────────────────────────────────
+// Given a snapshot position and a fresh live price, recomputes every
+// price-derived field so the display reflects current market data.
+
+function applyLivePrice(pos: PositionSnapshot, livePrice: number | undefined): PositionSnapshot {
+  if (!livePrice || livePrice <= 0) return pos;
+
+  const currentPrice = livePrice;
+  const isITM = pos.strategy === 'CSP'
+    ? currentPrice < pos.strike
+    : currentPrice > pos.strike;
+  const distanceFromStrike = Math.abs(currentPrice - pos.strike);
+  const distancePercent = Math.round((distanceFromStrike / currentPrice) * 10000) / 100;
+  const safetyStatus: PositionSnapshot['safetyStatus'] =
+    isITM ? 'itm' :
+    distancePercent < 3 ? 'near' :
+    distancePercent < 8 ? 'watch' :
+    'safe';
+
+  let assignmentProbability = pos.assignmentProbability;
+  let percentOfMaxProfit   = pos.percentOfMaxProfit;
+  let dailyTheta           = pos.dailyTheta;
+
+  if (pos.impliedVolatility !== null && pos.dte >= 0) {
+    try {
+      // impliedVolatility stored as % (e.g. 35 for 35%) — divide for BS input
+      const iv = pos.impliedVolatility / 100;
+      const T  = Math.max(0.001, pos.dte / 365);
+      const bs = blackScholes({
+        spotPrice:    currentPrice,
+        strikePrice:  pos.strike,
+        timeToExpiry: T,
+        riskFreeRate: 0.045,
+        volatility:   iv,
+        optionType:   pos.strategy === 'CSP' ? 'put' : 'call',
+      });
+      assignmentProbability = Math.round(Math.abs(bs.delta) * 1000) / 10;
+      percentOfMaxProfit    = pos.premiumCollected > 0
+        ? Math.max(0, Math.round(((pos.premiumCollected - bs.price * 100) / pos.premiumCollected) * 1000) / 10)
+        : pos.percentOfMaxProfit;
+      dailyTheta = Math.round(Math.abs(bs.theta) * pos.contracts * 100 * 100) / 100;
+    } catch { /* keep original snapshot values if BS fails */ }
+  }
+
+  return {
+    ...pos,
+    currentPrice,
+    isITM,
+    distanceFromStrike,
+    distancePercent,
+    safetyStatus,
+    assignmentProbability,
+    percentOfMaxProfit,
+    dailyTheta,
+  };
 }
 
 // ── Shared: probability → color (keeps dots and text in sync) ─────────────────
@@ -544,15 +602,27 @@ interface Props {
   summary: DashboardIntelligence['positionsSummary'];
   isLoading: boolean;
   onNavigateToTracker: () => void;
+  /** Live prices from WebSocket — overrides stale snapshot prices at render time */
+  livePrices?: Map<string, number>;
 }
 
-export function PositionsIntelligenceCard({ positions, summary, isLoading, onNavigateToTracker }: Props) {
+export function PositionsIntelligenceCard({ positions, summary, isLoading, onNavigateToTracker, livePrices }: Props) {
   const navigate = useNavigate();
   const { isPaperMode } = usePaperMode();
 
-  const visiblePositions = positions.slice(0, MAX_VISIBLE);
-  const hiddenCount = positions.length - MAX_VISIBLE;
-  const at50 = positions.filter(p => (p.percentOfMaxProfit ?? 0) >= 50);
+  // Apply live WebSocket prices on top of snapshot data at render time.
+  // Tickers from WS arrive uppercase; DB tickers are typically uppercase too, but normalise both sides.
+  const livePositions = useMemo(() => {
+    if (!livePrices || livePrices.size === 0) return positions;
+    return positions.map(p => {
+      const price = livePrices.get(p.ticker.toUpperCase()) ?? livePrices.get(p.ticker);
+      return applyLivePrice(p, price);
+    });
+  }, [positions, livePrices]);
+
+  const visiblePositions = livePositions.slice(0, MAX_VISIBLE);
+  const hiddenCount = livePositions.length - MAX_VISIBLE;
+  const at50 = livePositions.filter(p => (p.percentOfMaxProfit ?? 0) >= 50);
 
   return (
     <div style={{
@@ -585,7 +655,7 @@ export function PositionsIntelligenceCard({ positions, summary, isLoading, onNav
       )}
 
       {/* ── Empty state ───────────────────────────────────────────────── */}
-      {!isLoading && positions.length === 0 && (
+      {!isLoading && livePositions.length === 0 && (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 32 }}>
           <div style={{ fontSize: 32, fontWeight: 200, color: C.teal, opacity: 0.3, marginBottom: 10, lineHeight: 1 }}>Θ</div>
           <p style={{ margin: '0 0 4px', fontSize: 14, color: C.text2, fontFamily: 'DM Sans, sans-serif' }}>No open positions</p>
@@ -602,7 +672,7 @@ export function PositionsIntelligenceCard({ positions, summary, isLoading, onNav
       )}
 
       {/* ── Content ───────────────────────────────────────────────────── */}
-      {!isLoading && positions.length > 0 && (
+      {!isLoading && livePositions.length > 0 && (
         <>
           {/* Header */}
           <div style={{
