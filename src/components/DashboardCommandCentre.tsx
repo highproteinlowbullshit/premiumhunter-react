@@ -2,7 +2,7 @@ import { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AlertTriangle, Search, Trophy, Lightbulb, BarChart2,
-  Calendar, Award,
+  Calendar, Award, Sun, Cloud, CloudDrizzle, type LucideIcon,
 } from 'lucide-react';
 import { usePaperMode } from '../context/PaperModeContext';
 import type { DashboardIntelligence } from '../hooks/useDashboardIntelligence';
@@ -279,6 +279,17 @@ function StatPill({ label, value, sub, color, isPaper, children }: {
   );
 }
 
+function classifyIvEnvironment(rank: number): {
+  label: string;
+  conditions: string;
+  color: string;
+  Icon: LucideIcon;
+} {
+  if (rank >= 50) return { label: 'Elevated',   conditions: 'Favourable for sellers', color: '#f5c842',  Icon: Sun          };
+  if (rank >= 20) return { label: 'Normal',      conditions: 'Standard conditions',    color: '#00e5c4',  Icon: Cloud        };
+                  return { label: 'Suppressed',  conditions: 'Thin premium',           color: '#9ab4d4',  Icon: CloudDrizzle };
+}
+
 function QuickStatsRow({ d, isPaper }: { d: DashboardIntelligence; isPaper: boolean }) {
   const tmColor = d.thisMonth.targetAmount > 0
     ? (d.thisMonth.targetProgress >= 100 ? '#00d68f' : d.thisMonth.isOnTrack ? '#00e5c4' : '#f5c842')
@@ -353,6 +364,24 @@ function QuickStatsRow({ d, isPaper }: { d: DashboardIntelligence; isPaper: bool
         isPaper={isPaper}
       />
 
+      {/* Market IV environment */}
+      {d.spyIvRank !== null && (() => {
+        const { label, conditions, color, Icon } = classifyIvEnvironment(d.spyIvRank!);
+        return (
+          <StatPill
+            label="Market IV"
+            value={label}
+            sub={`SPY rank ${d.spyIvRank}`}
+            color={color}
+            isPaper={isPaper}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 3, marginTop: 2 }}>
+              <Icon size={10} color={color} strokeWidth={2} />
+              <span style={{ fontSize: 9, color, fontFamily: 'DM Sans, sans-serif' }}>{conditions}</span>
+            </div>
+          </StatPill>
+        );
+      })()}
 
     </div>
   );
