@@ -622,7 +622,7 @@ function RiskSummaryStrip({ summary }: { summary: DashboardIntelligence['positio
               <>
                 {' · '}Worst:{' '}
                 <span style={{ color: C.amber, fontWeight: 600 }}>{worst!.ticker}</span>
-                {' '}+{worst!.percentOfMaxProfit?.toFixed(0)}%
+                {' '}+{(worst!.percentOfMaxProfit ?? 0).toFixed(0)}%
               </>
             )}
           </span>
