@@ -70,6 +70,18 @@ export interface DashboardIntelligence {
   accountBalance: number;
   spyIvRank: number | null;
 
+  capitalDeployment: {
+    shares: {
+      totalHeld: number;
+      totalCovered: number;
+      byTicker: { ticker: string; held: number; covered: number }[];
+    };
+    cash: {
+      available: number;
+      cspDeployed: number;
+    };
+  };
+
   positions: PositionSnapshot[];
   positionsSummary: {
     totalCount: number;
@@ -498,6 +510,7 @@ export function useDashboardIntelligence() {
         targetRes,
         prefsRes,
         spyRes,
+        holdingsRes,
       ] = await Promise.all([
         supabase
           .from(positionsTable)
@@ -561,6 +574,13 @@ export function useDashboardIntelligence() {
           .order('snapshot_date', { ascending: false })
           .limit(1)
           .maybeSingle(),
+
+        supabase
+          .from('portfolio_holdings')
+          .select('ticker, quantity, avg_cost')
+          .eq('user_id', user!.id)
+          .eq('holding_type', 'shares')
+          .eq('status', 'open'),
       ]);
 
       const open = openRes.data ?? [];
@@ -856,6 +876,30 @@ export function useDashboardIntelligence() {
         ? Math.round((totalCollateral / accountBalance) * 1000) / 10
         : 0;
 
+      // ── Capital deployment split ────────────────────────────────────────────
+      const shareHoldings = (holdingsRes.data ?? []) as Array<{ ticker: string; quantity: number; avg_cost: number }>;
+      const sharesByTicker = new Map(shareHoldings.map(h => [h.ticker, Number(h.quantity)]));
+      const totalSharesHeld = shareHoldings.reduce((s, h) => s + Number(h.quantity), 0);
+      const totalShareCostBasis = shareHoldings.reduce((s, h) => s + Number(h.quantity) * Number(h.avg_cost), 0);
+
+      const ccByTicker = new Map<string, number>();
+      for (const p of open.filter(p => p.strategy === 'CC')) {
+        ccByTicker.set(p.ticker, (ccByTicker.get(p.ticker) ?? 0) + Number(p.contracts) * 100);
+      }
+      const totalCCCovered = Array.from(ccByTicker.values()).reduce((s, v) => s + v, 0);
+
+      const cspCollateral = open
+        .filter(p => p.strategy === 'CSP')
+        .reduce((s, p) => s + Number(p.strike) * Number(p.contracts) * 100, 0);
+
+      const cashAvailable = Math.max(0, accountBalance - totalShareCostBasis);
+
+      const deploymentByTicker = shareHoldings.map(h => ({
+        ticker: h.ticker,
+        held: Number(h.quantity),
+        covered: ccByTicker.get(h.ticker) ?? 0,
+      }));
+
       // ── This month ─────────────────────────────────────────────────────────
       let tmPremium = 0, tmWins = 0;
       for (const p of thisMonthClosed) {
@@ -1044,6 +1088,18 @@ export function useDashboardIntelligence() {
         capitalEfficiencyPercent: capitalEfficiency,
         accountBalance,
         spyIvRank: (spyRes.data?.iv_rank ?? null) as number | null,
+
+        capitalDeployment: {
+          shares: {
+            totalHeld: totalSharesHeld,
+            totalCovered: totalCCCovered,
+            byTicker: deploymentByTicker,
+          },
+          cash: {
+            available: Math.round(cashAvailable),
+            cspDeployed: Math.round(cspCollateral),
+          },
+        },
 
         positions,
         positionsSummary,

@@ -2,9 +2,8 @@ import { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AlertTriangle, Search, Trophy, Lightbulb, BarChart2,
-  Calendar, Award, Sun, Cloud, CloudDrizzle, Zap, type LucideIcon,
+  Calendar, Award, Sun, Cloud, CloudDrizzle, type LucideIcon,
 } from 'lucide-react';
-import { PieChart, Pie, Cell } from 'recharts';
 import { usePaperMode } from '../context/PaperModeContext';
 import type { DashboardIntelligence } from '../hooks/useDashboardIntelligence';
 import { PositionsIntelligenceCard } from './PositionsIntelligenceCard';
@@ -428,91 +427,91 @@ function SecondaryInsightsRow({ insights }: { insights: DashboardIntelligence['s
   );
 }
 
-// ── Zone 5: Capital deployment ring ───────────────────────────────────────────
+// ── Zone 5: Capital deployment ─────────────────────────────────────────────────
+
+function DeploymentBar({ label, pct, color, sub }: { label: string; pct: number; color: string; sub: string }) {
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 5 }}>
+        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ph-text-2)', fontFamily: 'DM Sans, sans-serif' }}>{label}</span>
+        <span style={{ fontSize: 14, fontWeight: 700, color, fontFamily: 'JetBrains Mono, monospace' }}>{pct}%</span>
+      </div>
+      <div style={{ height: 5, background: 'rgba(0,229,196,0.08)', borderRadius: 3, overflow: 'hidden' }}>
+        <div style={{ height: '100%', width: `${Math.min(100, pct)}%`, background: color, borderRadius: 3, transition: 'width 0.4s ease' }} />
+      </div>
+      <div style={{ marginTop: 4, fontSize: 10, color: 'var(--ph-text-3)', fontFamily: 'DM Sans, sans-serif' }}>{sub}</div>
+    </div>
+  );
+}
 
 function CapitalDeploymentRing({ d }: { d: DashboardIntelligence }) {
-  const navigate = useNavigate();
-  const idleCapital = Math.max(0, d.accountBalance - d.totalCollateralDeployed);
-  const pct = d.accountBalance > 0
-    ? Math.min(100, Math.round((d.totalCollateralDeployed / d.accountBalance) * 100))
+  const { shares, cash } = d.capitalDeployment;
+
+  const sharesPct = shares.totalHeld > 0
+    ? Math.min(100, Math.round((shares.totalCovered / shares.totalHeld) * 100))
+    : 0;
+  const cashPct = cash.available > 0
+    ? Math.min(100, Math.round((cash.cspDeployed / cash.available) * 100))
     : 0;
 
-  const ringData = [
-    { value: d.totalCollateralDeployed },
-    { value: Math.max(0, idleCapital) || 0.0001 },
-  ];
+  const coveredTickers = shares.byTicker.filter(t => t.covered > 0);
 
   return (
     <div style={{ flex: 1, minWidth: 0, height: '100%', background: 'rgba(13,27,53,0.5)', border: '1px solid rgba(0,229,196,0.08)', borderRadius: 12, padding: '14px 16px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
-      {/* Header */}
-      <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ph-text-3)', fontFamily: 'DM Sans, sans-serif', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 10 }}>
+      <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ph-text-3)', fontFamily: 'DM Sans, sans-serif', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 14 }}>
         Capital Deployment
       </span>
 
-      {d.accountBalance === 0 ? (
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <span style={{ fontSize: 11, color: 'var(--ph-text-3)', fontFamily: 'DM Sans, sans-serif', textAlign: 'center', lineHeight: 1.5 }}>
-            Set your account balance in Settings<br />to track capital deployment.
-          </span>
-        </div>
-      ) : (
+      {/* Shares (CC) */}
+      {shares.totalHeld > 0 ? (
         <>
-          {/* Donut chart + center label */}
-          <div style={{ position: 'relative', width: 160, height: 160, margin: '0 auto' }}>
-            <PieChart width={160} height={160}>
-              <Pie
-                data={ringData}
-                cx={80}
-                cy={80}
-                innerRadius={52}
-                outerRadius={70}
-                startAngle={90}
-                endAngle={-270}
-                dataKey="value"
-                isAnimationActive={false}
-                stroke="none"
-              >
-                <Cell fill="#00e5c4" />
-                <Cell fill="rgba(0,229,196,0.10)" />
-              </Pie>
-            </PieChart>
-            {/* Center label — absolutely positioned over chart */}
-            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-              <span style={{ fontSize: 20, fontWeight: 700, color: 'var(--ph-text-1)', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '-0.02em' }}>
-                {fmt$(idleCapital, true)}
-              </span>
-              <span style={{ fontSize: 11, color: 'var(--ph-text-3)', fontFamily: 'DM Sans, sans-serif', marginTop: 2 }}>
-                idle
-              </span>
-            </div>
-          </div>
-
-          {/* Stat line */}
-          <div style={{ textAlign: 'center', fontSize: 11, color: 'var(--ph-text-3)', fontFamily: 'DM Sans, sans-serif', marginTop: 6, marginBottom: 10 }}>
-            {pct}% deployed · {fmt$(d.totalCollateralDeployed, true)}
-          </div>
-
-          {/* Opportunity callout */}
-          {idleCapital > 0 && d.highIVCount > 0 && (
-            <div style={{ padding: '8px 10px', background: 'rgba(0,229,196,0.04)', border: '1px solid rgba(0,229,196,0.18)', borderRadius: 8, display: 'flex', flexDirection: 'column', gap: 3 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                <Zap size={10} color="#00e5c4" strokeWidth={2} />
-                <span style={{ fontSize: 11, color: 'var(--ph-text-1)', fontFamily: 'DM Sans, sans-serif' }}>
-                  {d.highIVCount} elevated IV {d.highIVCount === 1 ? 'opportunity' : 'opportunities'}
-                </span>
-              </div>
-              <span style={{ fontSize: 10, color: 'var(--ph-text-3)', fontFamily: 'DM Sans, sans-serif' }}>
-                Deploy idle capital
-              </span>
-              <button
-                onClick={() => navigate('/screener')}
-                style={{ marginTop: 2, fontSize: 11, color: '#00e5c4', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', padding: 0, textAlign: 'left' }}
-              >
-                Open screener →
-              </button>
+          <DeploymentBar
+            label="Shares (CC)"
+            pct={sharesPct}
+            color="#00e5c4"
+            sub={shares.totalCovered > 0
+              ? `${shares.totalCovered} / ${shares.totalHeld} shares covered`
+              : 'No active covered calls'}
+          />
+          {coveredTickers.length > 0 && (
+            <div style={{ marginTop: -8, marginBottom: 14, display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {coveredTickers.map(t => (
+                <div key={t.ticker} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--ph-text-3)', fontFamily: 'JetBrains Mono, monospace' }}>
+                  <span style={{ color: '#00e5c4' }}>{t.ticker}</span>
+                  <span>{t.covered} / {t.held} sh</span>
+                </div>
+              ))}
             </div>
           )}
         </>
+      ) : (
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 5 }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ph-text-2)', fontFamily: 'DM Sans, sans-serif' }}>Shares (CC)</span>
+          </div>
+          <span style={{ fontSize: 10, color: 'var(--ph-text-3)', fontFamily: 'DM Sans, sans-serif' }}>
+            Add share holdings in Portfolio to track CC coverage.
+          </span>
+        </div>
+      )}
+
+      {/* Cash (CSP) */}
+      {d.accountBalance > 0 ? (
+        <DeploymentBar
+          label="Cash (CSP)"
+          pct={cashPct}
+          color="#9ab4d4"
+          sub={cash.cspDeployed > 0
+            ? `${fmt$(cash.cspDeployed, true)} of ${fmt$(cash.available, true)} deployed`
+            : `${fmt$(cash.available, true)} available`}
+        />
+      ) : (
+        <div>
+          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ph-text-2)', fontFamily: 'DM Sans, sans-serif' }}>Cash (CSP)</span>
+          <div style={{ marginTop: 4, fontSize: 10, color: 'var(--ph-text-3)', fontFamily: 'DM Sans, sans-serif' }}>
+            Set your account balance in Settings to track cash deployment.
+          </div>
+        </div>
       )}
     </div>
   );
