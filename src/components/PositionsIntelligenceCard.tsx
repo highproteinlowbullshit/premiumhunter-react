@@ -450,11 +450,30 @@ function SummaryBar({ summary }: { summary: DashboardIntelligence['positionsSumm
       noBorder: false,
     },
     {
-      label: 'At stake',
+      label: 'Open premium',
       value: (
-        <span style={{ fontSize: 22, fontWeight: 600, color: C.text2 }}>
-          {fmt$(summary.totalPotentialPremium)}
-        </span>
+        <>
+          <span style={{ fontSize: 22, fontWeight: 600, color: C.text2 }}>
+            {fmt$(summary.totalPotentialPremium)}
+          </span>
+          <div style={{ fontSize: 10, color: C.muted, marginTop: 4, lineHeight: 1.3 }}>
+            max if all expire worthless
+          </div>
+        </>
+      ),
+      noBorder: false,
+    },
+    {
+      label: 'Remaining',
+      value: (
+        <>
+          <span style={{ fontSize: 22, fontWeight: 600, color: summary.totalRemainingPremium > 0 ? C.teal : C.muted }}>
+            {summary.totalRemainingPremium > 0 ? fmt$(summary.totalRemainingPremium) : '—'}
+          </span>
+          <div style={{ fontSize: 10, color: C.muted, marginTop: 4, lineHeight: 1.3 }}>
+            left to earn
+          </div>
+        </>
       ),
       noBorder: false,
     },
@@ -474,12 +493,12 @@ function SummaryBar({ summary }: { summary: DashboardIntelligence['positionsSumm
 
   return (
     <div style={{
-      display: 'grid', gridTemplateColumns: '1fr 1fr 1fr',
+      display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr',
       borderBottom: '0.5px solid var(--color-border-tertiary, rgba(20,184,166,0.08))',
     }}>
       {cells.map(({ label, value, noBorder }) => (
         <div key={label} style={{
-          padding: '14px 20px',
+          padding: '14px 16px',
           borderRight: noBorder ? 'none' : '0.5px solid var(--color-border-tertiary, rgba(20,184,166,0.08))',
         }}>
           <div style={{
