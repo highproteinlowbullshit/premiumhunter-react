@@ -361,9 +361,18 @@ function PositionRow({ position, isLast, index }: {
         </span>
         <span style={{ fontSize: 12, color: C.text2 }}>Θ</span>
 
-        <span style={{ marginLeft: 'auto', fontSize: 13, color: C.text2 }}>
-          {position.percentOfMaxProfit?.toFixed(0) ?? '0'}%{' '}
-          <span style={{ fontSize: 11, opacity: 0.7 }}>captured</span>
+        <span style={{ marginLeft: 'auto', fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          {position.percentOfMaxProfit !== null ? (
+            <span style={{ color: C.text2 }}>
+              {position.percentOfMaxProfit.toFixed(0)}%{' '}
+              <span style={{ fontSize: 11, opacity: 0.7 }}>captured</span>
+            </span>
+          ) : (
+            <span title="Awaiting live price data" style={{ color: C.muted, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+              <Clock size={11} />
+              <span>—</span>
+            </span>
+          )}
         </span>
       </div>
 
@@ -400,7 +409,7 @@ function PositionRow({ position, isLast, index }: {
         <div style={{
           position: 'absolute', left: 0, top: 0, bottom: 0,
           width: `${Math.min(100, position.percentOfMaxProfit ?? 0)}%`,
-          background: C.teal,
+          background: position.percentOfMaxProfit !== null ? C.teal : 'rgba(107,114,128,0.25)',
           transition: 'width 0.6s ease-out',
           borderRadius: '0 2px 2px 0',
         }} />
