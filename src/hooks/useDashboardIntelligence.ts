@@ -77,6 +77,7 @@ export interface DashboardIntelligence {
     itmCount: number;
     totalDailyTheta: number;
     totalPotentialPremium: number;
+    totalRemainingPremium: number;
     avgPercentOfMaxProfit: number;
     bestPerformer: PositionSnapshot | null;
     worstPerformer: PositionSnapshot | null;
@@ -815,6 +816,13 @@ export function useDashboardIntelligence() {
         itmCount: positions.filter(p => p.safetyStatus === 'itm').length,
         totalDailyTheta: Math.round(withTheta.reduce((s, p) => s + p.dailyTheta!, 0) * 100) / 100,
         totalPotentialPremium: Math.round(positions.reduce((s, p) => s + p.totalPremium, 0) * 100) / 100,
+        totalRemainingPremium: Math.round(
+          positions.reduce((s, p) =>
+            s + (p.percentOfMaxProfit !== null
+              ? p.totalPremium * (1 - p.percentOfMaxProfit / 100)
+              : p.totalPremium),
+          0) * 100
+        ) / 100,
         avgPercentOfMaxProfit,
         bestPerformer: withProfit.reduce<PositionSnapshot | null>(
           (best, p) => (p.percentOfMaxProfit! > (best?.percentOfMaxProfit ?? -Infinity) ? p : best), null
