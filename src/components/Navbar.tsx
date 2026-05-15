@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, memo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { usePaperMode } from '../context/PaperModeContext';
 import { useSubscription } from '../hooks/useSubscription';
@@ -27,7 +27,6 @@ export function Navbar({ onOpenLeapsCalc, onOpenShortcuts }: NavbarProps) {
   const { isPaperMode, togglePaperMode } = usePaperMode();
   const { isSuperuser, isFree, tier, isLoading: subLoading } = useSubscription();
   const { show: clockVisible, toggle: toggleClock } = useMarketClock();
-  const { phase, countdown } = useMarketCountdown();
 
   useEffect(() => {
     document.title = isPaperMode ? 'Paper Mode — Premium Hunter' : 'Premium Hunter';
@@ -112,41 +111,7 @@ export function Navbar({ onOpenLeapsCalc, onOpenShortcuts }: NavbarProps) {
           </button>
 
           {/* Market clock — md:flex only */}
-          {clockVisible ? (
-            <button
-              onClick={toggleClock}
-              className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-opacity duration-200 hover:opacity-70"
-              title="Click to hide market clock"
-              style={phase === 'open' ? {
-                background: 'rgba(20,184,166,0.10)',
-                border: '1px solid rgba(20,184,166,0.25)',
-                color: '#14b8a6',
-              } : phase === 'pre' ? {
-                background: 'rgba(245,159,11,0.08)',
-                border: '1px solid rgba(245,159,11,0.2)',
-                color: '#f59e0b',
-              } : {
-                background: 'rgba(255,255,255,0.04)',
-                border: '1px solid rgba(0,229,196,0.08)',
-                color: 'var(--ph-text-3)',
-              }}
-            >
-              {phase === 'open' && (
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#14b8a6', display: 'inline-block', flexShrink: 0 }} />
-              )}
-              <span style={{ fontSize: 11, fontFamily: 'JetBrains Mono, monospace', whiteSpace: 'nowrap', letterSpacing: '0.03em' }}>
-                {phase === 'open' ? `LIVE · ${countdown}` : phase === 'pre' ? `Pre · ${countdown}` : `Opens · ${countdown}`}
-              </span>
-            </button>
-          ) : (
-            <button
-              onClick={toggleClock}
-              className="hidden md:flex w-9 h-9 rounded-lg items-center justify-center transition-all duration-200 hover:bg-[rgba(0,229,196,0.08)] text-[#6a8fb0] hover:text-[#00e5c4]"
-              title="Show market clock"
-            >
-              <NavClockIcon />
-            </button>
-          )}
+          <MarketClockButton visible={clockVisible} onToggle={toggleClock} />
 
           <button
             onClick={onOpenLeapsCalc}
@@ -505,6 +470,50 @@ function HelpIcon() {
     </svg>
   );
 }
+
+const MarketClockButton = memo(function MarketClockButton({
+  visible,
+  onToggle,
+}: {
+  visible: boolean;
+  onToggle: () => void;
+}) {
+  const { phase, countdown } = useMarketCountdown();
+
+  if (!visible) {
+    return (
+      <button
+        onClick={onToggle}
+        className="hidden md:flex w-9 h-9 rounded-lg items-center justify-center transition-colors duration-150 hover:bg-[rgba(0,229,196,0.08)] text-[#6a8fb0] hover:text-[#00e5c4]"
+        title="Show market clock"
+      >
+        <NavClockIcon />
+      </button>
+    );
+  }
+
+  const pillStyle = phase === 'open'
+    ? { background: 'rgba(20,184,166,0.10)', border: '1px solid rgba(20,184,166,0.25)', color: '#14b8a6' }
+    : phase === 'pre'
+    ? { background: 'rgba(245,159,11,0.08)', border: '1px solid rgba(245,159,11,0.2)', color: '#f59e0b' }
+    : { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(0,229,196,0.08)', color: 'var(--ph-text-3)' };
+
+  return (
+    <button
+      onClick={onToggle}
+      className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-lg cursor-pointer"
+      title="Click to hide market clock"
+      style={pillStyle}
+    >
+      {phase === 'open' && (
+        <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#14b8a6', display: 'inline-block', flexShrink: 0 }} />
+      )}
+      <span style={{ fontSize: 11, fontFamily: 'JetBrains Mono, monospace', whiteSpace: 'nowrap', letterSpacing: '0.03em', fontVariantNumeric: 'tabular-nums' }}>
+        {phase === 'open' ? `LIVE · ${countdown}` : phase === 'pre' ? `Pre · ${countdown}` : `Opens · ${countdown}`}
+      </span>
+    </button>
+  );
+});
 
 function NavClockIcon() {
   return (
