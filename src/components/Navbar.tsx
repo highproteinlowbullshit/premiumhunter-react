@@ -94,7 +94,7 @@ export function Navbar({ onOpenLeapsCalc, onOpenShortcuts }: NavbarProps) {
         </div>
 
         {/* Right actions */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 ml-4">
           {/* Keyboard shortcuts — hidden when clock is active so the pill takes its slot */}
           {!clockVisible && (
             <button
