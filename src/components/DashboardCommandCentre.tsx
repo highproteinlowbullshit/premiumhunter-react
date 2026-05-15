@@ -2,8 +2,9 @@ import { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AlertTriangle, Search, Trophy, Lightbulb, BarChart2,
-  Calendar, Award, Sun, Cloud, CloudDrizzle, type LucideIcon,
+  Calendar, Award, Sun, Cloud, CloudDrizzle, Zap, type LucideIcon,
 } from 'lucide-react';
+import { PieChart, Pie, Cell } from 'recharts';
 import { usePaperMode } from '../context/PaperModeContext';
 import type { DashboardIntelligence } from '../hooks/useDashboardIntelligence';
 import { PositionsIntelligenceCard } from './PositionsIntelligenceCard';
@@ -427,85 +428,92 @@ function SecondaryInsightsRow({ insights }: { insights: DashboardIntelligence['s
   );
 }
 
-// ── Zone 5: Screener pulse (right column) ─────────────────────────────────────
+// ── Zone 5: Capital deployment ring ───────────────────────────────────────────
 
-function ScreenerPulseColumn({ d }: { d: DashboardIntelligence }) {
+function CapitalDeploymentRing({ d }: { d: DashboardIntelligence }) {
   const navigate = useNavigate();
-  const ivColor = d.highIVCount >= 10 ? '#00d68f' : d.highIVCount >= 5 ? '#f5c842' : '#ff4d6d';
+  const idleCapital = Math.max(0, d.accountBalance - d.totalCollateralDeployed);
+  const pct = d.accountBalance > 0
+    ? Math.min(100, Math.round((d.totalCollateralDeployed / d.accountBalance) * 100))
+    : 0;
 
-  const ivRankColor = (rank: number) =>
-    rank >= 80 ? '#00d68f' : rank >= 65 ? '#00e5c4' : rank >= 50 ? '#f5c842' : '#9ab4d4';
+  const ringData = [
+    { value: d.totalCollateralDeployed },
+    { value: Math.max(0, idleCapital) || 0.0001 },
+  ];
 
   return (
     <div style={{ flex: 1, minWidth: 0, height: '100%', background: 'rgba(13,27,53,0.5)', border: '1px solid rgba(0,229,196,0.08)', borderRadius: 12, padding: '14px 16px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
-      {/* Header row */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ph-text-3)', fontFamily: 'DM Sans, sans-serif', letterSpacing: '0.07em', textTransform: 'uppercase' }}>
-          Market pulse
-        </span>
-        <span style={{ fontSize: 11, color: ivColor, fontFamily: 'JetBrains Mono, monospace', fontWeight: 600 }}>
-          {d.highIVCount} elevated
-        </span>
-      </div>
+      {/* Header */}
+      <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ph-text-3)', fontFamily: 'DM Sans, sans-serif', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 10 }}>
+        Capital Deployment
+      </span>
 
-      {/* Top 5 opportunities */}
-      {d.topOpportunities.length > 0 ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
-          {/* Column headers */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 40px 44px 46px', columnGap: 6, paddingBottom: 4, borderBottom: '1px solid rgba(0,229,196,0.08)', marginBottom: 2 }}>
-            <span style={{ fontSize: 10, color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Ticker</span>
-            <span style={{ fontSize: 10, color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'right' }}>IV Rank</span>
-            <span style={{ fontSize: 10, color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'right' }}>Earn.</span>
-            <span style={{ fontSize: 10, color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'right' }}>Est. Ann.</span>
-          </div>
-
-          {d.topOpportunities.map((opp, i) => {
-            const earningsColor = opp.daysToEarnings != null && opp.daysToEarnings <= 7
-              ? '#ff4d6d'
-              : opp.daysToEarnings != null && opp.daysToEarnings <= 14
-              ? '#f5c842'
-              : '#4a6a8a';
-            return (
-              <div
-                key={opp.ticker}
-                style={{ display: 'grid', gridTemplateColumns: '1fr 40px 44px 46px', columnGap: 6, alignItems: 'center', padding: '3px 0' }}
-              >
-                <span style={{ fontSize: 12, fontWeight: 700, color: i === 0 ? '#00e5c4' : 'var(--ph-text-1)', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '0.02em' }}>
-                  {opp.ticker}
-                </span>
-                <span style={{ fontSize: 11, fontWeight: 600, color: ivRankColor(opp.ivRank), fontFamily: 'JetBrains Mono, monospace', textAlign: 'right' }}>
-                  {opp.ivRank}
-                </span>
-                <span style={{ fontSize: 11, color: earningsColor, fontFamily: 'JetBrains Mono, monospace', textAlign: 'right' }}>
-                  {opp.daysToEarnings != null ? `${opp.daysToEarnings}d` : '—'}
-                </span>
-                <span style={{ fontSize: 11, color: '#00d68f', fontFamily: 'JetBrains Mono, monospace', textAlign: 'right' }}>
-                  {opp.annualisedReturn.toFixed(0)}%
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
-          <span style={{ fontSize: 12, color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>No elevated IV opportunities right now</span>
-        </div>
-      )}
-
-      {/* Earnings warning — compact */}
-      {d.earningsThisWeek.length > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 8, padding: '5px 8px', background: 'rgba(255,77,109,0.06)', border: '1px solid rgba(255,77,109,0.15)', borderRadius: 6 }}>
-          <AlertTriangle size={10} strokeWidth={2} style={{ color: '#ff4d6d', flexShrink: 0 }} />
-          <span style={{ fontSize: 11, color: '#ff4d6d', fontFamily: 'DM Sans, sans-serif' }}>Earnings:</span>
-          <span style={{ fontSize: 11, color: 'var(--ph-text-2)', fontFamily: 'JetBrains Mono, monospace' }}>
-            {d.earningsThisWeek.map(e => e.ticker).join(', ')}
+      {d.accountBalance === 0 ? (
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <span style={{ fontSize: 11, color: 'var(--ph-text-3)', fontFamily: 'DM Sans, sans-serif', textAlign: 'center', lineHeight: 1.5 }}>
+            Set your account balance in Settings<br />to track capital deployment.
           </span>
         </div>
-      )}
+      ) : (
+        <>
+          {/* Donut chart + center label */}
+          <div style={{ position: 'relative', width: 160, height: 160, margin: '0 auto' }}>
+            <PieChart width={160} height={160}>
+              <Pie
+                data={ringData}
+                cx={80}
+                cy={80}
+                innerRadius={52}
+                outerRadius={70}
+                startAngle={90}
+                endAngle={-270}
+                dataKey="value"
+                isAnimationActive={false}
+                stroke="none"
+              >
+                <Cell fill="#00e5c4" />
+                <Cell fill="rgba(0,229,196,0.10)" />
+              </Pie>
+            </PieChart>
+            {/* Center label — absolutely positioned over chart */}
+            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+              <span style={{ fontSize: 20, fontWeight: 700, color: 'var(--ph-text-1)', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '-0.02em' }}>
+                {fmt$(idleCapital, true)}
+              </span>
+              <span style={{ fontSize: 11, color: 'var(--ph-text-3)', fontFamily: 'DM Sans, sans-serif', marginTop: 2 }}>
+                idle
+              </span>
+            </div>
+          </div>
 
-      <button onClick={() => navigate('/screener')} style={{ marginTop: 8, fontSize: 11, color: '#00e5c4', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', padding: 0, textAlign: 'left' }}>
-        Open screener →
-      </button>
+          {/* Stat line */}
+          <div style={{ textAlign: 'center', fontSize: 11, color: 'var(--ph-text-3)', fontFamily: 'DM Sans, sans-serif', marginTop: 6, marginBottom: 10 }}>
+            {pct}% deployed · {fmt$(d.totalCollateralDeployed, true)}
+          </div>
+
+          {/* Opportunity callout */}
+          {idleCapital > 0 && d.highIVCount > 0 && (
+            <div style={{ padding: '8px 10px', background: 'rgba(0,229,196,0.04)', border: '1px solid rgba(0,229,196,0.18)', borderRadius: 8, display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <Zap size={10} color="#00e5c4" strokeWidth={2} />
+                <span style={{ fontSize: 11, color: 'var(--ph-text-1)', fontFamily: 'DM Sans, sans-serif' }}>
+                  {d.highIVCount} elevated IV {d.highIVCount === 1 ? 'opportunity' : 'opportunities'}
+                </span>
+              </div>
+              <span style={{ fontSize: 10, color: 'var(--ph-text-3)', fontFamily: 'DM Sans, sans-serif' }}>
+                Deploy idle capital
+              </span>
+              <button
+                onClick={() => navigate('/screener')}
+                style={{ marginTop: 2, fontSize: 11, color: '#00e5c4', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', padding: 0, textAlign: 'left' }}
+              >
+                Open screener →
+              </button>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
@@ -644,7 +652,7 @@ export function DashboardCommandCentre({ data: d, isLoading }: Props) {
           />
         </div>
         <div style={{ flex: '1 1 240px', display: 'flex', flexDirection: 'column' }}>
-          <ScreenerPulseColumn d={d} />
+          <CapitalDeploymentRing d={d} />
         </div>
       </div>
 
