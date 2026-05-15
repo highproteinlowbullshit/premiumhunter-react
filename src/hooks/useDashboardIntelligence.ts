@@ -67,6 +67,7 @@ export interface DashboardIntelligence {
   totalPremiumAtRisk: number;
   totalCollateralDeployed: number;
   capitalEfficiencyPercent: number;
+  accountBalance: number;
   spyIvRank: number | null;
 
   positions: PositionSnapshot[];
@@ -1041,6 +1042,7 @@ export function useDashboardIntelligence() {
         totalPremiumAtRisk: Math.round(totalPremiumAtRisk * 100) / 100,
         totalCollateralDeployed: Math.round(totalCollateral),
         capitalEfficiencyPercent: capitalEfficiency,
+        accountBalance,
         spyIvRank: (spyRes.data?.iv_rank ?? null) as number | null,
 
         positions,
