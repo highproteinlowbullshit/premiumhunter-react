@@ -607,13 +607,27 @@ function RiskSummaryStrip({ summary }: { summary: DashboardIntelligence['positio
         {riskPill.icon}{riskPill.text}
       </span>
 
-      {summary.bestPerformer && (
-        <span style={{ fontSize: 12, color: C.text2, fontFamily: 'DM Sans, sans-serif' }}>
-          Best:{' '}
-          <span style={{ color: C.teal, fontWeight: 600 }}>{summary.bestPerformer.ticker}</span>
-          {' '}+{summary.bestPerformer.percentOfMaxProfit?.toFixed(0)}%
-        </span>
-      )}
+      {summary.bestPerformer && (summary.bestPerformer.percentOfMaxProfit ?? 0) >= 1 && (() => {
+        const best = summary.bestPerformer!;
+        const worst = summary.worstPerformer;
+        const showWorst = worst &&
+          worst.ticker !== best.ticker &&
+          (best.percentOfMaxProfit! - (worst.percentOfMaxProfit ?? 0)) >= 15;
+        return (
+          <span style={{ fontSize: 12, color: C.text2, fontFamily: 'DM Sans, sans-serif' }}>
+            Best:{' '}
+            <span style={{ color: C.teal, fontWeight: 600 }}>{best.ticker}</span>
+            {' '}+{best.percentOfMaxProfit?.toFixed(0)}%
+            {showWorst && (
+              <>
+                {' · '}Worst:{' '}
+                <span style={{ color: C.amber, fontWeight: 600 }}>{worst!.ticker}</span>
+                {' '}+{worst!.percentOfMaxProfit?.toFixed(0)}%
+              </>
+            )}
+          </span>
+        );
+      })()}
     </div>
   );
 }
