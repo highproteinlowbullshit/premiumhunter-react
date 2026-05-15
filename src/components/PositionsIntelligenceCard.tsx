@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, Eye, Lightbulb, CheckCircle, AlertCircle } from 'lucide-react';
+import { AlertTriangle, Eye, Lightbulb, CheckCircle, AlertCircle, Clock } from 'lucide-react';
 import type { PositionSnapshot, DashboardIntelligence } from '../hooks/useDashboardIntelligence';
 import { usePaperMode } from '../context/PaperModeContext';
 import { blackScholes } from '../lib/blackScholes';
@@ -634,8 +634,18 @@ export function PositionsIntelligenceCard({ positions, summary, isLoading, onNav
       avgPercentOfMaxProfit: withProfit.length > 0
         ? Math.round(withProfit.reduce((s, p) => s + p.percentOfMaxProfit!, 0) / withProfit.length * 10) / 10
         : 0,
+      totalRemainingPremium: Math.round(
+        livePositions.reduce((s, p) =>
+          s + (p.percentOfMaxProfit !== null
+            ? p.totalPremium * (1 - p.percentOfMaxProfit / 100)
+            : p.totalPremium),
+        0) * 100
+      ) / 100,
       bestPerformer: withProfit.reduce<PositionSnapshot | null>(
         (best, p) => (p.percentOfMaxProfit! > (best?.percentOfMaxProfit ?? -Infinity) ? p : best), null,
+      ),
+      worstPerformer: withProfit.reduce<PositionSnapshot | null>(
+        (worst, p) => (p.percentOfMaxProfit! < (worst?.percentOfMaxProfit ?? Infinity) ? p : worst), null,
       ),
     };
   }, [livePositions, summary]);
