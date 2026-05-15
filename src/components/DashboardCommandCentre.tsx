@@ -2,7 +2,7 @@ import { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AlertTriangle, Search, Trophy, Lightbulb, BarChart2,
-  Calendar, Flame, Award,
+  Calendar, Award,
 } from 'lucide-react';
 import { usePaperMode } from '../context/PaperModeContext';
 import type { DashboardIntelligence } from '../hooks/useDashboardIntelligence';
@@ -294,12 +294,6 @@ function QuickStatsRow({ d, isPaper }: { d: DashboardIntelligence; isPaper: bool
     : d.capitalEfficiencyPercent < 30 ? '#f5c842'
     : '#9ab4d4';
 
-  const streakColor = d.currentWinStreak >= 5 ? '#f5c842'
-    : d.currentWinStreak >= 3 ? '#00e5c4'
-    : 'var(--ph-text-2)';
-
-  const streakVal = `${d.currentWinStreak}`;
-
   return (
     <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4, marginBottom: 12 }}>
       {/* This month */}
@@ -359,21 +353,7 @@ function QuickStatsRow({ d, isPaper }: { d: DashboardIntelligence; isPaper: bool
         isPaper={isPaper}
       />
 
-      {/* Win streak */}
-      <StatPill
-        label="Streak"
-        value={streakVal}
-        sub={d.longestWinStreak > 0 ? `best: ${d.longestWinStreak}` : undefined}
-        color={streakColor}
-        isPaper={isPaper}
-      >
-        {d.currentWinStreak >= 2 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 3, marginTop: 2 }}>
-            <Flame size={10} color={streakColor} strokeWidth={2} />
-            <span style={{ fontSize: 9, color: streakColor, fontFamily: 'DM Sans, sans-serif' }}>active streak</span>
-          </div>
-        )}
-      </StatPill>
+
     </div>
   );
 }
