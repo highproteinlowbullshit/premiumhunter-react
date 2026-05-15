@@ -67,6 +67,7 @@ export interface DashboardIntelligence {
   totalPremiumAtRisk: number;
   totalCollateralDeployed: number;
   capitalEfficiencyPercent: number;
+  spyIvRank: number | null;
 
   positions: PositionSnapshot[];
   positionsSummary: {
@@ -495,6 +496,7 @@ export function useDashboardIntelligence() {
         watchlistRes,
         targetRes,
         prefsRes,
+        spyRes,
       ] = await Promise.all([
         supabase
           .from(positionsTable)
@@ -548,6 +550,15 @@ export function useDashboardIntelligence() {
           .from('user_preferences')
           .select('account_balance')
           .eq('user_id', user!.id)
+          .maybeSingle(),
+
+        supabase
+          .from('iv_snapshots')
+          .select('iv_rank')
+          .eq('ticker', 'SPY')
+          .eq('calculation_success', true)
+          .order('snapshot_date', { ascending: false })
+          .limit(1)
           .maybeSingle(),
       ]);
 
@@ -1030,6 +1041,7 @@ export function useDashboardIntelligence() {
         totalPremiumAtRisk: Math.round(totalPremiumAtRisk * 100) / 100,
         totalCollateralDeployed: Math.round(totalCollateral),
         capitalEfficiencyPercent: capitalEfficiency,
+        spyIvRank: (spyRes.data?.iv_rank ?? null) as number | null,
 
         positions,
         positionsSummary,
