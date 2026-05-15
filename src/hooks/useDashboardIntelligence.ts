@@ -588,14 +588,15 @@ export function useDashboardIntelligence() {
         if (!posIVMap.has(r.ticker)) posIVMap.set(r.ticker, r);
       }
 
-      // Fallback: fetch live price from Finnhub for tickers not in iv_snapshots or with null price today
-      const missingPriceTickers = [...openTickers].filter(t => {
-        const entry = posIVMap.get(t);
-        return !entry || entry.current_price == null;
-      });
-      if (missingPriceTickers.length > 0) {
-        const quoteResults = await Promise.allSettled(missingPriceTickers.map(t => getQuote(t)));
-        missingPriceTickers.forEach((ticker, i) => {
+      // Always fetch fresh quotes from Finnhub REST for all open-position tickers.
+      // iv_snapshots.current_price can be hours or days old (it's set by a cron job at
+      // snapshot time), so we can't trust it as the displayed price. The WebSocket overlay
+      // in PositionsIntelligenceCard will keep prices live after initial render, but on
+      // first load we need a fresh REST price to avoid showing stale values.
+      if (openTickers.size > 0) {
+        const allOpenTickers = [...openTickers];
+        const quoteResults = await Promise.allSettled(allOpenTickers.map(t => getQuote(t)));
+        allOpenTickers.forEach((ticker, i) => {
           const r = quoteResults[i];
           if (r.status === 'fulfilled') {
             const q = r.value;
