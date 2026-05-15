@@ -577,9 +577,9 @@ export function useDashboardIntelligence() {
 
         supabase
           .from('portfolio_holdings')
-          .select('ticker, quantity, avg_cost')
+          .select('ticker, quantity, avg_cost, holding_type')
           .eq('user_id', user!.id)
-          .eq('holding_type', 'shares')
+          .in('holding_type', ['shares', 'cash'])
           .eq('status', 'open'),
       ]);
 
@@ -877,9 +877,12 @@ export function useDashboardIntelligence() {
         : 0;
 
       // ── Capital deployment split ────────────────────────────────────────────
-      const shareHoldings = (holdingsRes.data ?? []) as Array<{ ticker: string; quantity: number; avg_cost: number }>;
+      const allHoldings = (holdingsRes.data ?? []) as Array<{ ticker: string; quantity: number; avg_cost: number; holding_type: string }>;
+      const shareHoldings = allHoldings.filter(h => h.holding_type === 'shares');
       const totalSharesHeld = shareHoldings.reduce((s, h) => s + Number(h.quantity), 0);
-      const totalShareCostBasis = shareHoldings.reduce((s, h) => s + Number(h.quantity) * Number(h.avg_cost), 0);
+      const totalCashBalance = allHoldings
+        .filter(h => h.holding_type === 'cash')
+        .reduce((s, h) => s + Number(h.quantity), 0);
 
       const ccByTicker = new Map<string, number>();
       for (const p of open.filter(p => p.strategy === 'CC')) {
@@ -890,8 +893,6 @@ export function useDashboardIntelligence() {
       const cspCollateral = open
         .filter(p => p.strategy === 'CSP')
         .reduce((s, p) => s + Number(p.strike) * Number(p.contracts) * 100, 0);
-
-      const cashAvailable = Math.max(0, accountBalance - totalShareCostBasis);
 
       const deploymentByTicker = shareHoldings.map(h => ({
         ticker: h.ticker,
@@ -1095,7 +1096,7 @@ export function useDashboardIntelligence() {
             byTicker: deploymentByTicker,
           },
           cash: {
-            available: Math.round(cashAvailable),
+            available: Math.round(totalCashBalance),
             cspDeployed: Math.round(cspCollateral),
           },
         },
