@@ -878,7 +878,6 @@ export function useDashboardIntelligence() {
 
       // ── Capital deployment split ────────────────────────────────────────────
       const shareHoldings = (holdingsRes.data ?? []) as Array<{ ticker: string; quantity: number; avg_cost: number }>;
-      const sharesByTicker = new Map(shareHoldings.map(h => [h.ticker, Number(h.quantity)]));
       const totalSharesHeld = shareHoldings.reduce((s, h) => s + Number(h.quantity), 0);
       const totalShareCostBasis = shareHoldings.reduce((s, h) => s + Number(h.quantity) * Number(h.avg_cost), 0);
 
