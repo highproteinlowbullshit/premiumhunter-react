@@ -157,9 +157,9 @@ function ZoneThetaHero({ greeks }: { greeks: PortfolioGreeks }) {
             <div className="space-y-2.5">
               {topPositions.map(pos => (
                 <div key={pos.positionId} className="flex items-center gap-2">
-                  <span className="text-xs font-semibold w-12 flex-shrink-0"
-                    style={{ color: '#9ab4d4', fontFamily: 'JetBrains Mono, monospace', fontSize: 11 }}>
-                    {pos.ticker}
+                  <span className="text-xs font-semibold flex-shrink-0"
+                    style={{ color: '#9ab4d4', fontFamily: 'JetBrains Mono, monospace', fontSize: 11, width: 72 }}>
+                    {pos.ticker} <span style={{ color: '#4a6a8a', fontWeight: 400 }}>{pos.strategy}</span>
                   </span>
                   <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
                     <div
