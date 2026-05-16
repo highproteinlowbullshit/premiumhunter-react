@@ -39,6 +39,7 @@ interface DbWheelPosition {
   premium_collected: string;
   contracts: number;
   closing_price: string | null;
+  status: string;
 }
 
 function dbToHolding(row: DbHolding): PortfolioHolding {
@@ -122,9 +123,9 @@ async function fetchPortfolioData(userId: string): Promise<PortfolioQueryResult>
       .limit(200),
     supabase
       .from('wheel_positions')
-      .select('premium_collected, contracts, closing_price')
+      .select('premium_collected, contracts, closing_price, status')
       .eq('user_id', userId)
-      .eq('status', 'closed'),
+      .in('status', ['closed', 'expired', 'assigned']),
   ]);
 
   // Open holdings
