@@ -123,7 +123,7 @@ export const FREE_FEATURES_LIST = [
 
 export const PRO_FEATURES_LIST = [
   'Everything in Free, plus:',
-  'Full 200-stock IV rank screener',
+  'Full >400-stock IV rank screener',
   'Top 5 CSP & CC picks daily',
   'Real money wheel tracker (unlimited)',
   'Live real-time prices via WebSocket',
@@ -133,11 +133,9 @@ export const PRO_FEATURES_LIST = [
   'Portfolio Greeks (daily theta income)',
   'LEAPS valuator with what-if simulator',
   'AI trade analyst daily picks',
-  'AI morning briefing email',
   'Monthly income target tracker',
   'Assigned shares cost basis tracking',
   'Ticker performance league table',
   'IV trend arrows and IV/HV ratio',
   'Wheel cycle timeline',
-  'CSV export',
 ]
