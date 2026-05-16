@@ -117,7 +117,9 @@ async function fetchPortfolioData(userId: string): Promise<PortfolioQueryResult>
       .from('portfolio_holdings')
       .select('id, holding_type, ticker, quantity, avg_cost, closing_price, expiry, strike, notes, opened_at, closed_at, status')
       .eq('user_id', userId)
-      .eq('status', 'closed'),
+      .eq('status', 'closed')
+      .order('closed_at', { ascending: false })
+      .limit(200),
     supabase
       .from('wheel_positions')
       .select('premium_collected, contracts, closing_price')
@@ -360,8 +362,8 @@ export function usePortfolio() {
     queryKey: qKey,
     queryFn: () => fetchPortfolioData(user!.id),
     enabled: !!user,
-    staleTime: 30 * 1000,
-    refetchOnMount: true,
+    staleTime: 2 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
     retry: 3,
   });
 

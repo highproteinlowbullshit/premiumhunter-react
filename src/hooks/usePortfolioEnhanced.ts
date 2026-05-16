@@ -111,7 +111,9 @@ export function usePortfolioEnhanced(timeRange: EnhancedTimeRange) {
           .from('wheel_positions')
           .select('ticker, strategy, premium_collected, closing_price, contracts, status, closed_at, opened_at')
           .eq('user_id', user!.id)
-          .in('status', ['closed', 'expired', 'assigned']),
+          .in('status', ['closed', 'expired', 'assigned'])
+          .order('closed_at', { ascending: false })
+          .limit(500),
         supabase
           .from('assigned_share_lots')
           .select(`
@@ -338,8 +340,8 @@ export function usePortfolioEnhanced(timeRange: EnhancedTimeRange) {
         orphanedAssignments,
       };
     },
-    staleTime: 60 * 1000,
-    refetchOnMount: true,
+    staleTime: 2 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
     enabled: !!user,
   });

@@ -47,7 +47,6 @@ export function useAdminData(auditFilters: any = {}, auditPage: number = 1) {
       return data.users ?? []
     },
     staleTime: 60 * 1000,
-    refetchOnMount: true,
     retry: 2,
     retryDelay: 2000,
     enabled: isSuperuser,
@@ -70,7 +69,6 @@ export function useAdminData(auditFilters: any = {}, auditPage: number = 1) {
       }
     },
     staleTime: 30 * 1000,
-    refetchOnMount: true,
     retry: 2,
     retryDelay: 2000,
     enabled: isSuperuser,
