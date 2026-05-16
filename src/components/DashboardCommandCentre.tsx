@@ -500,7 +500,7 @@ function CapitalDeploymentRing({ d }: { d: DashboardIntelligence }) {
         <DeploymentBar
           label="Cash (CSP)"
           pct={cashPct}
-          color="#9ab4d4"
+          color="#00e5c4"
           sub={cash.cspDeployed > 0
             ? `${fmt$(cash.cspDeployed, true)} of ${fmt$(cash.available, true)} deployed`
             : `${fmt$(cash.available, true)} available`}
