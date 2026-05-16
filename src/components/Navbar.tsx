@@ -97,52 +97,57 @@ export function Navbar({ onOpenLeapsCalc, onOpenShortcuts }: NavbarProps) {
         <div className="flex items-center gap-2 ml-4">
           {/* Keyboard shortcuts — hidden when clock is active so the pill takes its slot */}
           {!clockVisible && (
-            <button
-              onClick={onOpenShortcuts}
-              className="hidden md:flex w-9 h-9 rounded-lg items-center justify-center transition-colors duration-150 hover:bg-[rgba(0,229,196,0.08)] text-[#6a8fb0] hover:text-[#00e5c4]"
-              title="Keyboard shortcuts (?)"
-            >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <rect x="1" y="3" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="1.2" />
-                <rect x="3" y="5.5" width="2" height="2" rx="0.5" fill="currentColor" opacity="0.7" />
-                <rect x="7" y="5.5" width="2" height="2" rx="0.5" fill="currentColor" opacity="0.7" />
-                <rect x="11" y="5.5" width="2" height="2" rx="0.5" fill="currentColor" opacity="0.7" />
-                <rect x="3" y="9" width="10" height="2" rx="0.5" fill="currentColor" opacity="0.5" />
-              </svg>
-            </button>
+            <NavTip label="Keyboard shortcuts" className="hidden md:flex">
+              <button
+                onClick={onOpenShortcuts}
+                className="w-9 h-9 rounded-lg flex items-center justify-center transition-colors duration-150 hover:bg-[rgba(0,229,196,0.08)] text-[#6a8fb0] hover:text-[#00e5c4]"
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <rect x="1" y="3" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="1.2" />
+                  <rect x="3" y="5.5" width="2" height="2" rx="0.5" fill="currentColor" opacity="0.7" />
+                  <rect x="7" y="5.5" width="2" height="2" rx="0.5" fill="currentColor" opacity="0.7" />
+                  <rect x="11" y="5.5" width="2" height="2" rx="0.5" fill="currentColor" opacity="0.7" />
+                  <rect x="3" y="9" width="10" height="2" rx="0.5" fill="currentColor" opacity="0.5" />
+                </svg>
+              </button>
+            </NavTip>
           )}
 
           {/* Market clock — takes keyboard shortcuts slot when active */}
           <MarketClockButton visible={clockVisible} onToggle={toggleClock} />
 
-          <button
-            onClick={onOpenLeapsCalc}
-            className="w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-200 hover:bg-[rgba(0,229,196,0.08)] text-[#6a8fb0] hover:text-[#00e5c4]"
-            title="LEAPS Calculator"
-          >
-            <CalcIcon />
-          </button>
+          <NavTip label="LEAPS Calculator">
+            <button
+              onClick={onOpenLeapsCalc}
+              className="w-9 h-9 rounded-lg flex items-center justify-center transition-colors duration-150 hover:bg-[rgba(0,229,196,0.08)] text-[#6a8fb0] hover:text-[#00e5c4]"
+            >
+              <CalcIcon />
+            </button>
+          </NavTip>
 
-          <button
-            onClick={isFree ? undefined : togglePaperMode}
-            className="w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-200"
-            style={isFree ? {
-              color: '#f5c842',
-              background: 'rgba(245,200,66,0.12)',
-              border: '1px solid rgba(245,200,66,0.25)',
-              cursor: 'not-allowed',
-              opacity: 0.65,
-            } : isPaperMode ? {
-              color: '#f5c842',
-              background: 'rgba(245,200,66,0.12)',
-              border: '1px solid rgba(245,200,66,0.25)',
-            } : {
-              color: '#6a8fb0',
-            }}
-            title={isFree ? 'Paper mode is always on for the free plan' : isPaperMode ? 'Disable paper trading' : 'Enable paper trading'}
-          >
-            <PaperIcon />
-          </button>
+          <NavTip label={isFree ? 'Paper mode (free plan)' : isPaperMode ? 'Disable paper mode' : 'Enable paper mode'}>
+            <button
+              onClick={isFree ? undefined : togglePaperMode}
+              className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors duration-150 ${
+                isFree ? '' : isPaperMode ? 'hover:bg-[rgba(245,200,66,0.18)]' : 'hover:bg-[rgba(0,229,196,0.08)] hover:text-[#00e5c4]'
+              }`}
+              style={isFree ? {
+                color: '#f5c842',
+                background: 'rgba(245,200,66,0.12)',
+                border: '1px solid rgba(245,200,66,0.25)',
+                cursor: 'not-allowed',
+                opacity: 0.65,
+              } : isPaperMode ? {
+                color: '#f5c842',
+                background: 'rgba(245,200,66,0.12)',
+                border: '1px solid rgba(245,200,66,0.25)',
+              } : {
+                color: '#6a8fb0',
+              }}
+            >
+              <PaperIcon />
+            </button>
+          </NavTip>
 
           {/* PAPER badge + user section — only at xl where there's full room */}
           {isPaperMode && (
@@ -473,6 +478,32 @@ function HelpIcon() {
   );
 }
 
+function NavTip({ label, children, className = '' }: {
+  label: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={`relative group ${className}`}>
+      {children}
+      <span
+        className="absolute top-full left-1/2 -translate-x-1/2 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-100 delay-200 pointer-events-none z-50 whitespace-nowrap"
+        style={{
+          fontSize: 11,
+          padding: '3px 9px',
+          borderRadius: 6,
+          background: 'rgba(5,13,26,0.95)',
+          border: '1px solid rgba(0,229,196,0.12)',
+          color: '#9ab4d4',
+          fontFamily: 'DM Sans, sans-serif',
+        }}
+      >
+        {label}
+      </span>
+    </div>
+  );
+}
+
 const MarketClockButton = memo(function MarketClockButton({
   visible,
   onToggle,
@@ -484,13 +515,14 @@ const MarketClockButton = memo(function MarketClockButton({
 
   if (!visible) {
     return (
-      <button
-        onClick={onToggle}
-        className="hidden md:flex w-9 h-9 rounded-lg items-center justify-center transition-colors duration-150 hover:bg-[rgba(0,229,196,0.08)] text-[#6a8fb0] hover:text-[#00e5c4]"
-        title="Show market clock"
-      >
-        <NavClockIcon />
-      </button>
+      <NavTip label="Market clock" className="hidden md:flex">
+        <button
+          onClick={onToggle}
+          className="w-9 h-9 rounded-lg items-center justify-center flex transition-colors duration-150 hover:bg-[rgba(0,229,196,0.08)] text-[#6a8fb0] hover:text-[#00e5c4]"
+        >
+          <NavClockIcon />
+        </button>
+      </NavTip>
     );
   }
 
@@ -504,7 +536,6 @@ const MarketClockButton = memo(function MarketClockButton({
     <button
       onClick={onToggle}
       className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-lg cursor-pointer"
-      title="Click to hide market clock"
       style={pillStyle}
     >
       {phase === 'open' && (
