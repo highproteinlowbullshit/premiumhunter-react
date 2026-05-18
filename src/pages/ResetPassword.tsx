@@ -14,30 +14,30 @@ export function ResetPassword() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    // Check if a recovery session is already active (Supabase parsed the URL
-    // hash before this component mounted and the event already fired).
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    // Listen first, then check for an existing session — avoids the race where
+    // PASSWORD_RECOVERY fires between getSession() and onAuthStateChange setup.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') {
+        if (timer) clearTimeout(timer);
+        setState('form');
+      }
+    });
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
         setState('form');
-        return;
+      } else {
+        // Give Supabase up to 8 s to deliver the recovery token before
+        // treating the link as expired.
+        timer = setTimeout(() => setState('invalid'), 8000);
       }
-
-      // If no session yet, wait for the PASSWORD_RECOVERY event.
-      // Give Supabase up to 8 s before treating the link as invalid.
-      const timer = setTimeout(() => setState('invalid'), 8000);
-
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-        if (event === 'PASSWORD_RECOVERY') {
-          clearTimeout(timer);
-          setState('form');
-        }
-      });
-
-      return () => {
-        subscription.unsubscribe();
-        clearTimeout(timer);
-      };
     });
+
+    return () => {
+      subscription.unsubscribe();
+      if (timer) clearTimeout(timer);
+    };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
