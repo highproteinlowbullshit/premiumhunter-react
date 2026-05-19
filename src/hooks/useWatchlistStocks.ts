@@ -22,6 +22,7 @@ export function useWatchlistStocks(tickers: string[], sort: SortOption): StockTi
     return [...stocks].sort((a, b) => {
       const aVal = a[sort.field === 'ticker' ? 'ticker' : sort.field] as string | number;
       const bVal = b[sort.field === 'ticker' ? 'ticker' : sort.field] as string | number;
+      if (aVal === bVal) return 0;
       if (sort.direction === 'asc') return aVal > bVal ? 1 : -1;
       return aVal < bVal ? 1 : -1;
     });

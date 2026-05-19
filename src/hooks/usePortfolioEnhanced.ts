@@ -317,7 +317,11 @@ export function usePortfolioEnhanced(timeRange: EnhancedTimeRange) {
       const existingLotTickers = new Set(lots.map(l => l.ticker + '|' + l.assignment_date));
       const orphanedAssignments = closed.filter((pos: any) => {
         if (pos.status !== 'assigned') return false;
-        const key = pos.ticker + '|' + (pos.closed_at ?? pos.opened_at ?? '').split('T')[0];
+        const rawTs = pos.closed_at ?? pos.opened_at ?? '';
+        // Use local-time date (sv-SE locale gives YYYY-MM-DD) to match assignment_date
+        // which is a date column stored in the user's trading day, not UTC.
+        const localDate = rawTs ? new Date(rawTs).toLocaleDateString('sv-SE') : rawTs.split('T')[0];
+        const key = pos.ticker + '|' + localDate;
         return !existingLotTickers.has(key);
       }).length;
 

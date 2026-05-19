@@ -25,11 +25,12 @@ export function useRealtimePrices(tickers: string[]): {
   });
   const [wsStatus, setWsStatus] = useState<WSStatus>(finnhubWS.getStatus());
 
-  // Stable key so useEffect only re-runs when the ticker list actually changes
+  // Stable key so useEffect only re-runs when the ticker set actually changes.
+  // Dep uses the same sorted form as the memo output — order-insensitive.
   const tickerKey = useMemo(
     () => [...tickers].map((t) => t.toUpperCase()).sort().join(','),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [tickers.join(',')]
+    [tickers.map((t) => t.toUpperCase()).sort().join(',')]
   );
 
   useEffect(() => {

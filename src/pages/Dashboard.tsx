@@ -204,6 +204,7 @@ function RealDashboard() {
               ivHistory={ivHistories[stock.ticker] ?? []}
               delay={420 + i * 80}
               onClick={() => navigate(`/stock/${stock.ticker}`)}
+              isLoading={isLoading}
             />
           ))}
         </div>
@@ -224,9 +225,10 @@ interface StockCardProps {
   ivHistory: any[];
   delay: number;
   onClick: () => void;
+  isLoading?: boolean;
 }
 
-function StockCard({ stock, ivHistory, delay, onClick }: StockCardProps) {
+function StockCard({ stock, ivHistory, delay, onClick, isLoading }: StockCardProps) {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -285,7 +287,7 @@ function StockCard({ stock, ivHistory, delay, onClick }: StockCardProps) {
         <div className="text-right">
           <p className="text-xl font-semibold tabular-nums"
             style={{ color: 'var(--ph-text-1)', fontFamily: 'JetBrains Mono, monospace' }}>
-            ${stock.price.toFixed(2)}
+            {isLoading && stock.price === 0 ? '—' : `$${stock.price.toFixed(2)}`}
           </p>
           <p
             className="text-xs font-medium"

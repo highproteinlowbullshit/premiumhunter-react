@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom'
+import { useEffect } from 'react'
 import { Lock } from 'lucide-react'
 import { useSubscription } from '../hooks/useSubscription'
 import type { FeatureKey } from '../lib/featureConfig'
@@ -112,12 +113,15 @@ interface TierRouteProps {
 export function TierRoute({ requires, children }: TierRouteProps) {
   const { hasTier, isSuperuser, isLoading } = useSubscription()
   const navigate = useNavigate()
+  const shouldRedirect = !isLoading && !isSuperuser && !hasTier(requires)
+
+  useEffect(() => {
+    if (shouldRedirect) {
+      navigate('/upgrade', { replace: true, state: { from: window.location.pathname } })
+    }
+  }, [shouldRedirect, navigate])
 
   if (isLoading) return <PageLoader />
-  if (isSuperuser) return <>{children}</>
-  if (!hasTier(requires)) {
-    navigate('/upgrade', { replace: true, state: { from: window.location.pathname } })
-    return null
-  }
+  if (shouldRedirect) return null
   return <>{children}</>
 }

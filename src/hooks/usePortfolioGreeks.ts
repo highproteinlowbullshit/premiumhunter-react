@@ -42,12 +42,11 @@ export function usePortfolioGreeks(): {
     enabled: !!user,
   })
 
-  const today = new Date().toISOString().split('T')[0]
   const threeDaysAgo = new Date(Date.now() - 3 * 86_400_000).toISOString().split('T')[0]
   const tickers = [...new Set((positions ?? []).map(p => p.ticker))]
 
   const { data: ivData } = useQuery({
-    queryKey: ['iv-for-greeks', tickers.join(','), today],
+    queryKey: ['iv-for-greeks', tickers.join(',')],
     queryFn: async () => {
       if (tickers.length === 0) return []
       const { data } = await supabase
