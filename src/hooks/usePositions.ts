@@ -105,9 +105,9 @@ export function usePositions() {
         contracts: data.contracts,
       };
 
-      queryClient.setQueryData(qKey, (old: WheelPosition[] = []) => [optimistic, ...old]);
-
       if (!user) return;
+
+      queryClient.setQueryData(qKey, (old: WheelPosition[] = []) => [optimistic, ...old]);
 
       const { data: inserted, error } = await supabase
         .from('wheel_positions')
@@ -297,7 +297,8 @@ export function usePositions() {
           const { error: cashErr } = await supabase
             .from('portfolio_holdings')
             .update({ quantity: Number(cashRow.quantity) - btcCost })
-            .eq('id', cashRow.id);
+            .eq('id', cashRow.id)
+            .eq('user_id', user.id);
 
           if (cashErr) {
             Sentry.captureException(cashErr);

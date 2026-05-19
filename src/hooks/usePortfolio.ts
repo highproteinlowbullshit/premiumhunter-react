@@ -313,7 +313,7 @@ async function fetchPortfolioData(userId: string): Promise<PortfolioQueryResult>
           realized_pnl: computedRealizedPnl,
           options_premium: computedPremium,
         },
-        { onConflict: 'user_id,snapshot_date' }
+        { onConflict: 'user_id,snapshot_date', ignoreDuplicates: true }
       )
       .select('id, snapshot_date, total_value, total_cost, unrealized_pnl, realized_pnl, options_premium')
       .single();

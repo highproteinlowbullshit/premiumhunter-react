@@ -92,12 +92,19 @@ export function usePaperActions() {
   const openPaperPosition = useCallback(async (data: OpenPaperPositionData): Promise<string | null> => {
     if (!user) return 'Not authenticated';
 
-    // Validate cash for CSP
+    // Fetch account first — abort before touching any position row if it fails.
+    // Never use ?? 0 as fallback: zeroing current_cash would corrupt the account.
+    const { data: acctNow, error: acctErr } = await supabase
+      .from('paper_accounts')
+      .select('current_cash, total_premium_collected')
+      .eq('user_id', user.id)
+      .single();
+    if (acctErr || !acctNow) { showToast('Failed to read paper account', 'error'); return 'Paper account not found'; }
+
+    // Validate cash for CSP using the already-fetched account
     if (data.strategy === 'CSP') {
-      const { data: acct } = await supabase.from('paper_accounts').select('current_cash').eq('user_id', user.id).single();
-      const cash = Number(acct?.current_cash ?? 0);
       const required = data.strike * data.contracts * 100;
-      if (required > cash) {
+      if (required > Number(acctNow.current_cash)) {
         return `Insufficient paper cash — you need $${required.toLocaleString()} to open this position`;
       }
     }
@@ -113,20 +120,13 @@ export function usePaperActions() {
       underlying_price_at_entry: data.underlyingPriceAtEntry,
       status: 'open',
     });
-
     if (error) { showToast('Failed to open paper position', 'error'); return error.message; }
 
-    // Deduct collateral for CSP; credit premium collected
     const collateral = data.strategy === 'CSP' ? data.strike * data.contracts * 100 : 0;
     const premiumTotal = data.premiumCollected * data.contracts * 100;
-    const { data: acctNow } = await supabase
-      .from('paper_accounts')
-      .select('current_cash, total_premium_collected')
-      .eq('user_id', user.id)
-      .single();
     await supabase.from('paper_accounts').update({
-      current_cash: Number(acctNow?.current_cash ?? 0) - collateral,
-      total_premium_collected: Number(acctNow?.total_premium_collected ?? 0) + premiumTotal,
+      current_cash: Number(acctNow.current_cash) - collateral,
+      total_premium_collected: Number(acctNow.total_premium_collected) + premiumTotal,
     }).eq('user_id', user.id);
 
     showToast(`Paper position opened: ${data.ticker} ${data.strategy}`, 'success');
