@@ -30,12 +30,31 @@ serve(async (req) => {
   try {
     const adminId = await verifySuperuser(req.headers.get('Authorization'), supabase)
 
-    const { data: users, error } = await supabase
-      .from('admin_users_overview')
-      .select('*')
-      .order('signup_date', { ascending: false })
+    // Fetch app-level data from the view and auth emails in parallel.
+    // auth.users.email is not reliably exposed through public views — use the
+    // admin auth API instead, which always returns emails via service role.
+    const [viewResult, authResult] = await Promise.all([
+      supabase
+        .from('admin_users_overview')
+        .select('*')
+        .order('signup_date', { ascending: false }),
+      supabase.auth.admin.listUsers({ perPage: 1000 }),
+    ])
 
-    if (error) throw error
+    if (viewResult.error) throw viewResult.error
+    if (authResult.error) throw authResult.error
+
+    // Build a lookup map: user_id → email from the auth API
+    const emailMap = new Map<string, string>()
+    for (const u of authResult.data.users) {
+      if (u.email) emailMap.set(u.id, u.email)
+    }
+
+    // Merge: prefer email from auth API over whatever the view returned
+    const users = (viewResult.data ?? []).map((row: any) => ({
+      ...row,
+      email: emailMap.get(row.user_id) ?? row.email ?? null,
+    }))
 
     await supabase.from('admin_audit_log').insert({
       admin_user_id: adminId,
