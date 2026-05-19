@@ -105,7 +105,9 @@ export function useAdminData(auditFilters: any = {}, auditPage: number = 1) {
 
   const deleteUser = useMutation({
     mutationFn: async (params: { userId: string; reason: string }) => {
-      const { data, error } = await supabase.functions.invoke('admin-delete-user', { body: params })
+      const { data, error } = await supabase.functions.invoke('admin-delete-user', {
+        body: { targetUserId: params.userId, reason: params.reason },
+      })
       if (error) throw error
       return data
     },
