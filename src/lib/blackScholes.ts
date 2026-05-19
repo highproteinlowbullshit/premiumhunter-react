@@ -49,7 +49,7 @@ export function blackScholes(params: {
   // Guard against degenerate inputs
   if (T <= 0 || v <= 0 || S <= 0 || K <= 0) {
     const intrinsicValue = optionType === 'call' ? Math.max(0, S - K) : Math.max(0, K - S);
-    return { price: intrinsicValue, delta: optionType === 'call' ? (S > K ? 1 : 0) : (S < K ? -1 : 0), gamma: 0, theta: 0, vega: 0, intrinsicValue, timeValue: 0, moneyness: S / K, d1: 0, d2: 0 };
+    return { price: intrinsicValue, delta: optionType === 'call' ? (S > K ? 1 : 0) : (S < K ? -1 : 0), gamma: 0, theta: 0, vega: 0, intrinsicValue, timeValue: 0, moneyness: K > 0 ? S / K : 0, d1: 0, d2: 0 };
   }
 
   const d1 = (Math.log(S / K) + (r + 0.5 * v * v) * T) / (v * Math.sqrt(T));

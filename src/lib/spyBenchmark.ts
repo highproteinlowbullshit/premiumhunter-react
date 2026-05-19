@@ -76,7 +76,7 @@ export async function fetchAndCacheSPYData(
 function nearestPrice(spyMap: Map<string, number>, date: string): number | undefined {
   const base = new Date(date).getTime();
   // Check backward 5 days, then forward 3 days (handles today's data not yet available)
-  const offsets = [-0, -1, -2, -3, -4, 1, 2, 3];
+  const offsets = [0, -1, -2, -3, -4, 1, 2, 3];
   for (const i of offsets) {
     const d = new Date(base + i * 86_400_000).toISOString().split('T')[0];
     const p = spyMap.get(d);

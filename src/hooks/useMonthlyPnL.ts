@@ -98,7 +98,7 @@ export function useMonthlyPnL() {
       const calcPnl = (pos: any): number => {
         const buyback: number | null = pos.closing_premium ?? pos.closing_price ?? null
         const multiplier = isPaperMode ? 100 : 1
-        if (buyback != null && pos.status !== 'expired') {
+        if (buyback != null && pos.status === 'closed') {
           return (pos.premium_collected - buyback) * pos.contracts * multiplier
         }
         return pos.premium_collected * pos.contracts * multiplier
