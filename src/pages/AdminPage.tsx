@@ -610,14 +610,16 @@ interface UserDetailPanelProps {
   onChangeTier: (newTier: string, reason: string) => void
   onBanUser: (reason: string) => void
   onAddNote: (note: string) => void
+  onDeleteUser: (reason: string) => void
   isSaving: boolean
 }
 
-function UserDetailPanel({ user, onClose, onChangeTier, onBanUser, onAddNote, isSaving }: UserDetailPanelProps) {
+function UserDetailPanel({ user, onClose, onChangeTier, onBanUser, onAddNote, onDeleteUser, isSaving }: UserDetailPanelProps) {
   const [newTier, setNewTier] = useState(user.tier)
   const [changeReason, setChangeReason] = useState('')
   const [banReason, setBanReason] = useState('')
   const [noteText, setNoteText] = useState(user.notes ?? '')
+  const [deleteConfirm, setDeleteConfirm] = useState('')
 
   return (
     <div style={{
@@ -815,6 +817,43 @@ function UserDetailPanel({ user, onClose, onChangeTier, onBanUser, onAddNote, is
           >
             {user.is_banned ? 'Already banned' : 'Ban user'}
           </button>
+
+          {/* Delete user */}
+          <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid rgba(255,77,109,0.15)' }}>
+            <div style={{ fontSize: 11, color: '#ff4d6d', marginBottom: 6 }}>
+              Permanently delete this account and all their data. Type their email to confirm.
+            </div>
+            <input
+              type="text"
+              placeholder={user.email ?? 'user email'}
+              value={deleteConfirm}
+              onChange={e => setDeleteConfirm(e.target.value)}
+              style={{
+                width: '100%', padding: '8px 10px', boxSizing: 'border-box',
+                background: 'rgba(13,27,53,0.8)',
+                border: '1px solid rgba(255,77,109,0.3)',
+                borderRadius: 6, fontSize: 12, color: 'var(--ph-text-1)', marginBottom: 8,
+              }}
+            />
+            <button
+              onClick={() => {
+                onDeleteUser('Deleted by admin')
+                setDeleteConfirm('')
+              }}
+              disabled={deleteConfirm !== user.email || isSaving}
+              style={{
+                width: '100%', padding: '8px',
+                background: deleteConfirm === user.email ? 'rgba(255,77,109,0.2)' : 'rgba(255,77,109,0.05)',
+                color: '#ff4d6d',
+                border: '1px solid rgba(255,77,109,0.4)',
+                borderRadius: 6, fontSize: 13, fontWeight: 600,
+                cursor: deleteConfirm === user.email && !isSaving ? 'pointer' : 'not-allowed',
+                opacity: deleteConfirm === user.email ? 1 : 0.5,
+              }}
+            >
+              Delete account permanently
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -831,7 +870,7 @@ export function AdminPage() {
   const [auditTarget, setAuditTarget] = useState('')
   const [auditTimeRange, setAuditTimeRange] = useState('all')
 
-  const { users, auditLog, changeTier, banUser, addNote } = useAdminData(
+  const { users, auditLog, changeTier, banUser, addNote, deleteUser } = useAdminData(
     {
       action: auditAction,
       target_user_id: auditTarget,
@@ -1036,7 +1075,12 @@ export function AdminPage() {
           onChangeTier={(newTier, reason) => changeTier.mutate({ userId: selectedUser.user_id, newTier, reason })}
           onBanUser={reason => banUser.mutate({ userId: selectedUser.user_id, reason })}
           onAddNote={note => addNote.mutate({ userId: selectedUser.user_id, note })}
-          isSaving={changeTier.isPending || banUser.isPending || addNote.isPending}
+          onDeleteUser={reason => {
+            deleteUser.mutate({ userId: selectedUser.user_id, reason }, {
+              onSuccess: () => setSelectedUser(null),
+            })
+          }}
+          isSaving={changeTier.isPending || banUser.isPending || addNote.isPending || deleteUser.isPending}
         />
       )}
 

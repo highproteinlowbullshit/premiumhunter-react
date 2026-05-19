@@ -103,5 +103,14 @@ export function useAdminData(auditFilters: any = {}, auditPage: number = 1) {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-users'] }),
   })
 
-  return { users, auditLog, changeTier, banUser, addNote }
+  const deleteUser = useMutation({
+    mutationFn: async (params: { userId: string; reason: string }) => {
+      const { data, error } = await supabase.functions.invoke('admin-delete-user', { body: params })
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-users'] }),
+  })
+
+  return { users, auditLog, changeTier, banUser, addNote, deleteUser }
 }
