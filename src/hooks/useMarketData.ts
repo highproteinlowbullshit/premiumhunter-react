@@ -176,9 +176,10 @@ export function useScreenerStream(version = 0): ScreenerStreamState {
           });
           setStocks((prev) => {
             const next = [...prev, ...batchStocks];
-            _cache = { stocks: next, loadedAt: _cache?.loadedAt ?? Date.now(), isComplete: false };
+            // _cache write is outside the updater to avoid mutation in a potentially re-run function
             return next;
           });
+          _cache = { stocks: [...(_cache?.stocks ?? []), ...batchStocks], loadedAt: _cache?.loadedAt ?? Date.now(), isComplete: false };
           setLoadedCount((prev) => prev + batchStocks.length);
         }
         if (i + SCREENER_BATCH < uncachedTickers.length && !cancelledRef.current) {

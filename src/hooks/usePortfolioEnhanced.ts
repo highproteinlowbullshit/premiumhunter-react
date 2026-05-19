@@ -221,9 +221,9 @@ export function usePortfolioEnhanced(timeRange: EnhancedTimeRange) {
       if (lotTickers.length > 0) {
         const { data: priceRows } = await supabase
           .from('iv_snapshots')
-          .select('ticker, current_price, recorded_at')
+          .select('ticker, current_price, snapshot_date')
           .in('ticker', lotTickers)
-          .order('recorded_at', { ascending: false })
+          .order('snapshot_date', { ascending: false })
           .limit(lotTickers.length * 3);
 
         for (const row of priceRows ?? []) {

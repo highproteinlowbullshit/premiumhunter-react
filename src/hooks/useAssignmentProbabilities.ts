@@ -25,8 +25,10 @@ export function useAssignmentProbabilities(
   );
 
   const today = new Date().toISOString().split('T')[0];
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 86_400_000).toISOString().split('T')[0];
 
-  // Fetch most-recent IV data from Supabase (hv_30 used as IV proxy)
+  // Fetch most-recent IV data from Supabase (hv_30 used as IV proxy).
+  // Cap at 30 days so stale data from months ago is never silently used.
   const { data: ivRows } = useQuery({
     queryKey: ['iv-for-positions', tickers.join(','), today],
     queryFn: async () => {
@@ -36,6 +38,7 @@ export function useAssignmentProbabilities(
         .select('ticker, hv_30, snapshot_date')
         .in('ticker', tickers)
         .eq('calculation_success', true)
+        .gte('snapshot_date', thirtyDaysAgo)
         .order('snapshot_date', { ascending: false })
         .limit(tickers.length * 3);
       return data ?? [];

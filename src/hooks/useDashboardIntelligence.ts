@@ -918,7 +918,8 @@ export function useDashboardIntelligence() {
 
       const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
       let daysLeft = 0, tradingLeft = 0;
-      for (let d = new Date(now); d <= monthEnd; d.setDate(d.getDate() + 1)) {
+      // Start from tomorrow — today is not a remaining day
+      for (let d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1); d <= monthEnd; d.setDate(d.getDate() + 1)) {
         daysLeft++;
         if (d.getDay() >= 1 && d.getDay() <= 5) tradingLeft++;
       }
