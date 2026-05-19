@@ -32,23 +32,24 @@ serve(async (req) => {
     if (!targetUserId) throw new Error('targetUserId required')
     if (targetUserId === adminUser.id) throw new Error('Cannot delete your own account')
 
-    // Fetch email for audit log before deleting
-    const { data: { user: targetUser } } = await supabase.auth.admin.getUserById(targetUserId)
-
-    // Write audit log entry before deletion (user row will be gone after)
-    await supabase.from('admin_audit_log').insert({
-      admin_user_id: adminUser.id,
-      action: 'delete_user',
-      target_user_id: targetUserId,
-      old_value: { email: targetUser?.email ?? null },
-      new_value: null,
-      reason: reason ?? 'Deleted by admin',
-      created_at: new Date().toISOString(),
-    })
+    // Fetch email for audit log (safe: data may be null for already-deleted users)
+    const { data: targetUserData } = await supabase.auth.admin.getUserById(targetUserId)
+    const targetEmail = targetUserData?.user?.email ?? null
 
     // deleteUser cascades to all public tables via ON DELETE CASCADE
     const { error: deleteError } = await supabase.auth.admin.deleteUser(targetUserId)
     if (deleteError) throw deleteError
+
+    // Write audit log after successful deletion
+    await supabase.from('admin_audit_log').insert({
+      admin_user_id: adminUser.id,
+      action: 'delete_user',
+      target_user_id: targetUserId,
+      old_value: { email: targetEmail },
+      new_value: null,
+      reason: reason ?? 'Deleted by admin',
+      created_at: new Date().toISOString(),
+    })
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },

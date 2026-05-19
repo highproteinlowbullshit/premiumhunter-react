@@ -6,6 +6,7 @@ import { useAdminData, type AdminUser, type AuditLogEntry } from '../hooks/useAd
 import { useHeartbeatLog, type HeartbeatEntry, type HeartbeatResult } from '../hooks/useHeartbeatLog'
 import { PageLoader } from '../components/PageLoader'
 import { CURRENT_DISCLAIMER_VERSION } from '../lib/disclaimer'
+import { useToast } from '../context/ToastContext'
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -864,6 +865,7 @@ function UserDetailPanel({ user, onClose, onChangeTier, onBanUser, onAddNote, on
 
 export function AdminPage() {
   const { isSuperuser, isLoading: subLoading } = useSubscription()
+  const { showToast } = useToast()
 
   const [auditPage, setAuditPage] = useState(1)
   const [auditAction, setAuditAction] = useState('')
@@ -1077,7 +1079,14 @@ export function AdminPage() {
           onAddNote={note => addNote.mutate({ userId: selectedUser.user_id, note })}
           onDeleteUser={reason => {
             deleteUser.mutate({ userId: selectedUser.user_id, reason }, {
-              onSuccess: () => setSelectedUser(null),
+              onSuccess: () => {
+                setSelectedUser(null)
+                showToast('User deleted successfully', 'success')
+              },
+              onError: (err: unknown) => {
+                const msg = err instanceof Error ? err.message : String(err)
+                showToast(`Delete failed: ${msg}`, 'error')
+              },
             })
           }}
           isSaving={changeTier.isPending || banUser.isPending || addNote.isPending || deleteUser.isPending}
