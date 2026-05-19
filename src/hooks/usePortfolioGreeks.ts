@@ -46,7 +46,7 @@ export function usePortfolioGreeks(): {
   const tickers = [...new Set((positions ?? []).map(p => p.ticker))]
 
   const { data: ivData } = useQuery({
-    queryKey: ['iv-for-greeks', tickers.join(',')],
+    queryKey: ['iv-for-greeks', user?.id, tickers.join(',')],
     queryFn: async () => {
       if (tickers.length === 0) return []
       const { data } = await supabase
@@ -111,9 +111,9 @@ export function usePortfolioGreeks(): {
           ? Number(iv.hv_30) / 100
           : estimateVolatility(pos.ticker)
 
+        // current_hv is 30-day historical vol from the nightly cron, not live Polygon IV
         const ivSource: PositionGreeks['ivSource'] =
-          livePrice && iv?.current_hv ? 'polygon_live'
-          : iv?.current_hv ? 'supabase_cache'
+          iv?.current_hv ? 'supabase_cache'
           : iv?.hv_30 ? 'supabase_cache'
           : 'estimated'
 

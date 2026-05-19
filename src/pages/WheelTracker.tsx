@@ -128,7 +128,7 @@ function RealWheelTracker() {
     );
   }, [openPositions]);
 
-  // Fetch cash balance from portfolio_holdings (holding_type = 'cash')
+  // Re-fetch cash balance whenever positions change (assignment/close modifies cash)
   useEffect(() => {
     if (!user) return;
     supabase
@@ -143,7 +143,7 @@ function RealWheelTracker() {
           setCashBalance(total);
         }
       });
-  }, [user]);
+  }, [user, openPositions.length]);
 
   useEffect(() => {
     setMounted(true);

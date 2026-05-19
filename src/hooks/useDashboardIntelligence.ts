@@ -496,7 +496,7 @@ export function useDashboardIntelligence() {
       const todayStr = now.toISOString().split('T')[0];
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
       const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString();
-      const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59).toISOString();
+      const lastMonthEnd = new Date(new Date(now.getFullYear(), now.getMonth(), 1).getTime() - 1).toISOString();
       const currentMonthKey = todayStr.slice(0, 7);
       const lastMonthKey = lastMonthStart.slice(0, 7);
 
@@ -587,7 +587,27 @@ export function useDashboardIntelligence() {
       const thisMonthClosed = thisMonthRes.data ?? [];
       const lastMonthClosed = lastMonthRes.data ?? [];
       const allTime = allTimeRes.data ?? [];
-      const ivSnaps = ivRes.data ?? [];
+      // If today's snapshot hasn't been written yet (cron not yet run), fall back
+      // to the most recent snapshot per ticker within the last 3 days.
+      let ivSnaps = ivRes.data ?? [];
+      if (ivSnaps.length === 0) {
+        const threeDaysAgoStr = new Date(Date.now() - 3 * 86_400_000).toISOString().split('T')[0];
+        const { data: fallbackIV } = await supabase
+          .from('iv_snapshots')
+          .select('ticker, iv_rank, current_price, iv_percentile, current_hv, hv_30')
+          .eq('calculation_success', true)
+          .gte('iv_rank', 30)
+          .gte('snapshot_date', threeDaysAgoStr)
+          .order('snapshot_date', { ascending: false })
+          .order('iv_rank', { ascending: false })
+          .limit(180);
+        const seen = new Set<string>();
+        ivSnaps = (fallbackIV ?? []).filter(s => {
+          if (seen.has(s.ticker)) return false;
+          seen.add(s.ticker);
+          return true;
+        });
+      }
       const watchlist = watchlistRes.data ?? [];
       const targetsByMonth = new Map(
         ((targetRes.data ?? []) as Array<{ month_key: string; target: number }>).map(r => [r.month_key, Number(r.target)])
@@ -976,7 +996,8 @@ export function useDashboardIntelligence() {
       }
 
       // ── Milestones ─────────────────────────────────────────────────────────
-      const seenRaw = localStorage.getItem('ph_milestones') ?? '[]';
+      const milestoneKey = `ph_milestones_${user!.id}`;
+      const seenRaw = localStorage.getItem(milestoneKey) ?? '[]';
       let seen: string[];
       try {
         seen = JSON.parse(seenRaw);
@@ -1004,7 +1025,7 @@ export function useDashboardIntelligence() {
 
       const newSeen = milestones.filter(m => m.isNew).map(m => m.type);
       if (newSeen.length > 0) {
-        localStorage.setItem('ph_milestones', JSON.stringify([...seen, ...newSeen]));
+        localStorage.setItem(milestoneKey, JSON.stringify([...seen, ...newSeen]));
       }
 
       // ── IV / screener ──────────────────────────────────────────────────────

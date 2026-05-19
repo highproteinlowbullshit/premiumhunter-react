@@ -109,18 +109,18 @@ export function PaperModeProvider({ children }: { children: ReactNode }) {
 
     if (!isPaperMode) {
       // Turning ON
-      // Idempotent insert
-      const { data: inserted } = await supabase
+      // Upsert so concurrent/repeated toggles don't throw a unique-violation error
+      const { data: upserted } = await supabase
         .from('paper_accounts')
-        .insert({ user_id: user.id })
+        .upsert({ user_id: user.id }, { onConflict: 'user_id', ignoreDuplicates: true })
         .select('id, user_id, starting_balance, current_cash, total_premium_collected, total_realized_pnl, trades_won, trades_total, created_at, reset_at')
         .maybeSingle();
 
-      if (inserted) {
-        setPaperAccount(dbToAccount(inserted as Record<string, unknown>));
+      if (upserted) {
+        setPaperAccount(dbToAccount(upserted as Record<string, unknown>));
         setShowWelcome(true);
       } else {
-        // Already exists
+        // Row already existed — fetch current state
         void fetchAccount();
       }
 

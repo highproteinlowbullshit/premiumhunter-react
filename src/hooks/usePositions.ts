@@ -484,7 +484,8 @@ export function usePositions() {
           const { error: cashErr } = await supabase
             .from('portfolio_holdings')
             .update({ quantity: Number(cspCashRow.quantity) - grossCost })
-            .eq('id', cspCashRow.id);
+            .eq('id', cspCashRow.id)
+            .eq('user_id', user.id);
           if (cashErr) {
             Sentry.captureException(cashErr);
             showToast('Assigned — but failed to deduct share purchase cost from cash. Update manually in Portfolio.', 'error');
@@ -587,7 +588,8 @@ export function usePositions() {
           const { error: cashErr } = await supabase
             .from('portfolio_holdings')
             .update({ quantity: Number(ccCashRow.quantity) + saleProceeds })
-            .eq('id', ccCashRow.id);
+            .eq('id', ccCashRow.id)
+            .eq('user_id', user.id);
           if (cashErr) {
             Sentry.captureException(cashErr);
             showToast('Assigned — but failed to credit sale proceeds to cash. Update manually in Portfolio.', 'error');

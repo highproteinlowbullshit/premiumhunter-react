@@ -136,7 +136,7 @@ export function usePaperActions() {
   const closePaperPosition = useCallback(async (id: string, closingPremium: number): Promise<void> => {
     if (!user) return;
 
-    const { data: pos } = await supabase.from('paper_positions').select('id, ticker, strategy, strike, expiry, premium_collected, contracts, underlying_price_at_entry, status, notes, opened_at, closed_at, closing_premium, realized_pnl, created_at').eq('id', id).single();
+    const { data: pos } = await supabase.from('paper_positions').select('id, ticker, strategy, strike, expiry, premium_collected, contracts, underlying_price_at_entry, status, notes, opened_at, closed_at, closing_premium, realized_pnl, created_at').eq('id', id).eq('user_id', user.id).single();
     if (!pos) return;
 
     const position = dbToPosition(pos as Record<string, unknown>);
@@ -170,7 +170,7 @@ export function usePaperActions() {
   const expirePaperPosition = useCallback(async (id: string): Promise<void> => {
     if (!user) return;
 
-    const { data: pos } = await supabase.from('paper_positions').select('id, ticker, strategy, strike, expiry, premium_collected, contracts, underlying_price_at_entry, status, notes, opened_at, closed_at, closing_premium, realized_pnl, created_at').eq('id', id).single();
+    const { data: pos } = await supabase.from('paper_positions').select('id, ticker, strategy, strike, expiry, premium_collected, contracts, underlying_price_at_entry, status, notes, opened_at, closed_at, closing_premium, realized_pnl, created_at').eq('id', id).eq('user_id', user.id).single();
     if (!pos) return;
 
     const position = dbToPosition(pos as Record<string, unknown>);
@@ -241,16 +241,13 @@ export function usePaperActions() {
       const newCollateral = data.strike * data.contracts * 100;
       const delta = newCollateral - oldCollateral;
 
-      if (delta > 0) {
+      if (delta !== 0) {
+        // Single fetch for both solvency check and update — prevents TOCTOU race
         const { data: acct } = await supabase.from('paper_accounts').select('current_cash').eq('user_id', user.id).single();
         const cash = Number(acct?.current_cash ?? 0);
-        if (delta > cash) return 'Insufficient cash to cover the increased collateral requirement';
-      }
-
-      if (delta !== 0) {
-        const { data: acct } = await supabase.from('paper_accounts').select('current_cash').eq('user_id', user.id).single();
+        if (delta > 0 && delta > cash) return 'Insufficient cash to cover the increased collateral requirement';
         await supabase.from('paper_accounts').update({
-          current_cash: Number(acct?.current_cash ?? 0) - delta,
+          current_cash: cash - delta,
         }).eq('user_id', user.id);
       }
     }
@@ -268,7 +265,7 @@ export function usePaperActions() {
 
   const deletePaperPosition = useCallback(async (id: string): Promise<void> => {
     if (!user) return;
-    await supabase.from('paper_positions').delete().eq('id', id);
+    await supabase.from('paper_positions').delete().eq('id', id).eq('user_id', user.id);
     showToast('Paper position deleted', 'success');
   }, [user, showToast]);
 

@@ -216,13 +216,16 @@ export function usePortfolioEnhanced(timeRange: EnhancedTimeRange) {
       // ── Assigned lots enrichment ──────────────────────────────────────────────
       const lotTickers = [...new Set(lots.map(l => l.ticker as string))];
 
-      // Get latest prices (most recent iv_snapshot per ticker)
+      // Get latest prices (most recent iv_snapshot per ticker, last 7 days only)
+      const sevenDaysAgo = new Date(Date.now() - 7 * 86_400_000).toISOString().split('T')[0];
       const priceMap = new Map<string, number>();
       if (lotTickers.length > 0) {
         const { data: priceRows } = await supabase
           .from('iv_snapshots')
           .select('ticker, current_price, snapshot_date')
           .in('ticker', lotTickers)
+          .eq('calculation_success', true)
+          .gte('snapshot_date', sevenDaysAgo)
           .order('snapshot_date', { ascending: false })
           .limit(lotTickers.length * 3);
 
