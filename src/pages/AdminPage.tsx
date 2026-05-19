@@ -821,11 +821,11 @@ function UserDetailPanel({ user, onClose, onChangeTier, onBanUser, onAddNote, on
           {/* Delete user */}
           <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid rgba(255,77,109,0.15)' }}>
             <div style={{ fontSize: 11, color: '#ff4d6d', marginBottom: 6 }}>
-              Permanently delete this account and all their data. Type their email to confirm.
+              Permanently delete this account and all their data. Type <strong>Delete</strong> to confirm.
             </div>
             <input
               type="text"
-              placeholder={user.email ?? 'user email'}
+              placeholder="Delete"
               value={deleteConfirm}
               onChange={e => setDeleteConfirm(e.target.value)}
               style={{
@@ -840,15 +840,15 @@ function UserDetailPanel({ user, onClose, onChangeTier, onBanUser, onAddNote, on
                 onDeleteUser('Deleted by admin')
                 setDeleteConfirm('')
               }}
-              disabled={deleteConfirm !== user.email || isSaving}
+              disabled={deleteConfirm !== 'Delete' || isSaving}
               style={{
                 width: '100%', padding: '8px',
-                background: deleteConfirm === user.email ? 'rgba(255,77,109,0.2)' : 'rgba(255,77,109,0.05)',
+                background: deleteConfirm === 'Delete' ? 'rgba(255,77,109,0.2)' : 'rgba(255,77,109,0.05)',
                 color: '#ff4d6d',
                 border: '1px solid rgba(255,77,109,0.4)',
                 borderRadius: 6, fontSize: 13, fontWeight: 600,
-                cursor: deleteConfirm === user.email && !isSaving ? 'pointer' : 'not-allowed',
-                opacity: deleteConfirm === user.email ? 1 : 0.5,
+                cursor: deleteConfirm === 'Delete' && !isSaving ? 'pointer' : 'not-allowed',
+                opacity: deleteConfirm === 'Delete' ? 1 : 0.5,
               }}
             >
               Delete account permanently
