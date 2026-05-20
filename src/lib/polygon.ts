@@ -224,7 +224,7 @@ export async function getIVData(
     const totalPoints = Math.min(52, hvSeries.length);
     for (let p = 0; p < totalPoints; p++) {
       const i = Math.round(p * (hvSeries.length - 1) / (totalPoints - 1));
-      const tsIndex = 31 + i;
+      const tsIndex = 30 + i; // hvSeries[0] last bar = closes[30] = timestamps[30]
       const ts = timestamps[tsIndex] ?? Date.now();
       const weekHV = hvSeries[i];
       const weekIVRank =

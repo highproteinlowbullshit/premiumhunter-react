@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -92,6 +92,8 @@ export function usePaperPositions() {
 export function usePaperActions() {
   const { user } = useAuth();
   const { showToast } = useToast();
+  // Serializes close/expire/assign so concurrent calls can't race on paper_accounts
+  const pendingOp = useRef(false);
 
   const openPaperPosition = useCallback(async (data: OpenPaperPositionData): Promise<string | null> => {
     if (!user) return 'Not authenticated';
@@ -138,7 +140,8 @@ export function usePaperActions() {
   }, [user, showToast]);
 
   const closePaperPosition = useCallback(async (id: string, closingPremium: number): Promise<void> => {
-    if (!user) return;
+    if (!user || pendingOp.current) return;
+    pendingOp.current = true;
 
     const { data: pos } = await supabase.from('paper_positions').select('id, ticker, strategy, strike, expiry, premium_collected, contracts, underlying_price_at_entry, status, notes, opened_at, closed_at, closing_premium, realized_pnl, created_at').eq('id', id).eq('user_id', user.id).single();
     if (!pos) return;
@@ -170,10 +173,12 @@ export function usePaperActions() {
 
     const pnlStr = realizedPnl >= 0 ? `+$${realizedPnl.toFixed(0)}` : `-$${Math.abs(realizedPnl).toFixed(0)}`;
     showToast(`Position closed · Realized P&L: ${pnlStr}`, realizedPnl >= 0 ? 'success' : 'error');
+    pendingOp.current = false;
   }, [user, showToast]);
 
   const expirePaperPosition = useCallback(async (id: string): Promise<void> => {
-    if (!user) return;
+    if (!user || pendingOp.current) return;
+    pendingOp.current = true;
 
     const { data: pos } = await supabase.from('paper_positions').select('id, ticker, strategy, strike, expiry, premium_collected, contracts, underlying_price_at_entry, status, notes, opened_at, closed_at, closing_premium, realized_pnl, created_at').eq('id', id).eq('user_id', user.id).single();
     if (!pos) return;
@@ -199,10 +204,12 @@ export function usePaperActions() {
     }).eq('user_id', user.id);
 
     showToast(`Position expired worthless — full premium kept! +$${realizedPnl.toFixed(0)}`, 'success');
+    pendingOp.current = false;
   }, [user, showToast]);
 
   const assignPaperPosition = useCallback(async (id: string): Promise<void> => {
-    if (!user) return;
+    if (!user || pendingOp.current) return;
+    pendingOp.current = true;
 
     const { data: pos } = await supabase.from('paper_positions').select('strategy, ticker, strike, contracts').eq('id', id).single();
     if (!pos) return;
@@ -233,6 +240,7 @@ export function usePaperActions() {
     } else {
       showToast(`Assigned — your virtual ${pos.ticker} shares were called away at $${pos.strike}.`, 'success');
     }
+    pendingOp.current = false;
   }, [user, showToast]);
 
   const editPaperPosition = useCallback(async (

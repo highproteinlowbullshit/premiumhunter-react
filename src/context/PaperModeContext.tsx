@@ -48,6 +48,7 @@ export function PaperModeProvider({ children }: { children: ReactNode }) {
   const [showWelcome, setShowWelcome] = useState(false);
   const initialized = useRef(false);
   const isFreeRef = useRef(false);
+  const togglingRef = useRef(false);
 
   // Fetch account
   const fetchAccount = useCallback(async () => {
@@ -105,7 +106,8 @@ export function PaperModeProvider({ children }: { children: ReactNode }) {
   const refreshAccount = useCallback(() => { void fetchAccount(); }, [fetchAccount]);
 
   const togglePaperMode = useCallback(async () => {
-    if (!user || isFreeRef.current) return;
+    if (!user || isFreeRef.current || togglingRef.current) return;
+    togglingRef.current = true;
 
     if (!isPaperMode) {
       // Turning ON
@@ -130,6 +132,7 @@ export function PaperModeProvider({ children }: { children: ReactNode }) {
       setIsPaperMode(true);
       try { localStorage.setItem('ph_paper_mode', 'true'); } catch { /* ignore */ }
       await supabase.from('user_preferences').update({ paper_mode: true }).eq('user_id', user.id);
+      togglingRef.current = false;
     } else {
       // Turning OFF — check for open/assigned positions
       const { data: openPos } = await supabase
@@ -142,6 +145,7 @@ export function PaperModeProvider({ children }: { children: ReactNode }) {
       if (count > 0) {
         // Emit a custom event so PaperModals can show the confirm dialog
         window.dispatchEvent(new CustomEvent('ph:paper-switch-off', { detail: { count } }));
+        togglingRef.current = false;
         return;
       }
 
@@ -151,6 +155,7 @@ export function PaperModeProvider({ children }: { children: ReactNode }) {
       await supabase.from('user_preferences').update({ paper_mode: false }).eq('user_id', user.id);
       showToast('Switched to real trading mode', 'success');
     }
+    togglingRef.current = false;
   }, [user, isPaperMode, fetchAccount, showToast]);
 
   // Exposed: force switch off (called from confirm modal)

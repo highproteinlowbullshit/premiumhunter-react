@@ -73,14 +73,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } else {
           recoveryModeRef.current = false;
           const u = session?.user ?? null;
-          setUser(u);
           if (u) {
             const banned = await checkBanStatus(u.id);
-            setIsBanned(banned);
-            if (banned) { await supabase.auth.signOut(); return; }
+            if (banned) { setIsBanned(true); await supabase.auth.signOut(); return; }
+            setIsBanned(false);
           } else {
             setIsBanned(false);
           }
+          setUser(u);
         }
         setLoading(false);
 
