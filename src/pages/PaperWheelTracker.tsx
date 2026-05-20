@@ -216,7 +216,7 @@ export function PaperWheelTracker() {
         <PaperCloseModal
           position={closingPos}
           onClose={() => setClosingPos(null)}
-          onConfirm={async (premium) => { await closePaperPosition(closingPos.id, premium); setClosingPos(null); reload(); }}
+          onConfirm={async (premium, contractsToClose, optionFees) => { await closePaperPosition(closingPos.id, premium, contractsToClose, optionFees); setClosingPos(null); reload(); }}
           estimateClosePrice={estimateClosePrice}
         />
       )}
@@ -641,6 +641,7 @@ function OpenPaperPositionModal({ availableCash, onClose, onSubmit }: {
   onSubmit: (data: OpenPaperPositionData) => Promise<string | null>;
 }) {
   const [form, setForm] = useState({ ticker: '', strategy: 'CSP' as 'CSP' | 'CC', strike: '', expiry: '', premium: '', contracts: '1' });
+  const [optionFeeRate, setOptionFeeRate] = useState('0.65');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [globalError, setGlobalError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -649,8 +650,9 @@ function OpenPaperPositionModal({ availableCash, onClose, onSubmit }: {
 
   const contracts = Number(form.contracts) || 1;
   const strike = Number(form.strike) || 0;
+  const totalFees = (Number(optionFeeRate) || 0) * contracts;
   const collateral = form.strategy === 'CSP' ? strike * contracts * 100 : 0;
-  const insufficient = form.strategy === 'CSP' && collateral > availableCash;
+  const insufficient = form.strategy === 'CSP' && collateral + totalFees > availableCash;
 
   const fetchSpot = useCallback(async (ticker: string) => {
     if (!ticker) return;
@@ -687,6 +689,7 @@ function OpenPaperPositionModal({ availableCash, onClose, onSubmit }: {
       premiumCollected: Number(form.premium),
       contracts,
       underlyingPriceAtEntry: spotPrice || Number(form.strike),
+      optionFees: totalFees > 0 ? totalFees : undefined,
     });
     setSubmitting(false);
     if (err) setGlobalError(err);
@@ -828,13 +831,39 @@ function OpenPaperPositionModal({ availableCash, onClose, onSubmit }: {
           </p>
         </div>
 
+        {/* Option fees */}
+        <div>
+          <label className="block text-xs mb-1.5" style={{ color: A.muted, fontFamily: 'DM Sans, sans-serif' }}>
+            Option Fees <span style={{ color: '#6a8fb0' }}>(optional · e.g. IBKR $0.65/contract)</span>
+          </label>
+          <div className="flex items-center gap-3">
+            <div className="relative flex-1">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: A.muted }}>$</span>
+              <input type="number" step="0.01" min="0"
+                value={optionFeeRate}
+                onChange={(e) => setOptionFeeRate(e.target.value)}
+                placeholder="0.65"
+                className="w-full pl-7 pr-3 py-2.5 rounded-xl text-sm"
+                style={{ ...inputBase, border: `1px solid ${A.amberBorder}` }} />
+            </div>
+            <span className="text-xs whitespace-nowrap" style={{ color: A.muted, fontFamily: 'DM Sans, sans-serif' }}>per contract</span>
+            {totalFees > 0 && (
+              <span className="text-xs whitespace-nowrap" style={{ color: '#ff8fa3', fontFamily: 'JetBrains Mono, monospace' }}>
+                −${totalFees.toFixed(2)}
+              </span>
+            )}
+          </div>
+        </div>
+
         {/* Collateral check */}
         {form.strategy === 'CSP' && strike > 0 && (
           <div className="rounded-lg px-4 py-2.5 flex justify-between text-xs"
             style={{ background: insufficient ? 'rgba(255,77,109,0.06)' : 'rgba(245,200,66,0.06)', border: `1px solid ${insufficient ? 'rgba(255,77,109,0.2)' : A.amberBorder}` }}>
-            <span style={{ color: A.muted, fontFamily: 'DM Sans, sans-serif' }}>Collateral required</span>
+            <span style={{ color: A.muted, fontFamily: 'DM Sans, sans-serif' }}>
+              {totalFees > 0 ? 'Collateral + fees' : 'Collateral required'}
+            </span>
             <span style={{ color: insufficient ? '#ff4d6d' : A.amber, fontFamily: 'JetBrains Mono, monospace', fontWeight: 700 }}>
-              ${collateral.toLocaleString()} {insufficient ? '(insufficient)' : ''}
+              ${(collateral + totalFees).toLocaleString()} {insufficient ? '(insufficient)' : ''}
             </span>
           </div>
         )}
@@ -862,10 +891,12 @@ function OpenPaperPositionModal({ availableCash, onClose, onSubmit }: {
 function PaperCloseModal({ position, onClose, onConfirm, estimateClosePrice }: {
   position: PaperPosition;
   onClose: () => void;
-  onConfirm: (closingPremium: number) => void;
+  onConfirm: (closingPremium: number, contractsToClose: number, optionFees: number) => void;
   estimateClosePrice: (p: PaperPosition) => Promise<number | null>;
 }) {
   const [closingPremium, setClosingPremium] = useState('');
+  const [contractsToClose, setContractsToClose] = useState(String(position.contracts));
+  const [optionFeeRate, setOptionFeeRate] = useState('0.65');
   const [bsEstimate, setBsEstimate] = useState<number | null>(null);
   const [loadingBS, setLoadingBS] = useState(true);
   const [error, setError] = useState('');
@@ -879,15 +910,19 @@ function PaperCloseModal({ position, onClose, onConfirm, estimateClosePrice }: {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const contractsToCloseNum = Math.min(Math.max(1, Math.floor(Number(contractsToClose) || 1)), position.contracts);
+  const isFullClose = contractsToCloseNum >= position.contracts;
   const premNum = Number(closingPremium);
+  const closeFees = (Number(optionFeeRate) || 0) * contractsToCloseNum;
   const realizedPnl = closingPremium && !isNaN(premNum)
-    ? (position.premiumCollected - premNum) * position.contracts * 100
+    ? (position.premiumCollected - premNum) * contractsToCloseNum * 100
     : null;
+  const realizedPnlAfterFees = realizedPnl !== null ? realizedPnl - closeFees : null;
   const totalPremium = position.premiumCollected * position.contracts * 100;
 
   const handleConfirm = () => {
     if (!closingPremium || isNaN(premNum) || premNum < 0) { setError('Enter a valid option price'); return; }
-    onConfirm(premNum);
+    onConfirm(premNum, contractsToCloseNum, closeFees);
   };
 
   return (
@@ -903,6 +938,7 @@ function PaperCloseModal({ position, onClose, onConfirm, estimateClosePrice }: {
           <div>
             <p className="text-xs mb-1" style={{ color: A.muted, fontFamily: 'DM Sans, sans-serif' }}>Contracts</p>
             <p className="text-sm font-semibold" style={{ color: A.text, fontFamily: 'JetBrains Mono, monospace' }}>{position.contracts}x</p>
+            <p className="text-xs" style={{ color: A.muted, fontFamily: 'DM Sans, sans-serif' }}>total open</p>
           </div>
           <div>
             <p className="text-xs mb-1" style={{ color: A.muted, fontFamily: 'DM Sans, sans-serif' }}>DTE</p>
@@ -926,6 +962,25 @@ function PaperCloseModal({ position, onClose, onConfirm, estimateClosePrice }: {
         </div>
       )}
 
+      {/* Contracts-to-close input (only shown when position has more than 1 contract) */}
+      {position.contracts > 1 && (
+        <div className="mb-4">
+          <label className="block text-xs mb-1.5" style={{ color: A.muted, fontFamily: 'DM Sans, sans-serif' }}>
+            Contracts to Close <span style={{ color: '#6a8fb0' }}>(1–{position.contracts})</span>
+          </label>
+          <input type="number" step="1" min="1" max={position.contracts}
+            value={contractsToClose}
+            onChange={(e) => setContractsToClose(e.target.value)}
+            className="w-full px-3 py-2.5 rounded-xl text-sm"
+            style={{ ...inputBase, border: `1px solid ${A.amberBorder}` }} />
+          {!isFullClose && (
+            <p className="text-xs mt-1" style={{ color: '#9ab4d4', fontFamily: 'DM Sans, sans-serif' }}>
+              Partial close — {position.contracts - contractsToCloseNum} contract{position.contracts - contractsToCloseNum !== 1 ? 's' : ''} remain open
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Closing price input */}
       <div className="mb-4">
         <label className="block text-xs mb-1.5" style={{ color: A.muted, fontFamily: 'DM Sans, sans-serif' }}>
@@ -933,7 +988,7 @@ function PaperCloseModal({ position, onClose, onConfirm, estimateClosePrice }: {
         </label>
         <div className="relative">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: A.muted }}>$</span>
-          <input type="number" step="0.01" min="0" autoFocus
+          <input type="number" step="0.01" min="0" autoFocus={position.contracts <= 1}
             value={closingPremium}
             onChange={(e) => { setClosingPremium(e.target.value); setError(''); }}
             className="w-full pl-7 pr-3 py-2.5 rounded-xl text-sm"
@@ -942,14 +997,52 @@ function PaperCloseModal({ position, onClose, onConfirm, estimateClosePrice }: {
         {error && <p className="text-xs mt-1" style={{ color: '#ff4d6d' }}>{error}</p>}
       </div>
 
+      {/* Option fees */}
+      <div className="mb-4">
+        <label className="block text-xs mb-1.5" style={{ color: A.muted, fontFamily: 'DM Sans, sans-serif' }}>
+          Option Fees <span style={{ color: '#6a8fb0' }}>(optional · e.g. IBKR $0.65/contract)</span>
+        </label>
+        <div className="flex items-center gap-3">
+          <div className="relative flex-1">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: A.muted }}>$</span>
+            <input type="number" step="0.01" min="0"
+              value={optionFeeRate}
+              onChange={(e) => setOptionFeeRate(e.target.value)}
+              placeholder="0.65"
+              className="w-full pl-7 pr-3 py-2.5 rounded-xl text-sm"
+              style={{ ...inputBase, border: `1px solid ${A.amberBorder}` }} />
+          </div>
+          <span className="text-xs whitespace-nowrap" style={{ color: A.muted, fontFamily: 'DM Sans, sans-serif' }}>per contract</span>
+          {closeFees > 0 && (
+            <span className="text-xs whitespace-nowrap" style={{ color: '#ff8fa3', fontFamily: 'JetBrains Mono, monospace' }}>
+              −${closeFees.toFixed(2)}
+            </span>
+          )}
+        </div>
+      </div>
+
       {/* P&L preview */}
-      {realizedPnl !== null && (
-        <div className="rounded-lg px-4 py-3 mb-5 flex items-center justify-between"
-          style={{ background: realizedPnl >= 0 ? 'rgba(0,214,143,0.06)' : 'rgba(255,77,109,0.06)', border: `1px solid ${realizedPnl >= 0 ? 'rgba(0,214,143,0.15)' : 'rgba(255,77,109,0.15)'}` }}>
-          <span className="text-xs" style={{ color: A.muted, fontFamily: 'DM Sans, sans-serif' }}>Realized P&L</span>
-          <span className="text-base font-bold" style={{ color: realizedPnl >= 0 ? '#00d68f' : '#ff4d6d', fontFamily: 'JetBrains Mono, monospace' }}>
-            {realizedPnl >= 0 ? '+' : ''}${realizedPnl.toFixed(0)}
-          </span>
+      {realizedPnlAfterFees !== null && (
+        <div className="rounded-lg px-4 py-3 mb-5"
+          style={{ background: realizedPnlAfterFees >= 0 ? 'rgba(0,214,143,0.06)' : 'rgba(255,77,109,0.06)', border: `1px solid ${realizedPnlAfterFees >= 0 ? 'rgba(0,214,143,0.15)' : 'rgba(255,77,109,0.15)'}` }}>
+          {closeFees > 0 && (
+            <div className="flex justify-between text-xs mb-1.5">
+              <span style={{ color: A.muted, fontFamily: 'DM Sans, sans-serif' }}>
+                {isFullClose ? 'P&L before fees' : `P&L (${contractsToCloseNum}/${position.contracts} contracts)`}
+              </span>
+              <span style={{ color: (realizedPnl ?? 0) >= 0 ? '#00d68f' : '#ff4d6d', fontFamily: 'JetBrains Mono, monospace' }}>
+                {(realizedPnl ?? 0) >= 0 ? '+' : ''}${(realizedPnl ?? 0).toFixed(0)}
+              </span>
+            </div>
+          )}
+          <div className="flex items-center justify-between">
+            <span className="text-xs" style={{ color: A.muted, fontFamily: 'DM Sans, sans-serif' }}>
+              {closeFees > 0 ? 'Net P&L after fees' : isFullClose ? 'Realized P&L' : `P&L (${contractsToCloseNum}/${position.contracts} contracts)`}
+            </span>
+            <span className="text-base font-bold" style={{ color: realizedPnlAfterFees >= 0 ? '#00d68f' : '#ff4d6d', fontFamily: 'JetBrains Mono, monospace' }}>
+              {realizedPnlAfterFees >= 0 ? '+' : ''}${realizedPnlAfterFees.toFixed(0)}
+            </span>
+          </div>
         </div>
       )}
 
@@ -962,7 +1055,7 @@ function PaperCloseModal({ position, onClose, onConfirm, estimateClosePrice }: {
         <button type="button" onClick={handleConfirm}
           className="flex-1 py-2.5 rounded-xl text-sm font-semibold hover:opacity-90"
           style={{ background: 'linear-gradient(135deg, #f5c842, #f59e0b)', color: '#1a1200', fontFamily: 'DM Sans, sans-serif', boxShadow: '0 4px 16px rgba(245,200,66,0.2)' }}>
-          Close Position
+          {isFullClose ? 'Close Position' : `Close ${contractsToCloseNum} Contract${contractsToCloseNum !== 1 ? 's' : ''}`}
         </button>
       </div>
     </PaperModalShell>

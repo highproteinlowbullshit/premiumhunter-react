@@ -108,4 +108,5 @@ export type OpenPaperPositionData = {
   premiumCollected: number;   // per-contract
   contracts: number;
   underlyingPriceAtEntry: number;
+  optionFees?: number;        // total commission in dollars
 };

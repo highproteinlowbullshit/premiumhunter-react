@@ -379,8 +379,8 @@ function RealWheelTracker() {
         <ClosePositionModal
           position={closingPosition}
           onClose={() => setClosingPosition(null)}
-          onConfirm={(closingPrice) => {
-            closePosition(closingPosition.id, closingPrice);
+          onConfirm={(closingPrice, contractsToClose, optionFees) => {
+            closePosition(closingPosition.id, closingPrice, contractsToClose, optionFees);
             setClosingPosition(null);
           }}
         />
@@ -534,11 +534,13 @@ function CloseRow({ label, value, valueColor }: { label: string; value: string; 
 function ClosePositionModal({ position, onClose, onConfirm }: {
   position: WheelPosition;
   onClose: () => void;
-  onConfirm: (closingPrice: number) => void;
+  onConfirm: (closingPrice: number, contractsToClose: number, optionFees: number) => void;
 }) {
   const { user } = useAuth();
   const [step, setStep] = useState(0);
   const [closingPrice, setClosingPrice] = useState('');
+  const [contractsToClose, setContractsToClose] = useState(String(position.contracts));
+  const [optionFeeRate, setOptionFeeRate] = useState('0.65');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [openLot, setOpenLot] = useState<{
@@ -560,10 +562,15 @@ function ClosePositionModal({ position, onClose, onConfirm }: {
       .then(({ data }) => setOpenLot(data));
   }, [position.strategy, position.ticker, user]);
 
+  const contractsToCloseNum = Math.min(Math.max(1, Math.floor(Number(contractsToClose) || 1)), position.contracts);
+  const isFullClose = contractsToCloseNum >= position.contracts;
   const perSharePremium = position.premiumCollected / position.contracts / 100;
   const closingPriceNum = Number(closingPrice);
-  const btcCost = closingPriceNum * 100 * position.contracts;
-  const previewPnl = closingPrice && !isNaN(closingPriceNum) ? position.premiumCollected - btcCost : null;
+  const optionFees = (Number(optionFeeRate) || 0) * contractsToCloseNum;
+  const premiumForClosed = position.premiumCollected * (contractsToCloseNum / position.contracts);
+  const btcCost = closingPriceNum * 100 * contractsToCloseNum;
+  const previewPnl = closingPrice && !isNaN(closingPriceNum) ? premiumForClosed - btcCost : null;
+  const previewPnlAfterFees = previewPnl !== null ? previewPnl - optionFees : null;
   const netRetained = previewPnl !== null ? Math.max(0, previewPnl) : 0;
 
   const lotTotalShares = openLot ? Number(openLot.shares) * Number(openLot.contracts) : 0;
@@ -613,6 +620,7 @@ function ClosePositionModal({ position, onClose, onConfirm }: {
           <div>
             <p className="text-xs mb-1" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>Contracts</p>
             <p className="text-sm font-semibold" style={{ color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace' }}>{position.contracts}×</p>
+            <p className="text-xs" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>total open</p>
           </div>
           <div>
             <p className="text-xs mb-1" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>DTE</p>
@@ -624,6 +632,26 @@ function ClosePositionModal({ position, onClose, onConfirm }: {
         </div>
       </div>
 
+      {position.contracts > 1 && (
+        <div className="mb-4">
+          <label className="block text-xs mb-1.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
+            Contracts to Close <span style={{ color: '#6a8fb0' }}>(1–{position.contracts})</span>
+          </label>
+          <input
+            type="number" step="1" min="1" max={position.contracts}
+            value={contractsToClose}
+            onChange={(e) => setContractsToClose(e.target.value)}
+            className="w-full px-3 py-2.5 rounded-xl text-sm"
+            style={inputStyle}
+          />
+          {!isFullClose && (
+            <p className="text-xs mt-1" style={{ color: '#9ab4d4', fontFamily: 'DM Sans, sans-serif' }}>
+              Partial close — {position.contracts - contractsToCloseNum} contract{position.contracts - contractsToCloseNum !== 1 ? 's' : ''} remain open
+            </p>
+          )}
+        </div>
+      )}
+
       <div className="mb-4">
         <label className="block text-xs mb-1.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
           Closing Price <span style={{ color: '#6a8fb0' }}>(buy-back price per share)</span>
@@ -631,7 +659,7 @@ function ClosePositionModal({ position, onClose, onConfirm }: {
         <div className="relative">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: '#4a6a8a' }}>$</span>
           <input
-            type="number" step="0.01" min="0" autoFocus
+            type="number" step="0.01" min="0" autoFocus={position.contracts <= 1}
             value={closingPrice}
             onChange={(e) => { setClosingPrice(e.target.value); setError(''); }}
             placeholder={`e.g. ${(perSharePremium * 0.25).toFixed(2)}`}
@@ -642,13 +670,42 @@ function ClosePositionModal({ position, onClose, onConfirm }: {
         {error && <p className="text-xs mt-1" style={{ color: '#ff4d6d', fontFamily: 'DM Sans, sans-serif' }}>{error}</p>}
       </div>
 
+      {/* Option fees */}
+      <div className="mb-4">
+        <label className="block text-xs mb-1.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
+          Option Fees <span style={{ color: '#2a4a6a' }}>(optional · e.g. IBKR $0.65/contract)</span>
+        </label>
+        <div className="flex items-center gap-3">
+          <div className="relative flex-1">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: '#4a6a8a' }}>$</span>
+            <input
+              type="number" step="0.01" min="0"
+              value={optionFeeRate}
+              onChange={(e) => setOptionFeeRate(e.target.value)}
+              placeholder="0.65"
+              className="w-full pl-7 pr-3 py-2.5 rounded-xl text-sm"
+              style={inputStyle}
+            />
+          </div>
+          <span className="text-xs whitespace-nowrap" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>per contract</span>
+          {optionFees > 0 && (
+            <span className="text-xs whitespace-nowrap" style={{ color: '#ff8fa3', fontFamily: 'JetBrains Mono, monospace' }}>
+              −${optionFees.toFixed(2)}
+            </span>
+          )}
+        </div>
+      </div>
+
       {previewPnl !== null && (
         <div className="rounded-xl p-4 mb-4"
           style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.06)' }}>
-          <CloseRow label="Cash position impact" value={`−$${btcCost.toFixed(2)}`} valueColor="#ff8fa3" />
+          <CloseRow label="Buyback cost" value={`−$${btcCost.toFixed(2)}`} valueColor="#ff8fa3" />
+          {optionFees > 0 && (
+            <CloseRow label="Option fees" value={`−$${optionFees.toFixed(2)}`} valueColor="#ff8fa3" />
+          )}
           <CloseRow label="Net realized P&L"
-            value={`${previewPnl >= 0 ? '+' : ''}$${previewPnl.toFixed(2)}`}
-            valueColor={previewPnl >= 0 ? '#00d68f' : '#ff4d6d'} />
+            value={`${(previewPnlAfterFees ?? 0) >= 0 ? '+' : ''}$${(previewPnlAfterFees ?? 0).toFixed(2)}`}
+            valueColor={(previewPnlAfterFees ?? 0) >= 0 ? '#00d68f' : '#ff4d6d'} />
         </div>
       )}
 
@@ -681,8 +738,9 @@ function ClosePositionModal({ position, onClose, onConfirm }: {
           style={{ background: 'rgba(0,229,196,0.04)', border: '1px solid rgba(0,229,196,0.12)' }}>
           <p className="text-xs font-semibold mb-3 tracking-widest uppercase"
             style={{ color: '#00e5c4', fontFamily: 'DM Sans, sans-serif' }}>Cost Basis Update</p>
-          <CloseRow label="CC premium collected" value={`$${position.premiumCollected.toFixed(2)}`} valueColor="#00e5c4" />
+          <CloseRow label={isFullClose ? 'CC premium collected' : `Premium (${contractsToCloseNum}/${position.contracts} contracts)`} value={`$${premiumForClosed.toFixed(2)}`} valueColor="#00e5c4" />
           <CloseRow label="Buyback cost" value={`−$${btcCost.toFixed(2)}`} valueColor="#ff8fa3" />
+          {optionFees > 0 && <CloseRow label="Option fees" value={`−$${optionFees.toFixed(2)}`} valueColor="#ff8fa3" />}
           <CloseRow label="Net premium retained"
             value={`${netRetained > 0 ? '+' : ''}$${netRetained.toFixed(2)}`}
             valueColor={netRetained > 0 ? '#00d68f' : '#9ab4d4'} />
@@ -702,11 +760,12 @@ function ClosePositionModal({ position, onClose, onConfirm }: {
           style={{ background: 'rgba(0,229,196,0.04)', border: '1px solid rgba(0,229,196,0.12)' }}>
           <p className="text-xs font-semibold mb-3 tracking-widest uppercase"
             style={{ color: '#00e5c4', fontFamily: 'DM Sans, sans-serif' }}>Realized P&amp;L Summary</p>
-          <CloseRow label="Premium collected" value={`$${position.premiumCollected.toFixed(2)}`} valueColor="#00e5c4" />
+          <CloseRow label={isFullClose ? 'Premium collected' : `Premium (${contractsToCloseNum}/${position.contracts} contracts)`} value={`$${premiumForClosed.toFixed(2)}`} valueColor="#00e5c4" />
           <CloseRow label="Buyback cost" value={`−$${btcCost.toFixed(2)}`} valueColor="#ff8fa3" />
+          {optionFees > 0 && <CloseRow label="Option fees" value={`−$${optionFees.toFixed(2)}`} valueColor="#ff8fa3" />}
           <CloseRow label="Net realized P&L"
-            value={`${(previewPnl ?? 0) >= 0 ? '+' : ''}$${(previewPnl ?? 0).toFixed(2)}`}
-            valueColor={(previewPnl ?? 0) >= 0 ? '#00d68f' : '#ff4d6d'} />
+            value={`${(previewPnlAfterFees ?? 0) >= 0 ? '+' : ''}$${(previewPnlAfterFees ?? 0).toFixed(2)}`}
+            valueColor={(previewPnlAfterFees ?? 0) >= 0 ? '#00d68f' : '#ff4d6d'} />
         </div>
       )}
 
@@ -724,10 +783,10 @@ function ClosePositionModal({ position, onClose, onConfirm }: {
         <button type="button" onClick={() => setStep(0)}
           className="flex-1 py-2.5 rounded-xl text-sm font-medium hover:bg-[rgba(255,255,255,0.05)] transition-colors"
           style={btnSecondary}>← Back</button>
-        <button type="button" onClick={() => { setSaving(true); onConfirm(closingPriceNum * 100); }}
+        <button type="button" onClick={() => { setSaving(true); onConfirm(closingPriceNum * 100, contractsToCloseNum, optionFees); }}
           disabled={saving}
           className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 hover:opacity-90 disabled:opacity-50"
-          style={btnPrimary}>{saving ? 'Closing…' : 'Close Position'}</button>
+          style={btnPrimary}>{saving ? 'Closing…' : isFullClose ? 'Close Position' : `Close ${contractsToCloseNum} Contract${contractsToCloseNum !== 1 ? 's' : ''}`}</button>
       </div>
     </ModalShell>
   );
@@ -1133,6 +1192,7 @@ interface AddPositionModalProps {
     premiumCollected: number;
     contracts: number;
     checklistSnapshot?: object;
+    optionFees?: number;
   }) => void;
 }
 
@@ -1146,6 +1206,7 @@ function AddPositionModal({ cashBalance, lockedCollateral, openPositions, onClos
     premium: '',
     contracts: '1',
   });
+  const [optionFeeRate, setOptionFeeRate] = useState('0.65');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [spotPrice, setSpotPrice] = useState<number | null>(null);
   const [fetchingPrice, setFetchingPrice] = useState(false);
@@ -1235,6 +1296,8 @@ function AddPositionModal({ cashBalance, lockedCollateral, openPositions, onClos
     return e;
   };
 
+  const totalOptionFees = (Number(optionFeeRate) || 0) * contracts;
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const errs = validate();
@@ -1247,6 +1310,7 @@ function AddPositionModal({ cashBalance, lockedCollateral, openPositions, onClos
       premiumCollected: Number(form.premium) * 100,
       contracts: Number(form.contracts),
       checklistSnapshot: checklistResult ?? undefined,
+      optionFees: totalOptionFees > 0 ? totalOptionFees : undefined,
     });
     // Fire-and-forget analytics (no await, no error surfacing to user)
     if (checklistResult) {
@@ -1556,6 +1620,39 @@ function AddPositionModal({ cashBalance, lockedCollateral, openPositions, onClos
           <p className="text-[11px] mt-1" style={{ color: '#6a8fb0', fontFamily: 'DM Sans, sans-serif', fontStyle: 'italic', lineHeight: 1.5 }}>
             Example: if you sold 1 contract and received $120 total, enter 1.20 (premium per share, not total)
           </p>
+        </div>
+
+        {/* Option fees */}
+        <div>
+          <label className="block text-xs mb-1.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
+            Option Fees <span style={{ color: '#2a4a6a' }}>(optional · e.g. IBKR $0.65/contract)</span>
+          </label>
+          <div className="flex items-center gap-3">
+            <div className="relative flex-1">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: '#4a6a8a' }}>$</span>
+              <input
+                type="number" step="0.01" min="0"
+                value={optionFeeRate}
+                onChange={(e) => setOptionFeeRate(e.target.value)}
+                placeholder="0.65"
+                className="w-full pl-7 pr-3 py-2.5 rounded-xl text-sm"
+                style={inputStyle('')}
+              />
+            </div>
+            <span className="text-xs whitespace-nowrap" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
+              per contract
+            </span>
+            {totalOptionFees > 0 && (
+              <span className="text-xs whitespace-nowrap" style={{ color: '#ff8fa3', fontFamily: 'JetBrains Mono, monospace' }}>
+                −${totalOptionFees.toFixed(2)}
+              </span>
+            )}
+          </div>
+          {totalOptionFees > 0 && (
+            <p className="text-xs mt-1" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
+              Deducted from cash at open. Set to 0 if your broker charges no option fees.
+            </p>
+          )}
         </div>
 
           {/* Checklist on mobile */}

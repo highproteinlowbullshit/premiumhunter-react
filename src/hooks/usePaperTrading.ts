@@ -107,9 +107,10 @@ export function usePaperActions() {
       .single();
     if (acctErr || !acctNow) { showToast('Failed to read paper account', 'error'); return 'Paper account not found'; }
 
-    // Validate cash for CSP using the already-fetched account
+    // Validate cash for CSP using the already-fetched account (include fees in the required amount)
+    const openFees = data.optionFees ?? 0;
     if (data.strategy === 'CSP') {
-      const required = data.strike * data.contracts * 100;
+      const required = data.strike * data.contracts * 100 + openFees;
       if (required > Number(acctNow.current_cash)) {
         return `Insufficient paper cash — you need $${required.toLocaleString()} to open this position`;
       }
@@ -131,7 +132,7 @@ export function usePaperActions() {
     const collateral = data.strategy === 'CSP' ? data.strike * data.contracts * 100 : 0;
     const premiumTotal = data.premiumCollected * data.contracts * 100;
     await supabase.from('paper_accounts').update({
-      current_cash: Number(acctNow.current_cash) - collateral,
+      current_cash: Number(acctNow.current_cash) - collateral - openFees,
       total_premium_collected: Number(acctNow.total_premium_collected) + premiumTotal,
     }).eq('user_id', user.id);
 
@@ -139,40 +140,52 @@ export function usePaperActions() {
     return null;
   }, [user, showToast]);
 
-  const closePaperPosition = useCallback(async (id: string, closingPremium: number): Promise<void> => {
+  const closePaperPosition = useCallback(async (id: string, closingPremium: number, contractsToClose?: number, optionFees?: number): Promise<void> => {
     if (!user || pendingOp.current) return;
     pendingOp.current = true;
 
     const { data: pos } = await supabase.from('paper_positions').select('id, ticker, strategy, strike, expiry, premium_collected, contracts, underlying_price_at_entry, status, notes, opened_at, closed_at, closing_premium, realized_pnl, created_at').eq('id', id).eq('user_id', user.id).single();
-    if (!pos) return;
+    if (!pos) { pendingOp.current = false; return; }
 
     const position = dbToPosition(pos as Record<string, unknown>);
-    const realizedPnl = (position.premiumCollected - closingPremium) * position.contracts * 100;
-    const collateralReturn = position.strategy === 'CSP' ? position.strike * position.contracts * 100 : 0;
+    const closing = Math.min(contractsToClose ?? position.contracts, position.contracts);
+    const isFullClose = closing >= position.contracts;
 
-    await supabase.from('paper_positions').update({
-      status: 'closed',
-      closing_premium: closingPremium,
-      realized_pnl: realizedPnl,
-      closed_at: new Date().toISOString(),
-    }).eq('id', id);
+    const realizedPnl = (position.premiumCollected - closingPremium) * closing * 100;
+    const collateralReturn = position.strategy === 'CSP' ? position.strike * closing * 100 : 0;
+
+    if (isFullClose) {
+      await supabase.from('paper_positions').update({
+        status: 'closed',
+        closing_premium: closingPremium,
+        realized_pnl: realizedPnl,
+        closed_at: new Date().toISOString(),
+      }).eq('id', id);
+    } else {
+      // Partial close: reduce contracts, keep position open (premium_collected is per-share, no change needed)
+      await supabase.from('paper_positions').update({
+        contracts: position.contracts - closing,
+      }).eq('id', id);
+    }
 
     const { data: acct, error: acctErr } = await supabase.from('paper_accounts').select('id, user_id, starting_balance, current_cash, total_premium_collected, total_realized_pnl, trades_won, trades_total, created_at, reset_at').eq('user_id', user.id).single();
-    if (acctErr || !acct) { showToast('Failed to read paper account', 'error'); return; }
+    if (acctErr || !acct) { showToast('Failed to read paper account', 'error'); pendingOp.current = false; return; }
     const currentCash = Number(acct.current_cash);
     const currentPnl = Number(acct.total_realized_pnl);
     const currentWon = Number(acct.trades_won);
     const currentTotal = Number(acct.trades_total);
 
+    const closeFees = optionFees ?? 0;
     await supabase.from('paper_accounts').update({
-      current_cash: currentCash + collateralReturn + realizedPnl,
+      current_cash: currentCash + collateralReturn + realizedPnl - closeFees,
       total_realized_pnl: currentPnl + realizedPnl,
-      trades_total: currentTotal + 1,
-      trades_won: realizedPnl > 0 ? currentWon + 1 : currentWon,
+      trades_total: currentTotal + (isFullClose ? 1 : 0),
+      trades_won: isFullClose && realizedPnl > 0 ? currentWon + 1 : currentWon,
     }).eq('user_id', user.id);
 
     const pnlStr = realizedPnl >= 0 ? `+$${realizedPnl.toFixed(0)}` : `-$${Math.abs(realizedPnl).toFixed(0)}`;
-    showToast(`Position closed · Realized P&L: ${pnlStr}`, realizedPnl >= 0 ? 'success' : 'error');
+    const label = isFullClose ? 'Position closed' : `Closed ${closing}/${position.contracts} contracts`;
+    showToast(`${label} · Realized P&L: ${pnlStr}`, realizedPnl >= 0 ? 'success' : 'error');
     pendingOp.current = false;
   }, [user, showToast]);
 

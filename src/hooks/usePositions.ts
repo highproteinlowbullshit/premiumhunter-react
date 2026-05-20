@@ -56,7 +56,8 @@ type AddPositionData = {
   expiry: string;
   premiumCollected: number;  // per-contract
   contracts: number;
-  checklistSnapshot?: object;  // serialised ChecklistResult
+  checklistSnapshot?: object;
+  optionFees?: number;       // total commission in dollars
 };
 
 // ── Hook ──────────────────────────────────────────────────────────────────────
@@ -136,8 +137,10 @@ export function usePositions() {
           old.map((p) => (p.id === tempId ? dbToPosition(inserted as DbPosition) : p))
         );
 
-        // Credit premium received to cash holdings
+        // Credit premium received to cash holdings, minus any option fees
         const totalPremium = data.premiumCollected * data.contracts;
+        const fees = data.optionFees ?? 0;
+        const netCashDelta = totalPremium - fees;
         const { data: cashRow } = await supabase
           .from('portfolio_holdings')
           .select('id, quantity')
@@ -151,7 +154,7 @@ export function usePositions() {
         if (cashRow) {
           const { error: cashErr } = await supabase
             .from('portfolio_holdings')
-            .update({ quantity: Number(cashRow.quantity) + totalPremium })
+            .update({ quantity: Number(cashRow.quantity) + netCashDelta })
             .eq('id', cashRow.id);
           if (cashErr) {
             Sentry.captureException(cashErr);
@@ -165,7 +168,7 @@ export function usePositions() {
               user_id: user.id,
               holding_type: 'cash',
               ticker: 'USD',
-              quantity: totalPremium,
+              quantity: netCashDelta,
               avg_cost: 1,
               status: 'open',
               notes: `Auto-created from ${data.strategy} premium — ${data.ticker.toUpperCase()} $${data.strike} strike`,
@@ -245,26 +248,28 @@ export function usePositions() {
 
   // ── Close position ──────────────────────────────────────────────────────────
   const closePosition = useCallback(
-    async (id: string, closingPrice: number) => {
+    async (id: string, closingPrice: number, contractsToClose?: number, optionFees?: number) => {
       const position = positions.find((p) => p.id === id);
+      const closing = Math.min(contractsToClose ?? position?.contracts ?? 0, position?.contracts ?? 0);
+      const isFullClose = !position || closing >= position.contracts;
 
       queryClient.setQueryData(qKey, (old: WheelPosition[] = []) =>
-        old.map((p) =>
-          p.id === id
-            ? { ...p, status: 'closed' as PositionStatus, currentPrice: closingPrice }
-            : p
-        )
+        old.map((p) => {
+          if (p.id !== id) return p;
+          if (isFullClose) return { ...p, status: 'closed' as PositionStatus, currentPrice: closingPrice };
+          return { ...p, contracts: p.contracts - closing, premiumCollected: p.premiumCollected * ((p.contracts - closing) / p.contracts) };
+        })
       );
 
       if (!user) return;
 
+      const updatePayload = isFullClose
+        ? { status: 'closed', closing_price: closingPrice, closed_at: new Date().toISOString() }
+        : { contracts: position!.contracts - closing, premium_collected: position!.premiumCollected * ((position!.contracts - closing) / position!.contracts) };
+
       const { error } = await supabase
         .from('wheel_positions')
-        .update({
-          status: 'closed',
-          closing_price: closingPrice,
-          closed_at: new Date().toISOString(),
-        })
+        .update(updatePayload)
         .eq('id', id)
         .eq('user_id', user.id);
 
@@ -279,9 +284,11 @@ export function usePositions() {
       void queryClient.invalidateQueries({ queryKey: ['monthly-pnl'] });
       void queryClient.invalidateQueries({ queryKey: ['ticker-performance'] });
 
-      // Buy To Close — deduct the BTC cost from cash for both CSP and CC.
-      if (closingPrice > 0 && position) {
-        const btcCost = closingPrice * position.contracts;
+      // Buy To Close — deduct BTC cost + option fees for the closed contracts.
+      if ((closingPrice > 0 || (optionFees ?? 0) > 0) && position) {
+        const btcCost = closingPrice * closing;
+        const fees = optionFees ?? 0;
+        const totalDeduction = btcCost + fees;
 
         const { data: cashRow } = await supabase
           .from('portfolio_holdings')
@@ -296,7 +303,7 @@ export function usePositions() {
         if (cashRow) {
           const { error: cashErr } = await supabase
             .from('portfolio_holdings')
-            .update({ quantity: Number(cashRow.quantity) - btcCost })
+            .update({ quantity: Number(cashRow.quantity) - totalDeduction })
             .eq('id', cashRow.id)
             .eq('user_id', user.id);
 
@@ -312,7 +319,7 @@ export function usePositions() {
               user_id: user.id,
               holding_type: 'cash',
               ticker: 'USD',
-              quantity: -btcCost,
+              quantity: -totalDeduction,
               avg_cost: 1,
               status: 'open',
               notes: `Auto-created from BTC — ${position?.strategy ?? ''} ${position?.ticker ?? ''} $${position?.strike ?? ''} strike`,
@@ -326,10 +333,10 @@ export function usePositions() {
           }
         }
 
-        // CC early close: record net premium retained as a lot_premium_events entry
-        // and update the assigned_share_lots cost basis columns so Portfolio reflects it immediately.
+        // CC close: record net premium retained for the closed contracts and update lot cost basis.
         if (position.strategy === 'CC') {
-          const netRetained = position.premiumCollected - btcCost;
+          const premiumForClosed = position.premiumCollected * (closing / position.contracts);
+          const netRetained = premiumForClosed - btcCost;
           if (netRetained > 0) {
             const { data: lot } = await supabase
               .from('assigned_share_lots')
@@ -370,7 +377,7 @@ export function usePositions() {
       void queryClient.invalidateQueries({ queryKey: ['portfolio'] });
       void queryClient.invalidateQueries({ queryKey: ['portfolio-enhanced'] });
 
-      showToast('Position closed', 'success');
+      showToast(isFullClose ? 'Position closed' : `Closed ${closing}/${position?.contracts ?? closing} contracts`, 'success');
     },
     [user, showToast, queryClient, qKey, positions]
   );
