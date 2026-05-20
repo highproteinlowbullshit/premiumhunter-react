@@ -1,4 +1,8 @@
+import { useState, useEffect } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { WheelPosition } from '../types';
+
+const PAGE_SIZE = 20;
 
 interface ClosedPositionTableProps {
   positions: WheelPosition[];
@@ -19,6 +23,12 @@ function computeRealPnl(pos: WheelPosition) {
 }
 
 export function ClosedPositionTable({ positions, onEdit, onRemove }: ClosedPositionTableProps) {
+  const [page, setPage] = useState(1);
+  useEffect(() => { setPage(1); }, [positions]);
+
+  const totalPages = Math.max(1, Math.ceil(positions.length / PAGE_SIZE));
+  const paged = positions.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
   if (!positions.length) {
     return (
       <div className="flex flex-col items-center justify-center py-14 gap-3">
@@ -42,7 +52,7 @@ export function ClosedPositionTable({ positions, onEdit, onRemove }: ClosedPosit
     <>
       {/* ── Mobile card layout ── */}
       <div className="sm:hidden space-y-3">
-        {positions.map((pos) => {
+        {paged.map((pos) => {
           const { realPnl, returnPct } = computeRealPnl(pos);
           const pnlColor = realPnl >= 0 ? '#00d68f' : '#ff4d6d';
           const isAssigned = pos.status === 'assigned';
@@ -157,7 +167,7 @@ export function ClosedPositionTable({ positions, onEdit, onRemove }: ClosedPosit
             </tr>
           </thead>
           <tbody>
-            {positions.map((pos, i) => {
+            {paged.map((pos, i) => {
               const { realPnl, closeCost, returnPct } = computeRealPnl(pos);
               const pnlColor = realPnl >= 0 ? '#00d68f' : '#ff4d6d';
               const isAssigned = pos.status === 'assigned';
@@ -167,7 +177,7 @@ export function ClosedPositionTable({ positions, onEdit, onRemove }: ClosedPosit
                 <tr
                   key={pos.id}
                   className="stock-row-hover group"
-                  style={{ borderBottom: i < positions.length - 1 ? '1px solid rgba(0, 229, 196, 0.06)' : 'none' }}
+                  style={{ borderBottom: i < paged.length - 1 ? '1px solid rgba(0, 229, 196, 0.06)' : 'none' }}
                 >
                   {/* Ticker */}
                   <td className="py-3.5 pl-5 pr-4">
@@ -303,6 +313,63 @@ export function ClosedPositionTable({ positions, onEdit, onRemove }: ClosedPosit
           </tbody>
         </table>
       </div>
+
+      {/* ── Pagination controls ── */}
+      {positions.length > PAGE_SIZE && (
+        <div className="flex items-center justify-between pt-4 mt-2"
+          style={{ borderTop: '1px solid rgba(0,229,196,0.07)' }}>
+          <button
+            disabled={page === 1}
+            onClick={() => setPage((p) => p - 1)}
+            className="flex items-center gap-1"
+            style={{
+              background: page === 1 ? 'rgba(255,255,255,0.03)' : 'rgba(0,229,196,0.06)',
+              border: `1px solid ${page === 1 ? 'rgba(255,255,255,0.06)' : 'rgba(0,229,196,0.15)'}`,
+              borderRadius: 7,
+              color: page === 1 ? '#2a4a6a' : '#00e5c4',
+              fontFamily: 'DM Sans, sans-serif',
+              fontSize: 12,
+              fontWeight: 600,
+              padding: '6px 12px',
+              cursor: page === 1 ? 'not-allowed' : 'pointer',
+              transition: 'all 0.15s',
+            }}
+          >
+            <ChevronLeft size={14} />
+            Prev
+          </button>
+
+          <span style={{ color: '#4a6a8a', fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}>
+            <span style={{ color: '#c8daf0' }}>{page}</span>
+            {' / '}
+            {totalPages}
+            <span style={{ color: '#2a4a6a', marginLeft: 8, fontSize: 11 }}>
+              ({positions.length} total)
+            </span>
+          </span>
+
+          <button
+            disabled={page === totalPages}
+            onClick={() => setPage((p) => p + 1)}
+            className="flex items-center gap-1"
+            style={{
+              background: page === totalPages ? 'rgba(255,255,255,0.03)' : 'rgba(0,229,196,0.06)',
+              border: `1px solid ${page === totalPages ? 'rgba(255,255,255,0.06)' : 'rgba(0,229,196,0.15)'}`,
+              borderRadius: 7,
+              color: page === totalPages ? '#2a4a6a' : '#00e5c4',
+              fontFamily: 'DM Sans, sans-serif',
+              fontSize: 12,
+              fontWeight: 600,
+              padding: '6px 12px',
+              cursor: page === totalPages ? 'not-allowed' : 'pointer',
+              transition: 'all 0.15s',
+            }}
+          >
+            Next
+            <ChevronRight size={14} />
+          </button>
+        </div>
+      )}
     </>
   );
 }
