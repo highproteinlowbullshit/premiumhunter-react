@@ -259,6 +259,7 @@ export function usePortfolioEnhanced(timeRange: EnhancedTimeRange) {
           ? Math.round((unrealizedGainVsTrueCost / net) * 1000) / 10
           : null;
 
+        const currentCC = openCCsResult.data?.find(cc => cc.ticker === lot.ticker) ?? null;
         const ccPremiumPerContract = ccMap.get(lot.ticker) ?? 0;
         const projectedFinalCostBasis = ccPremiumPerContract > 0
           ? net - ccPremiumPerContract * Number(lot.contracts)
