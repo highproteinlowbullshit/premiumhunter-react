@@ -1022,29 +1022,30 @@ function PaperCloseModal({ position, onClose, onConfirm, estimateClosePrice }: {
       </div>
 
       {/* P&L preview */}
-      {realizedPnlAfterFees !== null && (
-        <div className="rounded-lg px-4 py-3 mb-5"
-          style={{ background: realizedPnlAfterFees >= 0 ? 'rgba(0,214,143,0.06)' : 'rgba(255,77,109,0.06)', border: `1px solid ${realizedPnlAfterFees >= 0 ? 'rgba(0,214,143,0.15)' : 'rgba(255,77,109,0.15)'}` }}>
-          {closeFees > 0 && (
-            <div className="flex justify-between text-xs mb-1.5">
-              <span style={{ color: A.muted, fontFamily: 'DM Sans, sans-serif' }}>
-                {isFullClose ? 'P&L before fees' : `P&L (${contractsToCloseNum}/${position.contracts} contracts)`}
-              </span>
-              <span style={{ color: (realizedPnl ?? 0) >= 0 ? '#00d68f' : '#ff4d6d', fontFamily: 'JetBrains Mono, monospace' }}>
-                {(realizedPnl ?? 0) >= 0 ? '+' : ''}${(realizedPnl ?? 0).toFixed(0)}
-              </span>
-            </div>
-          )}
-          <div className="flex items-center justify-between">
-            <span className="text-xs" style={{ color: A.muted, fontFamily: 'DM Sans, sans-serif' }}>
-              {closeFees > 0 ? 'Net P&L after fees' : isFullClose ? 'Realized P&L' : `P&L (${contractsToCloseNum}/${position.contracts} contracts)`}
+      <div className="rounded-lg px-4 py-3 mb-5"
+        style={{
+          background: realizedPnlAfterFees === null ? 'rgba(0,0,0,0.2)' : realizedPnlAfterFees >= 0 ? 'rgba(0,214,143,0.06)' : 'rgba(255,77,109,0.06)',
+          border: `1px solid ${realizedPnlAfterFees === null ? 'rgba(255,255,255,0.06)' : realizedPnlAfterFees >= 0 ? 'rgba(0,214,143,0.15)' : 'rgba(255,77,109,0.15)'}`,
+        }}>
+        {closeFees > 0 && (
+          <div className="flex justify-between text-xs mb-1.5">
+            <span style={{ color: A.muted, fontFamily: 'DM Sans, sans-serif' }}>
+              {isFullClose ? 'P&L before fees' : `P&L (${contractsToCloseNum}/${position.contracts} contracts)`}
             </span>
-            <span className="text-base font-bold" style={{ color: realizedPnlAfterFees >= 0 ? '#00d68f' : '#ff4d6d', fontFamily: 'JetBrains Mono, monospace' }}>
-              {realizedPnlAfterFees >= 0 ? '+' : ''}${realizedPnlAfterFees.toFixed(0)}
+            <span style={{ color: realizedPnl === null ? '#2a4a6a' : (realizedPnl >= 0 ? '#00d68f' : '#ff4d6d'), fontFamily: 'JetBrains Mono, monospace' }}>
+              {realizedPnl !== null ? `${realizedPnl >= 0 ? '+' : ''}$${realizedPnl.toFixed(0)}` : '—'}
             </span>
           </div>
+        )}
+        <div className="flex items-center justify-between">
+          <span className="text-xs" style={{ color: A.muted, fontFamily: 'DM Sans, sans-serif' }}>
+            {closeFees > 0 ? 'Net P&L after fees' : isFullClose ? 'Realized P&L' : `P&L (${contractsToCloseNum}/${position.contracts} contracts)`}
+          </span>
+          <span className="text-base font-bold" style={{ color: realizedPnlAfterFees === null ? '#2a4a6a' : realizedPnlAfterFees >= 0 ? '#00d68f' : '#ff4d6d', fontFamily: 'JetBrains Mono, monospace' }}>
+            {realizedPnlAfterFees !== null ? `${realizedPnlAfterFees >= 0 ? '+' : ''}$${realizedPnlAfterFees.toFixed(0)}` : '—'}
+          </span>
         </div>
-      )}
+      </div>
 
       <div className="flex gap-3">
         <button type="button" onClick={onClose}

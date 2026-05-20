@@ -696,18 +696,20 @@ function ClosePositionModal({ position, onClose, onConfirm }: {
         </div>
       </div>
 
-      {previewPnl !== null && (
-        <div className="rounded-xl p-4 mb-4"
-          style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.06)' }}>
-          <CloseRow label="Buyback cost" value={`−$${btcCost.toFixed(2)}`} valueColor="#ff8fa3" />
-          {optionFees > 0 && (
-            <CloseRow label="Option fees" value={`−$${optionFees.toFixed(2)}`} valueColor="#ff8fa3" />
-          )}
-          <CloseRow label="Net realized P&L"
-            value={`${(previewPnlAfterFees ?? 0) >= 0 ? '+' : ''}$${(previewPnlAfterFees ?? 0).toFixed(2)}`}
-            valueColor={(previewPnlAfterFees ?? 0) >= 0 ? '#00d68f' : '#ff4d6d'} />
-        </div>
-      )}
+      <div className="rounded-xl p-4 mb-4"
+        style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.06)' }}>
+        <CloseRow
+          label="Buyback cost"
+          value={previewPnl !== null ? `−$${btcCost.toFixed(2)}` : '—'}
+          valueColor={previewPnl !== null ? '#ff8fa3' : '#2a4a6a'} />
+        {optionFees > 0 && (
+          <CloseRow label="Option fees" value={`−$${optionFees.toFixed(2)}`} valueColor="#ff8fa3" />
+        )}
+        <CloseRow
+          label="Net realized P&L"
+          value={previewPnlAfterFees !== null ? `${previewPnlAfterFees >= 0 ? '+' : ''}$${previewPnlAfterFees.toFixed(2)}` : '—'}
+          valueColor={previewPnlAfterFees !== null ? (previewPnlAfterFees >= 0 ? '#00d68f' : '#ff4d6d') : '#2a4a6a'} />
+      </div>
 
       <div className="flex gap-3">
         <button type="button" onClick={onClose}
