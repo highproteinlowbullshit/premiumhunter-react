@@ -48,7 +48,7 @@ export function useMonthlyPnL() {
         .select(`id, ticker, strategy, strike, expiry, premium_collected, ${closingColumn}, contracts, opened_at, closed_at, status`)
         .eq('user_id', user!.id)
         .in('status', ['closed', 'assigned', 'expired'])
-        .or(`closed_at.gte.${thirteenMonthsAgo.toISOString()},closed_at.is.null`)
+        .gte('closed_at', thirteenMonthsAgo.toISOString())
         .order('closed_at', { ascending: true })
 
       if (closedError) throw closedError
@@ -185,8 +185,10 @@ export function useMonthlyPnL() {
         ? Math.round(((currentMonth.premiumCollected - lyPremium) / lyPremium) * 1000) / 10
         : null
 
+      // Skip current month (index months.length-1) — it's incomplete and would break
+      // a real streak just because no positions have closed yet this month.
       let streakMonths = 0
-      for (let i = months.length - 1; i >= 0; i--) {
+      for (let i = months.length - 2; i >= 0; i--) {
         if (months[i].premiumCollected > 0) streakMonths++
         else break
       }

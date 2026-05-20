@@ -47,7 +47,8 @@ serve(async (req) => {
         const priceId = session.metadata?.price_id
         if (!userId) { console.error('No user_id in session metadata'); break }
 
-        const tier = PRICE_TO_TIER[priceId ?? ''] ?? 'pro'
+        const tier = PRICE_TO_TIER[priceId ?? '']
+        if (!tier) { console.error(`Unknown price_id ${priceId} — skipping upgrade`); break }
         let subData: Record<string, unknown> = {}
 
         if (session.subscription) {
@@ -77,7 +78,8 @@ serve(async (req) => {
       case 'customer.subscription.updated': {
         const sub = event.data.object as Stripe.Subscription
         const priceId = sub.items.data[0]?.price.id
-        const tier = PRICE_TO_TIER[priceId ?? ''] ?? 'pro'
+        const tier = PRICE_TO_TIER[priceId ?? '']
+        if (!tier) { console.error(`Unknown price_id ${priceId} in subscription.updated — skipping`); break }
 
         await supabase.from('subscriptions').update({
           tier,

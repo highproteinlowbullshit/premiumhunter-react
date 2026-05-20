@@ -300,7 +300,7 @@ function ClosedLotCard({ lot, onRemoveLot }: { lot: AssignedLot; onRemoveLot?: (
           Premium: +${lot.totalPremiumCollected.toLocaleString()}
         </div>
         <div style={{ color: lot.totalLotReturn !== null && lot.totalLotReturn >= 0 ? '#00d68f' : '#ff4d6d', fontFamily: 'JetBrains Mono, monospace' }}>
-          Total: {lot.totalLotReturn !== null ? `+${fmt$(lot.totalLotReturn)}` : '—'}
+          Total: {lot.totalLotReturn !== null ? `${lot.totalLotReturn >= 0 ? '+' : ''}${fmt$(lot.totalLotReturn)}` : '—'}
           {lot.lotAnnualisedReturn !== null && <span style={{ color: '#9ab4d4', marginLeft: 6 }}>({lot.lotAnnualisedReturn}% ann.)</span>}
         </div>
       </div>

@@ -13,9 +13,24 @@ export function GuestRoute({ children }: { children: React.ReactNode }) {
 }
 
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+  const { user, loading, isBanned } = useAuth();
   const { isLoading: disclaimerLoading } = useDisclaimer();
   const location = useLocation();
+
+  if (isBanned) {
+    return (
+      <div className="min-h-screen mesh-bg flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4 text-center px-6" style={{ maxWidth: 400 }}>
+          <p className="text-base font-semibold" style={{ color: '#ff4d6d', fontFamily: 'DM Sans, sans-serif' }}>
+            Account suspended
+          </p>
+          <p className="text-sm" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
+            Your account has been suspended. If you believe this is a mistake, please contact support.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

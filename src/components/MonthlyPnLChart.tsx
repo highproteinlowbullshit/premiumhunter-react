@@ -380,8 +380,10 @@ export function MonthlyPnLChart({ compact = false }: Props) {
               angle={-45}
               textAnchor="end"
               height={48}
-              tickFormatter={(value, index) => {
-                const m = chartData[index]
+              tickFormatter={(value: string) => {
+                // `value` is the dataKey ("month" string) — safe to use directly.
+                // Using the render index as a chartData subscript breaks when Recharts skips ticks.
+                const m = chartData.find(d => d.month === value)
                 if (m?.monthKey.endsWith('-01')) return value
                 return value.split(' ')[0]
               }}

@@ -109,7 +109,7 @@ export function usePortfolioEnhanced(timeRange: EnhancedTimeRange) {
           .order('snapshot_date', { ascending: true }),
         supabase
           .from('wheel_positions')
-          .select('ticker, strategy, premium_collected, closing_price, contracts, status, closed_at, opened_at')
+          .select('ticker, strategy, premium_collected, closing_price, contracts, status, closed_at, opened_at, expiry')
           .eq('user_id', user!.id)
           .in('status', ['closed', 'expired', 'assigned'])
           .order('closed_at', { ascending: false })
@@ -164,7 +164,9 @@ export function usePortfolioEnhanced(timeRange: EnhancedTimeRange) {
           ccPremium += net;
         }
 
-        const d = pos.closed_at as string | null;
+        // Expired positions sometimes have null closed_at (pre-migration records);
+        // fall back to expiry date so their premium appears in the right month.
+        const d = (pos.closed_at as string | null) ?? (pos.status === 'expired' ? (pos.expiry as string | null) : null);
         if (d) {
           const mk = d.slice(0, 7);
           if (!monthMap.has(mk)) monthMap.set(mk, { premium: 0, gains: 0 });
@@ -236,9 +238,11 @@ export function usePortfolioEnhanced(timeRange: EnhancedTimeRange) {
         }
       }
 
-      const ccMap = new Map<string, any>();
+      // Accumulate total premium_collected per ticker across all open CCs
+      // (a user may have multiple CCs on the same ticker from different lots)
+      const ccMap = new Map<string, number>();
       for (const cc of openCCsResult.data ?? []) {
-        ccMap.set(cc.ticker, cc);
+        ccMap.set(cc.ticker, (ccMap.get(cc.ticker) ?? 0) + Number(cc.premium_collected));
       }
 
       const assignedLots: AssignedLot[] = lots.map(lot => {
@@ -255,9 +259,9 @@ export function usePortfolioEnhanced(timeRange: EnhancedTimeRange) {
           ? Math.round((unrealizedGainVsTrueCost / net) * 1000) / 10
           : null;
 
-        const currentCC = ccMap.get(lot.ticker) ?? null;
-        const projectedFinalCostBasis = currentCC
-          ? net - Number(currentCC.premium_collected) * Number(lot.contracts)
+        const ccPremiumPerContract = ccMap.get(lot.ticker) ?? 0;
+        const projectedFinalCostBasis = ccPremiumPerContract > 0
+          ? net - ccPremiumPerContract * Number(lot.contracts)
           : net;
 
         const percentRecovered = gross > 0

@@ -245,7 +245,7 @@ function buildSectorMomentumMap(
   const result = new Map<string, 'bullish' | 'bearish' | 'neutral'>();
   changes.forEach((vals, sector) => {
     const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
-    result.set(sector, avg >= 1 ? 'bullish' : avg <= -1 ? 'bearish' : 'neutral');
+    result.set(sector, avg >= 0.3 ? 'bullish' : avg <= -0.3 ? 'bearish' : 'neutral');
   });
   return result;
 }

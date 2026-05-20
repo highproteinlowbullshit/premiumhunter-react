@@ -6,7 +6,8 @@ import type { CycleGroup, WheelCycle, CycleLeg } from '../hooks/useCycleGroups';
 // ─────────────────────────────────────────────────────────────────────────────
 
 function fmtDate(d: string) {
-  return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
+  const [y, m, day] = d.split('T')[0].split('-').map(Number);
+  return new Date(y, m - 1, day).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
 }
 
 function fmtMoney(v: number) {

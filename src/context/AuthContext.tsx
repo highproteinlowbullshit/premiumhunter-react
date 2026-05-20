@@ -14,6 +14,7 @@ interface AuthContextValue {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  isBanned: boolean;
   signOut: () => Promise<void>;
 }
 
@@ -23,6 +24,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isBanned, setIsBanned] = useState(false);
   // Tracks whether a PASSWORD_RECOVERY event has fired so that a getSession()
   // resolving later on a slow connection doesn't undo the user=null guard.
   const recoveryModeRef = useRef(false);
@@ -37,29 +39,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       );
   }, []);
 
+  const checkBanStatus = useCallback(async (userId: string): Promise<boolean> => {
+    const { data } = await supabase
+      .from('user_profiles')
+      .select('is_banned')
+      .eq('user_id', userId)
+      .maybeSingle();
+    return data?.is_banned === true;
+  }, []);
+
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
-      // If PASSWORD_RECOVERY already fired before this promise resolved, skip
-      // setting the user — we don't want to undo the user=null guard.
       if (!recoveryModeRef.current) {
-        setUser(session?.user ?? null);
+        const u = session?.user ?? null;
+        setUser(u);
+        if (u) {
+          const banned = await checkBanStatus(u.id);
+          setIsBanned(banned);
+          if (banned) await supabase.auth.signOut();
+        }
       }
       setLoading(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      async (event, session) => {
         setSession(session);
-        // PASSWORD_RECOVERY is a temporary session for resetting the password only.
-        // Don't treat it as a full sign-in — keep the app in the unauthenticated state
-        // so the user lands on (and stays on) the reset-password page.
         if (event === 'PASSWORD_RECOVERY') {
           recoveryModeRef.current = true;
           setUser(null);
+          setIsBanned(false);
         } else {
           recoveryModeRef.current = false;
-          setUser(session?.user ?? null);
+          const u = session?.user ?? null;
+          setUser(u);
+          if (u) {
+            const banned = await checkBanStatus(u.id);
+            setIsBanned(banned);
+            if (banned) { await supabase.auth.signOut(); return; }
+          } else {
+            setIsBanned(false);
+          }
         }
         setLoading(false);
 
@@ -70,14 +91,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
 
     return () => subscription.unsubscribe();
-  }, [initPreferences]);
+  }, [initPreferences, checkBanStatus]);
 
   const signOut = useCallback(async () => {
+    setIsBanned(false);
     await supabase.auth.signOut();
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, isBanned, signOut }}>
       {children}
     </AuthContext.Provider>
   );

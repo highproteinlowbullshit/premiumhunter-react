@@ -540,6 +540,7 @@ function ClosePositionModal({ position, onClose, onConfirm }: {
   const [step, setStep] = useState(0);
   const [closingPrice, setClosingPrice] = useState('');
   const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
   const [openLot, setOpenLot] = useState<{
     id: string; shares: number; contracts: number;
     total_premium_collected: number; net_cost_basis: number; cost_basis_per_share: number;
@@ -723,9 +724,10 @@ function ClosePositionModal({ position, onClose, onConfirm }: {
         <button type="button" onClick={() => setStep(0)}
           className="flex-1 py-2.5 rounded-xl text-sm font-medium hover:bg-[rgba(255,255,255,0.05)] transition-colors"
           style={btnSecondary}>← Back</button>
-        <button type="button" onClick={() => onConfirm(closingPriceNum * 100)}
-          className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 hover:opacity-90"
-          style={btnPrimary}>Close Position</button>
+        <button type="button" onClick={() => { setSaving(true); onConfirm(closingPriceNum * 100); }}
+          disabled={saving}
+          className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 hover:opacity-90 disabled:opacity-50"
+          style={btnPrimary}>{saving ? 'Closing…' : 'Close Position'}</button>
       </div>
     </ModalShell>
   );

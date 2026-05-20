@@ -89,7 +89,7 @@ export async function getSupabaseCachedToday(): Promise<Map<string, SupabaseIVRo
 function buildScreenerFromLive(
   ticker: string,
   quote: { c: number; dp: number; pc?: number } | null,
-  hv: { ivRank: number; ivPercentile: number; currentHV: number; hv30: number; hv52wkHigh: number; hv52wkLow: number; ivHvRatio: number; volume: number | null } | null,
+  hv: { ivRank: number; ivPercentile: number; currentHV: number; hv30: number; hv52wkHigh: number; hv52wkLow: number; ivHvRatio: number | null; volume: number | null } | null,
   earningsDate: string | null = null,
 ): ScreenerStock {
   const meta = STOCK_META[ticker];

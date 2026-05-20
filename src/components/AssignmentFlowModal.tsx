@@ -128,7 +128,7 @@ export function AssignmentFlowModal({ position, onClose, onConfirm }: Props) {
           user_id: user.id,
           event_type: 'csp_premium',
           premium_amount: Math.round(totalPremium * 100) / 100,
-          event_date: assignmentDate,
+          event_date: position.openedAt.split('T')[0],
         });
       }
 

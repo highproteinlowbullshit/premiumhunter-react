@@ -944,8 +944,11 @@ export function useDashboardIntelligence() {
         if (d.getDay() >= 1 && d.getDay() <= 5) tradingLeft++;
       }
 
-      const dayOfMonth = now.getDate();
-      const dailyRate = dayOfMonth > 1 ? tmPremium / (dayOfMonth - 1) : 0;
+      let tradingElapsed = 0;
+      for (let d = new Date(now.getFullYear(), now.getMonth(), 1); d <= now; d.setDate(d.getDate() + 1)) {
+        if (d.getDay() >= 1 && d.getDay() <= 5) tradingElapsed++;
+      }
+      const dailyRate = tradingElapsed > 0 ? tmPremium / tradingElapsed : 0;
       const projectedTotal = tmPremium + dailyRate * tradingLeft;
       const isOnTrack = targetAmount === 0 || tmPremium >= targetAmount || projectedTotal >= targetAmount * 0.9;
 

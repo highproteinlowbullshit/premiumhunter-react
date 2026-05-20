@@ -990,7 +990,10 @@ export function AdminPage() {
               tierFilter={tierFilter}
               onSelectUser={setSelectedUser}
               onChangeTier={(userId, newTier) =>
-                changeTier.mutate({ userId, newTier, reason: 'Quick change from admin table' })
+                changeTier.mutate({ userId, newTier, reason: 'Quick change from admin table' }, {
+                  onSuccess: () => showToast(`Tier changed to ${newTier}`, 'success'),
+                  onError: (err: unknown) => showToast(`Tier change failed: ${err instanceof Error ? err.message : String(err)}`, 'error'),
+                })
               }
             />
           </div>
@@ -1075,7 +1078,10 @@ export function AdminPage() {
           user={selectedUser}
           onClose={() => setSelectedUser(null)}
           onChangeTier={(newTier, reason) => changeTier.mutate({ userId: selectedUser.user_id, newTier, reason })}
-          onBanUser={reason => banUser.mutate({ userId: selectedUser.user_id, reason })}
+          onBanUser={reason => banUser.mutate({ userId: selectedUser.user_id, reason }, {
+            onSuccess: () => showToast('User banned', 'success'),
+            onError: (err: unknown) => showToast(`Ban failed: ${err instanceof Error ? err.message : String(err)}`, 'error'),
+          })}
           onAddNote={note => addNote.mutate({ userId: selectedUser.user_id, note })}
           onDeleteUser={reason => {
             deleteUser.mutate({ userId: selectedUser.user_id, reason }, {

@@ -393,7 +393,7 @@ export function calculatePositionGreeks(params: {
   const sellerGamma = positionGamma * -1
 
   const dollarThetaToday = sellerTheta
-  const dollarThetaToExpiry = sellerTheta * dte
+  const dollarThetaToExpiry = bs.timeValue * multiplier
   const dollarVegaImpact = sellerVega
   const dollarDeltaImpact = sellerDelta
 

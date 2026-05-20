@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AlertTriangle, Search, Trophy, Lightbulb, BarChart2,
@@ -76,13 +76,13 @@ function HealthPopover({ factors, score, label, onClose, wrapperRef }: {
     >
       <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', columnGap: 14, rowGap: 10, alignItems: 'center', marginBottom: 10 }}>
         {factors.map(f => (
-          <>
-            <span key={`${f.factor}-name`} style={{ fontSize: 12, color: '#9ab4d4', fontFamily: 'DM Sans, sans-serif' }}>{f.factor}</span>
-            <span key={`${f.factor}-note`} style={{ fontSize: 11, color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', textAlign: 'right', whiteSpace: 'nowrap' }}>{f.note}</span>
-            <span key={`${f.factor}-score`} style={{ fontSize: 12, fontWeight: 700, color: '#00e5c4', fontFamily: 'JetBrains Mono, monospace', textAlign: 'right', whiteSpace: 'nowrap' }}>
+          <React.Fragment key={f.factor}>
+            <span style={{ fontSize: 12, color: '#9ab4d4', fontFamily: 'DM Sans, sans-serif' }}>{f.factor}</span>
+            <span style={{ fontSize: 11, color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', textAlign: 'right', whiteSpace: 'nowrap' }}>{f.note}</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#00e5c4', fontFamily: 'JetBrains Mono, monospace', textAlign: 'right', whiteSpace: 'nowrap' }}>
               {f.score}/{f.maxScore}
             </span>
-          </>
+          </React.Fragment>
         ))}
       </div>
       <div style={{ borderTop: '1px solid rgba(0,229,196,0.1)', paddingTop: 12, marginTop: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

@@ -376,7 +376,7 @@ export function PositionTable({
                 <div>
                   <p className="text-xs mb-0.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>Premium</p>
                   <p className="text-sm font-medium" style={{ color: '#00e5c4', fontFamily: 'JetBrains Mono, monospace' }}>
-                    ${pos.premiumCollected}
+                    ${pos.premiumCollected.toFixed(0)}
                   </p>
                 </div>
                 <div>

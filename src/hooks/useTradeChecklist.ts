@@ -69,6 +69,8 @@ export function useTradeChecklist(
     if (fetchingTicker === ticker) return;
     setFetchingTicker(ticker);
 
+    let cancelled = false;
+
     const fetchAll = async () => {
       // IV rank + cached earnings date from iv_snapshots
       const { data: ivRow } = await supabase
@@ -78,6 +80,8 @@ export function useTradeChecklist(
         .order('snapshot_date', { ascending: false })
         .limit(1)
         .maybeSingle();
+
+      if (cancelled) return;
 
       // Earnings: prefer Supabase cache; fall back to live Finnhub if not cached
       let daysToEarnings: number | null = null;
@@ -108,6 +112,8 @@ export function useTradeChecklist(
         if (import.meta.env.DEV) console.warn(`[checklist] 52wk low fetch failed for ${ticker}:`, err);
       }
 
+      if (cancelled) return;
+
       setSupplemental((s) => ({
         ...s,
         ivRank: ivRow ? Number(ivRow.iv_rank) : null,
@@ -118,6 +124,7 @@ export function useTradeChecklist(
     };
 
     void fetchAll();
+    return () => { cancelled = true; };
   }, [formValues.ticker]);
 
   // Build full input and run checklist

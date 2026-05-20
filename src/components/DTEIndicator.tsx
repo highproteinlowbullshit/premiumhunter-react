@@ -11,8 +11,8 @@ interface DTEData {
 function calculateDTE(expiry: string): DTEData {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const expiryDate = new Date(expiry);
-  expiryDate.setHours(0, 0, 0, 0);
+  const [ey, em, ed] = expiry.split('-').map(Number);
+  const expiryDate = new Date(ey, em - 1, ed); // local midnight, avoids UTC parse off-by-one
   const diffMs = expiryDate.getTime() - today.getTime();
   const dte = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
   return {
@@ -26,8 +26,8 @@ function calculateDTE(expiry: string): DTEData {
 function countTradingDays(expiry: string): number {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const end = new Date(expiry);
-  end.setHours(0, 0, 0, 0);
+  const [ty, tm, td] = expiry.split('-').map(Number);
+  const end = new Date(ty, tm - 1, td);
   let count = 0;
   const cur = new Date(today);
   while (cur < end) {
@@ -154,7 +154,8 @@ export function DTEIndicator({ expiry, compact: _compact = true }: Props) {
 
   const dteLabel = isExpired ? 'EXPIRED' : isToday ? 'TODAY' : `${dte}d`;
 
-  const fullExpiry = new Date(expiry).toLocaleDateString('en-US', {
+  const [fey, fem, fed] = expiry.split('-').map(Number);
+  const fullExpiry = new Date(fey, fem - 1, fed).toLocaleDateString('en-US', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
   });
 

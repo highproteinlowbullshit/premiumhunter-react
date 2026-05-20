@@ -49,7 +49,7 @@ export interface PolygonIVData {
   hv30: number;           // same — explicit alias
   hv52wkHigh: number;     // max 30-day HV over past year
   hv52wkLow: number;      // min 30-day HV over past year
-  ivHvRatio: number;      // hv30 / hv60 — elevated short-term vol indicator
+  ivHvRatio: number | null;  // hv30 / hv60 — null when insufficient HV60 data
   weeklyHistory: IVDataPoint[];  // 52 weekly data points for chart
   volume: number | null;  // most recent day's volume
 }
@@ -211,12 +211,12 @@ export async function getIVData(
         : 50;
 
     // IV Percentile: % of past HV values that were <= current
-    const belowCount = hvSeries.filter((v) => v <= currentHV).length;
+    const belowCount = hvSeries.filter((v) => v < currentHV).length;
     const ivPercentile = Math.round((belowCount / hvSeries.length) * 100);
 
     // HV60 for the IV/HV ratio (elevated recent vol vs medium-term baseline)
     const hv60 = calcHV(closes, 60);
-    const ivHvRatio = hv60 > 0 ? parseFloat((currentHV / hv60).toFixed(2)) : 1.0;
+    const ivHvRatio = hv60 > 0 ? parseFloat((currentHV / hv60).toFixed(2)) : null;
 
     // 52 weekly data points sampled so the first point is the oldest bar and
     // the last point is always the most recent bar (today).

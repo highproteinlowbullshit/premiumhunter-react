@@ -29,7 +29,7 @@ export function useAssignmentProbabilities(
   // Dates are computed inside queryFn so they stay current if the page is
   // open across midnight without a reload.
   const { data: ivRows } = useQuery({
-    queryKey: ['iv-for-positions', tickers.join(',')],
+    queryKey: ['iv-for-positions', user?.id, tickers.join(',')],
     queryFn: async () => {
       if (tickers.length === 0) return [];
       const thirtyDaysAgo = new Date(Date.now() - 30 * 86_400_000).toISOString().split('T')[0];

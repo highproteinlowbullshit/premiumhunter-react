@@ -79,8 +79,8 @@ export function FeatureGate({
   const { can, isSuperuser, isLoading } = useSubscription()
 
   if (isSuperuser) return <>{children}</>
-  if (isLoading) return <>{children}</>
   if (can(feature)) return <>{children}</>
+  if (isLoading) return null
   if (fallback) return <>{fallback}</>
   if (mode === 'hide') return null
   if (mode === 'lock') return <LockCard />

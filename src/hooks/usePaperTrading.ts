@@ -69,15 +69,19 @@ export function usePaperPositions() {
   const load = useCallback(async () => {
     if (!user) { setPositions([]); setAllPositions([]); return; }
     setIsLoading(true);
-    const { data } = await supabase
-      .from('paper_positions')
-      .select('id, ticker, strategy, strike, expiry, premium_collected, contracts, underlying_price_at_entry, status, notes, opened_at, closed_at, closing_premium, realized_pnl, created_at')
-      .eq('user_id', user.id)
-      .order('opened_at', { ascending: false });
-    const all = (data ?? []).map(dbToPosition);
-    setAllPositions(all);
-    setPositions(all.filter((p) => p.status === 'open'));
-    setIsLoading(false);
+    try {
+      const { data, error } = await supabase
+        .from('paper_positions')
+        .select('id, ticker, strategy, strike, expiry, premium_collected, contracts, underlying_price_at_entry, status, notes, opened_at, closed_at, closing_premium, realized_pnl, created_at')
+        .eq('user_id', user.id)
+        .order('opened_at', { ascending: false });
+      if (error) throw error;
+      const all = (data ?? []).map(dbToPosition);
+      setAllPositions(all);
+      setPositions(all.filter((p) => p.status === 'open'));
+    } finally {
+      setIsLoading(false);
+    }
   }, [user]);
 
   useEffect(() => { void load(); }, [load]);
@@ -150,11 +154,12 @@ export function usePaperActions() {
       closed_at: new Date().toISOString(),
     }).eq('id', id);
 
-    const { data: acct } = await supabase.from('paper_accounts').select('id, user_id, starting_balance, current_cash, total_premium_collected, total_realized_pnl, trades_won, trades_total, created_at, reset_at').eq('user_id', user.id).single();
-    const currentCash = Number(acct?.current_cash ?? 0);
-    const currentPnl = Number(acct?.total_realized_pnl ?? 0);
-    const currentWon = Number(acct?.trades_won ?? 0);
-    const currentTotal = Number(acct?.trades_total ?? 0);
+    const { data: acct, error: acctErr } = await supabase.from('paper_accounts').select('id, user_id, starting_balance, current_cash, total_premium_collected, total_realized_pnl, trades_won, trades_total, created_at, reset_at').eq('user_id', user.id).single();
+    if (acctErr || !acct) { showToast('Failed to read paper account', 'error'); return; }
+    const currentCash = Number(acct.current_cash);
+    const currentPnl = Number(acct.total_realized_pnl);
+    const currentWon = Number(acct.trades_won);
+    const currentTotal = Number(acct.trades_total);
 
     await supabase.from('paper_accounts').update({
       current_cash: currentCash + collateralReturn + realizedPnl,
@@ -184,12 +189,13 @@ export function usePaperActions() {
       closed_at: new Date().toISOString(),
     }).eq('id', id);
 
-    const { data: acct } = await supabase.from('paper_accounts').select('id, user_id, starting_balance, current_cash, total_premium_collected, total_realized_pnl, trades_won, trades_total, created_at, reset_at').eq('user_id', user.id).single();
+    const { data: acct, error: acctErr2 } = await supabase.from('paper_accounts').select('id, user_id, starting_balance, current_cash, total_premium_collected, total_realized_pnl, trades_won, trades_total, created_at, reset_at').eq('user_id', user.id).single();
+    if (acctErr2 || !acct) { showToast('Failed to read paper account', 'error'); return; }
     await supabase.from('paper_accounts').update({
-      current_cash: Number(acct?.current_cash ?? 0) + collateralReturn + realizedPnl,
-      total_realized_pnl: Number(acct?.total_realized_pnl ?? 0) + realizedPnl,
-      trades_total: Number(acct?.trades_total ?? 0) + 1,
-      trades_won: Number(acct?.trades_won ?? 0) + 1,
+      current_cash: Number(acct.current_cash) + collateralReturn + realizedPnl,
+      total_realized_pnl: Number(acct.total_realized_pnl) + realizedPnl,
+      trades_total: Number(acct.trades_total) + 1,
+      trades_won: Number(acct.trades_won) + 1,
     }).eq('user_id', user.id);
 
     showToast(`Position expired worthless — full premium kept! +$${realizedPnl.toFixed(0)}`, 'success');

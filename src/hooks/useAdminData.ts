@@ -76,13 +76,18 @@ export function useAdminData(auditFilters: any = {}, auditPage: number = 1) {
 
 
 
+  const invalidateAll = () => {
+    queryClient.invalidateQueries({ queryKey: ['admin-users'] })
+    queryClient.invalidateQueries({ queryKey: ['admin-audit-log'] })
+  }
+
   const changeTier = useMutation({
     mutationFn: async (params: { userId: string; newTier: string; reason: string }) => {
       const { data, error } = await supabase.functions.invoke('admin-change-tier', { body: params })
       if (error) throw error
       return data
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-users'] }),
+    onSuccess: invalidateAll,
   })
 
   const banUser = useMutation({
@@ -91,7 +96,7 @@ export function useAdminData(auditFilters: any = {}, auditPage: number = 1) {
       if (error) throw error
       return data
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-users'] }),
+    onSuccess: invalidateAll,
   })
 
   const addNote = useMutation({
@@ -100,7 +105,7 @@ export function useAdminData(auditFilters: any = {}, auditPage: number = 1) {
       if (error) throw error
       return data
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-users'] }),
+    onSuccess: invalidateAll,
   })
 
   const deleteUser = useMutation({
@@ -111,7 +116,7 @@ export function useAdminData(auditFilters: any = {}, auditPage: number = 1) {
       if (error) throw error
       return data
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-users'] }),
+    onSuccess: invalidateAll,
   })
 
   return { users, auditLog, changeTier, banUser, addNote, deleteUser }
