@@ -73,6 +73,12 @@ function compute(now: Date): MarketState {
       return { phase: 'open', countdown: fmt(CLOSE - secs) }
     if (secs >= PRE && secs < OPEN)
       return { phase: 'pre', countdown: fmt(OPEN - secs) }
+    // Midnight–4 AM ET on a trading day: today's open is still upcoming
+    if (secs < PRE) {
+      const targetUTC = Date.UTC(et.year, et.month - 1, et.day, 9, 30, 0) + etOffsetMs
+      return { phase: 'closed', countdown: fmt(Math.max(0, Math.round((targetUTC - nowMs) / 1000))) }
+    }
+    // secs >= CLOSE: after-hours — fall through to find next trading day
   }
 
   // Find next trading day's 9:30 AM ET
