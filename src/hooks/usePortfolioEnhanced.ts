@@ -126,7 +126,7 @@ export function usePortfolioEnhanced(timeRange: EnhancedTimeRange) {
           .order('assignment_date', { ascending: false }),
         supabase
           .from('wheel_positions')
-          .select('id, ticker, strike, expiry, premium_collected')
+          .select('id, ticker, strike, expiry, premium_collected, contracts')
           .eq('user_id', user!.id)
           .eq('status', 'open')
           .eq('strategy', 'CC'),
@@ -238,11 +238,17 @@ export function usePortfolioEnhanced(timeRange: EnhancedTimeRange) {
         }
       }
 
-      // Accumulate total premium_collected per ticker across all open CCs
-      // (a user may have multiple CCs on the same ticker from different lots)
+      // Accumulate total dollar CC premium per ticker (rate × contracts) for projected cost basis.
+      // Proportionally split across lots when a ticker has multiple holding lots.
       const ccMap = new Map<string, number>();
       for (const cc of openCCsResult.data ?? []) {
-        ccMap.set(cc.ticker, (ccMap.get(cc.ticker) ?? 0) + Number(cc.premium_collected));
+        ccMap.set(cc.ticker, (ccMap.get(cc.ticker) ?? 0) + Number(cc.premium_collected) * Number(cc.contracts));
+      }
+      const holdingContractsMap = new Map<string, number>();
+      for (const lot of lots) {
+        if (lot.status === 'holding') {
+          holdingContractsMap.set(lot.ticker, (holdingContractsMap.get(lot.ticker) ?? 0) + Number(lot.contracts));
+        }
       }
 
       const assignedLots: AssignedLot[] = lots.map(lot => {
@@ -260,9 +266,13 @@ export function usePortfolioEnhanced(timeRange: EnhancedTimeRange) {
           : null;
 
         const currentCC = openCCsResult.data?.find(cc => cc.ticker === lot.ticker) ?? null;
-        const ccPremiumPerContract = ccMap.get(lot.ticker) ?? 0;
-        const projectedFinalCostBasis = ccPremiumPerContract > 0
-          ? net - ccPremiumPerContract * Number(lot.contracts)
+        const ccTotalForTicker = ccMap.get(lot.ticker) ?? 0;
+        const tickerHoldingContracts = holdingContractsMap.get(lot.ticker) ?? Number(lot.contracts);
+        const ccPremiumForLot = tickerHoldingContracts > 0
+          ? ccTotalForTicker * (Number(lot.contracts) / tickerHoldingContracts)
+          : 0;
+        const projectedFinalCostBasis = ccPremiumForLot > 0
+          ? net - ccPremiumForLot
           : net;
 
         const percentRecovered = gross > 0
@@ -276,12 +286,13 @@ export function usePortfolioEnhanced(timeRange: EnhancedTimeRange) {
         }));
 
         let lotAnnualisedReturn: number | null = null;
-        if (lot.status !== 'holding' && lot.exit_date && lot.total_lot_return) {
+        if (lot.status !== 'holding' && lot.exit_date && lot.total_lot_return != null) {
           const daysHeld = Math.ceil(
             (new Date(lot.exit_date).getTime() - new Date(lot.assignment_date).getTime()) / 86_400_000
           );
-          if (daysHeld > 0 && gross > 0) {
-            const r = Number(lot.total_lot_return) / gross;
+          const basis = net > 0 ? net : gross;
+          if (daysHeld > 0 && basis > 0) {
+            const r = Number(lot.total_lot_return) / basis;
             lotAnnualisedReturn = Math.round(r * (365 / daysHeld) * 1000) / 10;
           }
         }
@@ -328,7 +339,7 @@ export function usePortfolioEnhanced(timeRange: EnhancedTimeRange) {
         const rawTs = pos.closed_at ?? pos.opened_at ?? '';
         // Use local-time date (sv-SE locale gives YYYY-MM-DD) to match assignment_date
         // which is a date column stored in the user's trading day, not UTC.
-        const localDate = rawTs ? new Date(rawTs).toLocaleDateString('sv-SE') : rawTs.split('T')[0];
+        const localDate = rawTs ? new Date(rawTs).toLocaleDateString('sv-SE') : '';
         const key = pos.ticker + '|' + localDate;
         return !existingLotTickers.has(key);
       }).length;

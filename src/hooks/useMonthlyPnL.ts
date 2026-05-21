@@ -48,7 +48,7 @@ export function useMonthlyPnL() {
         .select(`id, ticker, strategy, strike, expiry, premium_collected, ${closingColumn}, contracts, opened_at, closed_at, status`)
         .eq('user_id', user!.id)
         .in('status', ['closed', 'assigned', 'expired'])
-        .gte('closed_at', thirteenMonthsAgo.toISOString())
+        .or(`closed_at.gte.${thirteenMonthsAgo.toISOString()},closed_at.is.null`)
         .order('closed_at', { ascending: true })
 
       if (closedError) throw closedError

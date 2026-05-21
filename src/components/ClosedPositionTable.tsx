@@ -257,7 +257,7 @@ export function ClosedPositionTable({ positions, onEdit, onRemove }: ClosedPosit
                         <div
                           className="h-full rounded-full"
                           style={{
-                            width: `${Math.min(100, Math.abs(returnPct) * 10)}%`,
+                            width: `${Math.min(100, Math.abs(returnPct) * 5)}%`,
                             background: pnlColor,
                           }}
                         />

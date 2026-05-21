@@ -646,7 +646,7 @@ function OpenPaperPositionModal({ availableCash, onClose, onSubmit }: {
   const [globalError, setGlobalError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [fetchingPrice, setFetchingPrice] = useState(false);
-  const [spotPrice, setSpotPrice] = useState(0);
+  const [spotPrice, setSpotPrice] = useState<number | null>(null);
 
   const contracts = Number(form.contracts) || 1;
   const strike = Number(form.strike) || 0;
@@ -688,7 +688,7 @@ function OpenPaperPositionModal({ availableCash, onClose, onSubmit }: {
       expiry: form.expiry,
       premiumCollected: Number(form.premium),
       contracts,
-      underlyingPriceAtEntry: spotPrice || Number(form.strike),
+      underlyingPriceAtEntry: spotPrice ?? Number(form.strike),
       optionFees: totalFees > 0 ? totalFees : undefined,
     });
     setSubmitting(false);
@@ -902,11 +902,14 @@ function PaperCloseModal({ position, onClose, onConfirm, estimateClosePrice }: {
   const [error, setError] = useState('');
 
   useEffect(() => {
+    let cancelled = false;
     estimateClosePrice(position).then((est) => {
+      if (cancelled) return;
       setBsEstimate(est);
-      if (est !== null && est > 0) setClosingPremium(String(est));
+      if (est !== null && est > 0) setClosingPremium((prev) => prev === '' ? String(est) : prev);
       setLoadingBS(false);
     });
+    return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -921,6 +924,8 @@ function PaperCloseModal({ position, onClose, onConfirm, estimateClosePrice }: {
   const totalPremium = position.premiumCollected * position.contracts * 100;
 
   const handleConfirm = () => {
+    const rawC = Number(contractsToClose);
+    if (position.contracts > 1 && (contractsToClose === '' || rawC < 1 || rawC > position.contracts || !Number.isInteger(rawC))) { setError(`Enter a whole number of contracts (1–${position.contracts})`); return; }
     if (!closingPremium || isNaN(premNum) || premNum < 0) { setError('Enter a valid option price'); return; }
     onConfirm(premNum, contractsToCloseNum, closeFees);
   };
@@ -1039,7 +1044,9 @@ function PaperCloseModal({ position, onClose, onConfirm, estimateClosePrice }: {
         )}
         <div className="flex items-center justify-between">
           <span className="text-xs" style={{ color: A.muted, fontFamily: 'DM Sans, sans-serif' }}>
-            {closeFees > 0 ? 'Net P&L after fees' : isFullClose ? 'Realized P&L' : `P&L (${contractsToCloseNum}/${position.contracts} contracts)`}
+            {closeFees > 0
+              ? (isFullClose ? 'Net P&L after fees' : `Net P&L after fees (${contractsToCloseNum}/${position.contracts} contracts)`)
+              : (isFullClose ? 'Realized P&L' : `P&L (${contractsToCloseNum}/${position.contracts} contracts)`)}
           </span>
           <span className="text-base font-bold" style={{ color: realizedPnlAfterFees === null ? '#2a4a6a' : realizedPnlAfterFees >= 0 ? '#00d68f' : '#ff4d6d', fontFamily: 'JetBrains Mono, monospace' }}>
             {realizedPnlAfterFees !== null ? `${realizedPnlAfterFees >= 0 ? '+' : ''}$${realizedPnlAfterFees.toFixed(0)}` : '—'}

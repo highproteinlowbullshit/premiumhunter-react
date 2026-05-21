@@ -152,13 +152,15 @@ export function usePaperActions() {
     const isFullClose = closing >= position.contracts;
 
     const realizedPnl = (position.premiumCollected - closingPremium) * closing * 100;
+    const closeFees = optionFees ?? 0;
+    const realizedPnlAfterFees = realizedPnl - closeFees;
     const collateralReturn = position.strategy === 'CSP' ? position.strike * closing * 100 : 0;
 
     if (isFullClose) {
       await supabase.from('paper_positions').update({
         status: 'closed',
         closing_premium: closingPremium,
-        realized_pnl: realizedPnl,
+        realized_pnl: realizedPnlAfterFees,
         closed_at: new Date().toISOString(),
       }).eq('id', id);
     } else {
@@ -175,12 +177,11 @@ export function usePaperActions() {
     const currentWon = Number(acct.trades_won);
     const currentTotal = Number(acct.trades_total);
 
-    const closeFees = optionFees ?? 0;
     await supabase.from('paper_accounts').update({
-      current_cash: currentCash + collateralReturn + realizedPnl - closeFees,
-      total_realized_pnl: currentPnl + realizedPnl,
+      current_cash: currentCash + collateralReturn + realizedPnlAfterFees,
+      total_realized_pnl: currentPnl + realizedPnlAfterFees,
       trades_total: currentTotal + 1,
-      trades_won: realizedPnl > 0 ? currentWon + 1 : currentWon,
+      trades_won: realizedPnlAfterFees > 0 ? currentWon + 1 : currentWon,
     }).eq('user_id', user.id);
 
     const pnlStr = realizedPnl >= 0 ? `+$${realizedPnl.toFixed(0)}` : `-$${Math.abs(realizedPnl).toFixed(0)}`;
@@ -233,19 +234,20 @@ export function usePaperActions() {
     }).eq('id', id);
 
     // Update account: increment trade count; for CC assignments return the strike proceeds as cash
-    const { data: acct } = await supabase
+    const { data: acct, error: acctAssignErr } = await supabase
       .from('paper_accounts')
       .select('current_cash, trades_total')
       .eq('user_id', user.id)
       .single();
+    if (acctAssignErr || !acct) { showToast('Failed to read paper account', 'error'); pendingOp.current = false; return; }
 
     const strategy = pos.strategy as string;
     // CC assignment: shares called away → receive strike × contracts × 100 in cash
     const cashDelta = strategy === 'CC' ? Number(pos.strike) * Number(pos.contracts) * 100 : 0;
 
     await supabase.from('paper_accounts').update({
-      trades_total: Number(acct?.trades_total ?? 0) + 1,
-      current_cash: Number(acct?.current_cash ?? 0) + cashDelta,
+      trades_total: Number(acct.trades_total) + 1,
+      current_cash: Number(acct.current_cash) + cashDelta,
     }).eq('user_id', user.id);
 
     if (strategy === 'CSP') {

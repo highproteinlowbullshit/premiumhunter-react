@@ -334,41 +334,40 @@ export function usePositions() {
         }
 
         // CC close: record net premium retained for the closed contracts and update lot cost basis.
+        // Always update — a loss (negative netRetained) also adjusts the lot upward.
         if (position.strategy === 'CC') {
           const premiumForClosed = position.premiumCollected * (closing / position.contracts);
-          const netRetained = premiumForClosed - btcCost;
-          if (netRetained > 0) {
-            const { data: lot } = await supabase
-              .from('assigned_share_lots')
-              .select('id, shares, contracts, total_premium_collected, net_cost_basis')
-              .eq('user_id', user.id)
-              .eq('ticker', position.ticker)
-              .eq('status', 'holding')
-              .order('assignment_date', { ascending: false })
-              .limit(1)
-              .maybeSingle();
+          const netRetained = premiumForClosed - btcCost - (optionFees ?? 0);
+          const { data: lot } = await supabase
+            .from('assigned_share_lots')
+            .select('id, shares, contracts, total_premium_collected, net_cost_basis')
+            .eq('user_id', user.id)
+            .eq('ticker', position.ticker)
+            .eq('status', 'holding')
+            .order('assignment_date', { ascending: false })
+            .limit(1)
+            .maybeSingle();
 
-            if (lot) {
-              const lotTotalShares = Number(lot.shares) * Number(lot.contracts);
-              const newTotalPremium = Number(lot.total_premium_collected) + netRetained;
-              const newNetCost = Math.max(0, Number(lot.net_cost_basis) - netRetained);
-              const newCostPerShare = lotTotalShares > 0 ? newNetCost / lotTotalShares : 0;
+          if (lot) {
+            const lotTotalShares = Number(lot.shares) * Number(lot.contracts);
+            const newTotalPremium = Math.max(0, Number(lot.total_premium_collected) + netRetained);
+            const newNetCost = Math.max(0, Number(lot.net_cost_basis) - netRetained);
+            const newCostPerShare = lotTotalShares > 0 ? newNetCost / lotTotalShares : 0;
 
-              await Promise.all([
-                supabase.from('lot_premium_events').insert({
-                  lot_id: lot.id,
-                  user_id: user.id,
-                  event_type: 'cc_premium',
-                  premium_amount: Math.round(netRetained * 100) / 100,
-                  event_date: new Date().toISOString().split('T')[0],
-                }),
-                supabase.from('assigned_share_lots').update({
-                  total_premium_collected: Math.round(newTotalPremium * 100) / 100,
-                  net_cost_basis: Math.round(newNetCost * 100) / 100,
-                  cost_basis_per_share: Math.round(newCostPerShare * 100) / 100,
-                }).eq('id', lot.id),
-              ]);
-            }
+            await Promise.all([
+              supabase.from('lot_premium_events').insert({
+                lot_id: lot.id,
+                user_id: user.id,
+                event_type: 'cc_premium',
+                premium_amount: Math.round(netRetained * 100) / 100,
+                event_date: new Date().toISOString().split('T')[0],
+              }),
+              supabase.from('assigned_share_lots').update({
+                total_premium_collected: Math.round(newTotalPremium * 100) / 100,
+                net_cost_basis: Math.round(newNetCost * 100) / 100,
+                cost_basis_per_share: Math.round(newCostPerShare * 100) / 100,
+              }).eq('id', lot.id),
+            ]);
           }
         }
       }

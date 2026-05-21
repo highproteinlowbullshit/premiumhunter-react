@@ -572,7 +572,7 @@ function ClosePositionModal({ position, onClose, onConfirm }: {
   const btcCost = closingPriceNum * 100 * contractsToCloseNum;
   const previewPnl = closingPrice && !isNaN(closingPriceNum) ? premiumForClosed - btcCost : null;
   const previewPnlAfterFees = previewPnl !== null ? previewPnl - optionFees : null;
-  const netRetained = previewPnl !== null ? Math.max(0, previewPnl) : 0;
+  const netRetained = previewPnlAfterFees !== null ? Math.max(0, previewPnlAfterFees) : 0;
 
   const lotTotalShares = openLot ? Number(openLot.shares) * Number(openLot.contracts) : 0;
   const currentNetCost = openLot ? Number(openLot.net_cost_basis) : 0;
@@ -733,6 +733,8 @@ function ClosePositionModal({ position, onClose, onConfirm }: {
         <button type="button"
           onClick={() => {
             if (!closingPrice || isNaN(closingPriceNum) || closingPriceNum < 0) { setError('Enter a valid closing price'); return; }
+            const rawC = Number(contractsToClose);
+            if (position.contracts > 1 && (contractsToClose === '' || rawC < 1 || rawC > position.contracts || !Number.isInteger(rawC))) { setError(`Enter a whole number of contracts (1–${position.contracts})`); return; }
             setError(''); setStep(1);
           }}
           className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 hover:opacity-90"
