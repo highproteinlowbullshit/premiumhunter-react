@@ -179,8 +179,9 @@ function RealWheelTracker() {
   const lockedCollateral = openCSPs.reduce((acc, p) => acc + p.strike * p.contracts * 100, 0);
 
   // Include assigned and expired in "closed" — they're done trades with real P&L
-  const closedPositions = positions.filter(
-    (p) => p.status === 'closed' || p.status === 'assigned' || p.status === 'expired'
+  const closedPositions = useMemo(
+    () => positions.filter((p) => p.status === 'closed' || p.status === 'assigned' || p.status === 'expired'),
+    [positions]
   );
   // For assigned/expired the full premium is kept (no buyback cost)
   const getPositionPnl = (p: (typeof closedPositions)[0]) =>
@@ -638,17 +639,31 @@ function ClosePositionModal({ position, onClose, onConfirm }: {
             Contracts to Close <span style={{ color: '#6a8fb0' }}>(1–{position.contracts})</span>
           </label>
           <input
+            autoFocus
             type="number" step="1" min="1" max={position.contracts}
             value={contractsToClose}
             onChange={(e) => setContractsToClose(e.target.value)}
             className="w-full px-3 py-2.5 rounded-xl text-sm"
             style={inputStyle}
           />
-          {!isFullClose && (
-            <p className="text-xs mt-1" style={{ color: '#9ab4d4', fontFamily: 'DM Sans, sans-serif' }}>
-              Partial close — {position.contracts - contractsToCloseNum} contract{position.contracts - contractsToCloseNum !== 1 ? 's' : ''} remain open
-            </p>
-          )}
+          {(() => {
+            const raw = Number(contractsToClose);
+            if (contractsToClose !== '' && (raw < 1 || raw > position.contracts || !Number.isInteger(raw))) {
+              return (
+                <p className="text-xs mt-1" style={{ color: '#ff4d6d', fontFamily: 'DM Sans, sans-serif' }}>
+                  Enter a whole number between 1 and {position.contracts}
+                </p>
+              );
+            }
+            if (!isFullClose) {
+              return (
+                <p className="text-xs mt-1" style={{ color: '#9ab4d4', fontFamily: 'DM Sans, sans-serif' }}>
+                  Partial close — {position.contracts - contractsToCloseNum} contract{position.contracts - contractsToCloseNum !== 1 ? 's' : ''} remain open
+                </p>
+              );
+            }
+            return null;
+          })()}
         </div>
       )}
 

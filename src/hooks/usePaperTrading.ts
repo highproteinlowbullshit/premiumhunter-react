@@ -179,8 +179,8 @@ export function usePaperActions() {
     await supabase.from('paper_accounts').update({
       current_cash: currentCash + collateralReturn + realizedPnl - closeFees,
       total_realized_pnl: currentPnl + realizedPnl,
-      trades_total: currentTotal + (isFullClose ? 1 : 0),
-      trades_won: isFullClose && realizedPnl > 0 ? currentWon + 1 : currentWon,
+      trades_total: currentTotal + 1,
+      trades_won: realizedPnl > 0 ? currentWon + 1 : currentWon,
     }).eq('user_id', user.id);
 
     const pnlStr = realizedPnl >= 0 ? `+$${realizedPnl.toFixed(0)}` : `-$${Math.abs(realizedPnl).toFixed(0)}`;
@@ -194,7 +194,7 @@ export function usePaperActions() {
     pendingOp.current = true;
 
     const { data: pos } = await supabase.from('paper_positions').select('id, ticker, strategy, strike, expiry, premium_collected, contracts, underlying_price_at_entry, status, notes, opened_at, closed_at, closing_premium, realized_pnl, created_at').eq('id', id).eq('user_id', user.id).single();
-    if (!pos) return;
+    if (!pos) { pendingOp.current = false; return; }
 
     const position = dbToPosition(pos as Record<string, unknown>);
     const realizedPnl = position.premiumCollected * position.contracts * 100;
@@ -208,7 +208,7 @@ export function usePaperActions() {
     }).eq('id', id);
 
     const { data: acct, error: acctErr2 } = await supabase.from('paper_accounts').select('id, user_id, starting_balance, current_cash, total_premium_collected, total_realized_pnl, trades_won, trades_total, created_at, reset_at').eq('user_id', user.id).single();
-    if (acctErr2 || !acct) { showToast('Failed to read paper account', 'error'); return; }
+    if (acctErr2 || !acct) { showToast('Failed to read paper account', 'error'); pendingOp.current = false; return; }
     await supabase.from('paper_accounts').update({
       current_cash: Number(acct.current_cash) + collateralReturn + realizedPnl,
       total_realized_pnl: Number(acct.total_realized_pnl) + realizedPnl,
@@ -225,7 +225,7 @@ export function usePaperActions() {
     pendingOp.current = true;
 
     const { data: pos } = await supabase.from('paper_positions').select('strategy, ticker, strike, contracts').eq('id', id).single();
-    if (!pos) return;
+    if (!pos) { pendingOp.current = false; return; }
 
     await supabase.from('paper_positions').update({
       status: 'assigned',

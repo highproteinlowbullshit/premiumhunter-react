@@ -679,7 +679,7 @@ function OpenPaperPositionModal({ availableCash, onClose, onSubmit }: {
     e.preventDefault();
     const errs = validate();
     if (Object.keys(errs).length > 0) { setErrors(errs); return; }
-    if (insufficient) { setGlobalError(`Insufficient cash — need $${collateral.toLocaleString()}`); return; }
+    if (insufficient) { setGlobalError(`Insufficient cash — need $${(collateral + totalFees).toLocaleString()}`); return; }
     setSubmitting(true);
     const err = await onSubmit({
       ticker: form.ticker.toUpperCase(),

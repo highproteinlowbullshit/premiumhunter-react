@@ -265,7 +265,7 @@ export function usePositions() {
 
       const updatePayload = isFullClose
         ? { status: 'closed', closing_price: closingPrice, closed_at: new Date().toISOString() }
-        : { contracts: position!.contracts - closing, premium_collected: position!.premiumCollected * ((position!.contracts - closing) / position!.contracts) };
+        : { contracts: position!.contracts - closing };
 
       const { error } = await supabase
         .from('wheel_positions')
