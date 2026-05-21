@@ -92,6 +92,20 @@ function AppInner() {
   const { show: clockVisible } = useMarketClock();
   useLastSeen();
 
+  // Prefetch all lazy page chunks shortly after login so first-visit tab switches are instant
+  useEffect(() => {
+    if (!user) return;
+    const t = setTimeout(() => {
+      void import('./pages/Watchlist');
+      void import('./pages/WheelTracker');
+      void import('./pages/Screener');
+      void import('./pages/Portfolio');
+      void import('./pages/HelpPage');
+      void import('./components/LeapsCalculator');
+    }, 2000);
+    return () => clearTimeout(t);
+  }, [user?.id]);
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement) return;

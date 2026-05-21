@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSubscription } from '../hooks/useSubscription';
@@ -13,30 +13,67 @@ const TABS = [
   { path: '/portfolio', label: 'Portfolio', icon: PortIcon      },
 ];
 
+// Isolated so the 1-per-second tick doesn't re-render the whole nav
+function MarketClockStrip() {
+  const { show: clockVisible, toggle: toggleClock } = useMarketClock();
+  const { phase, countdown } = useMarketCountdown();
+  if (!clockVisible) return null;
+
+  const clockColor = phase === 'open' ? '#14b8a6' : phase === 'pre' ? '#f59e0b' : '#4a6a8a';
+  const clockText = phase === 'open'
+    ? `● LIVE · ${countdown}`
+    : phase === 'pre'
+    ? `Pre-Mkt · ${countdown}`
+    : `Opens in · ${countdown}`;
+
+  return (
+    <div
+      onClick={toggleClock}
+      style={{
+        height: 24,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+        borderBottom: '1px solid rgba(0,229,196,0.07)',
+        cursor: 'pointer',
+        WebkitTapHighlightColor: 'transparent',
+        touchAction: 'manipulation',
+      }}
+    >
+      <span style={{ color: clockColor, display: 'flex', alignItems: 'center' }}>
+        <MobileClockIcon size={11} />
+      </span>
+      <span style={{
+        fontSize: 11, fontFamily: 'JetBrains Mono, monospace',
+        color: clockColor, letterSpacing: '0.04em',
+      }}>
+        {clockText}
+      </span>
+    </div>
+  );
+}
+
 export function MobileNav() {
   const location = useLocation();
   const navigate = useNavigate();
   const { signOut } = useAuth();
   const { isSuperuser } = useSubscription();
   const [moreOpen, setMoreOpen] = useState(false);
+  const [pressedTab, setPressedTab] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
   const { show: clockVisible, toggle: toggleClock } = useMarketClock();
-  const { phase, countdown } = useMarketCountdown();
 
   const isActive = (path: string) => location.pathname.startsWith(path);
 
-  const clockColor = phase === 'open' ? '#14b8a6' : phase === 'pre' ? '#f59e0b' : '#4a6a8a'
-  const clockText = phase === 'open'
-    ? `● LIVE · ${countdown}`
-    : phase === 'pre'
-    ? `Pre-Mkt · ${countdown}`
-    : `Opens in · ${countdown}`
+  const goTo = (path: string) => {
+    setMoreOpen(false);
+    // Keep current page visible while the new chunk/data loads (React 18 concurrent feature)
+    startTransition(() => navigate(path));
+  };
 
   return (
     <>
       {/* More panel — slides up above the nav bar */}
       {moreOpen && (
         <>
-          {/* Backdrop */}
           <div
             onClick={() => setMoreOpen(false)}
             style={{
@@ -44,7 +81,6 @@ export function MobileNav() {
               background: 'rgba(5,13,26,0.5)',
             }}
           />
-          {/* Panel */}
           <div style={{
             position: 'fixed', bottom: clockVisible ? 96 : 72, left: 0, right: 0, zIndex: 50,
             background: 'var(--ph-navbar-bg)',
@@ -57,12 +93,13 @@ export function MobileNav() {
             {isSuperuser && (
               <>
                 <button
-                  onClick={() => { navigate('/admin'); setMoreOpen(false); }}
+                  onClick={() => goTo('/admin')}
                   style={{
                     width: '100%', display: 'flex', alignItems: 'center', gap: 14,
                     padding: '12px 24px', background: 'none', border: 'none',
                     color: '#f5c842', fontSize: 14, cursor: 'pointer',
                     fontFamily: 'DM Sans, sans-serif',
+                    touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent',
                   }}
                 >
                   <AdminIcon active={location.pathname.startsWith('/admin')} />
@@ -72,12 +109,13 @@ export function MobileNav() {
               </>
             )}
             <button
-              onClick={() => { navigate('/help'); setMoreOpen(false); }}
+              onClick={() => goTo('/help')}
               style={{
                 width: '100%', display: 'flex', alignItems: 'center', gap: 14,
                 padding: '12px 24px', background: 'none', border: 'none',
                 color: 'var(--ph-text-1)', fontSize: 14, cursor: 'pointer',
                 fontFamily: 'DM Sans, sans-serif',
+                touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent',
               }}
             >
               <HelpIcon active={location.pathname.startsWith('/help')} />
@@ -91,6 +129,7 @@ export function MobileNav() {
                 padding: '12px 24px', background: 'none', border: 'none',
                 color: '#ff4d6d', fontSize: 14, cursor: 'pointer',
                 fontFamily: 'DM Sans, sans-serif',
+                touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent',
               }}
             >
               <SignOutIcon />
@@ -104,6 +143,7 @@ export function MobileNav() {
                 padding: '12px 24px', background: 'none', border: 'none',
                 color: 'var(--ph-text-2)', fontSize: 14, cursor: 'pointer',
                 fontFamily: 'DM Sans, sans-serif',
+                touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -132,70 +172,76 @@ export function MobileNav() {
           borderTop: '1px solid var(--ph-border-md)',
           backdropFilter: 'blur(20px)',
           WebkitBackdropFilter: 'blur(20px)',
+          WebkitTapHighlightColor: 'transparent',
         }}
       >
-        {/* Market clock strip */}
-        {clockVisible && (
-          <div style={{
-            height: 24,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-            borderBottom: '1px solid rgba(0,229,196,0.07)',
-          }}>
-            <span style={{ color: clockColor, display: 'flex', alignItems: 'center' }}>
-              <MobileClockIcon size={11} />
-            </span>
-            <span style={{
-              fontSize: 11, fontFamily: 'JetBrains Mono, monospace',
-              color: clockColor, letterSpacing: '0.04em',
-            }}>
-              {clockText}
-            </span>
-          </div>
-        )}
+        <MarketClockStrip />
 
         <div className="flex" style={{ flex: 1 }}>
-        {TABS.map(({ path, label, icon: Icon }) => {
-          const active = isActive(path);
-          return (
-            <button
-              key={path}
-              onClick={() => { navigate(path); setMoreOpen(false); }}
-              className="flex-1 flex flex-col items-center justify-center gap-0.5"
-              style={{
-                border: 'none',
-                background: 'transparent',
-                color: active ? '#00e5c4' : 'var(--ph-text-nav-inactive)',
-                cursor: 'pointer',
-                paddingBottom: 10,
-                transition: 'color 0.15s ease',
-              }}
-            >
-              <Icon active={active} />
-              <span style={{ fontSize: 9, fontWeight: active ? 600 : 400, fontFamily: 'DM Sans, sans-serif', lineHeight: 1 }}>
-                {label}
-              </span>
-            </button>
-          );
-        })}
+          {TABS.map(({ path, label, icon: Icon }) => {
+            const active = isActive(path);
+            const pressed = pressedTab === path;
+            return (
+              <button
+                key={path}
+                onPointerDown={() => setPressedTab(path)}
+                onPointerUp={() => { setPressedTab(null); goTo(path); }}
+                onPointerLeave={() => setPressedTab(null)}
+                onPointerCancel={() => setPressedTab(null)}
+                className="flex-1 flex flex-col items-center justify-center gap-0.5"
+                style={{
+                  border: 'none',
+                  background: 'transparent',
+                  color: active ? '#00e5c4' : 'var(--ph-text-nav-inactive)',
+                  cursor: 'pointer',
+                  paddingBottom: 10,
+                  touchAction: 'manipulation',
+                  userSelect: 'none',
+                  WebkitUserSelect: 'none',
+                  transform: pressed ? 'scale(0.82)' : 'scale(1)',
+                  // Only animate the press-in, snap back fast on release
+                  transition: pressed
+                    ? 'transform 0.05s ease, color 0.15s ease'
+                    : 'transform 0.12s ease, color 0.15s ease',
+                  // Dim slightly while a navigation is in-flight
+                  opacity: isPending && !active ? 0.6 : 1,
+                }}
+              >
+                <Icon active={active} />
+                <span style={{ fontSize: 9, fontWeight: active ? 600 : 400, fontFamily: 'DM Sans, sans-serif', lineHeight: 1 }}>
+                  {label}
+                </span>
+              </button>
+            );
+          })}
 
-        {/* More button */}
-        <button
-          onClick={() => setMoreOpen(v => !v)}
-          className="flex-1 flex flex-col items-center justify-center gap-0.5"
-          style={{
-            border: 'none',
-            background: 'transparent',
-            color: moreOpen ? '#00e5c4' : 'var(--ph-text-nav-inactive)',
-            cursor: 'pointer',
-            paddingBottom: 6,
-            transition: 'color 0.15s ease',
-          }}
-        >
-          <MoreIcon active={moreOpen} />
-          <span style={{ fontSize: 9, fontWeight: moreOpen ? 600 : 400, fontFamily: 'DM Sans, sans-serif', lineHeight: 1 }}>
-            More
-          </span>
-        </button>
+          {/* More button */}
+          <button
+            onPointerDown={() => setPressedTab('more')}
+            onPointerUp={() => { setPressedTab(null); setMoreOpen(v => !v); }}
+            onPointerLeave={() => setPressedTab(null)}
+            onPointerCancel={() => setPressedTab(null)}
+            className="flex-1 flex flex-col items-center justify-center gap-0.5"
+            style={{
+              border: 'none',
+              background: 'transparent',
+              color: moreOpen ? '#00e5c4' : 'var(--ph-text-nav-inactive)',
+              cursor: 'pointer',
+              paddingBottom: 6,
+              touchAction: 'manipulation',
+              userSelect: 'none',
+              WebkitUserSelect: 'none',
+              transform: pressedTab === 'more' ? 'scale(0.82)' : 'scale(1)',
+              transition: pressedTab === 'more'
+                ? 'transform 0.05s ease, color 0.15s ease'
+                : 'transform 0.12s ease, color 0.15s ease',
+            }}
+          >
+            <MoreIcon active={moreOpen} />
+            <span style={{ fontSize: 9, fontWeight: moreOpen ? 600 : 400, fontFamily: 'DM Sans, sans-serif', lineHeight: 1 }}>
+              More
+            </span>
+          </button>
         </div>
       </nav>
     </>
