@@ -46,7 +46,7 @@ function calcPnl(pos: {
   // Paper: premium_collected is per-share rate → multiply by 100; use closing_premium column
   // Real: premium_collected is per-contract dollars; use closing_price column
   const mult = isPaperMode ? 100 : 1;
-  const closingCost = isPaperMode ? (pos.closing_premium ?? null) : pos.closing_price;
+  const closingCost = isPaperMode ? (pos.closing_premium ?? null) : (pos.closing_price ?? null);
   if (pos.status === 'expired') return pos.premium_collected * pos.contracts * mult;
   if (closingCost !== null) return (pos.premium_collected - closingCost) * pos.contracts * mult;
   return pos.premium_collected * pos.contracts * mult; // assigned
