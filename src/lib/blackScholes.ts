@@ -462,7 +462,10 @@ export function aggregatePortfolioGreeks(
     }))
     .sort((a, b) => b.dailyTheta - a.dailyTheta)
 
-  const weeklyTheta = totalTheta * 5
+  const weeklyTheta = positionGreeks.reduce(
+    (s, p) => s + p.dollarThetaToday * Math.min(p.dte, 5),
+    0,
+  )
   const monthlyTheta = positionGreeks.reduce(
     (sum, p) => sum + p.dollarThetaToday * Math.min(p.dte, 30),
     0,

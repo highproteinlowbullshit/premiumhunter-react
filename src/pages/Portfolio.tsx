@@ -724,10 +724,9 @@ function CloseHoldingModal({ holding, onClose, onSubmit, totalCashBalance = 0 }:
   const [doAdjustCash, setDoAdjustCash] = useState(true);
 
   const price = parseFloat(closingPrice) || 0;
-  const pnl = (price - holding.avgCost) * holding.quantity;
-
   const isEligible = holding.holdingType === 'shares' || holding.holdingType === 'leaps_call' || holding.holdingType === 'leaps_put';
   const multiplier = (holding.holdingType === 'leaps_call' || holding.holdingType === 'leaps_put') ? 100 : 1;
+  const pnl = (price - holding.avgCost) * holding.quantity * multiplier;
   const cashProceeds = isEligible && price > 0 ? holding.quantity * price * multiplier : null;
   const balanceAfter = cashProceeds !== null ? totalCashBalance + cashProceeds : null;
   const noCashHolding = totalCashBalance === 0;
@@ -1504,6 +1503,7 @@ function RealPortfolio() {
           orphanedAssignments={enhanced?.orphanedAssignments ?? 0}
           isLoading={!enhanced}
           onRemoveLot={handleRemoveLot}
+          onAddCC={(ticker) => navigate(`/wheel?ticker=${encodeURIComponent(ticker)}&strategy=CC`)}
         />
 
         {/* Section C.6 — Ticker Performance League Table */}

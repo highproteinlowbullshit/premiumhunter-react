@@ -508,7 +508,7 @@ export function Screener() {
       <PaperTradeModal
         ticker={paperTradeStock.ticker}
         spotPrice={paperTradeStock.price ?? 0}
-        iv={(paperTradeStock.ivRank ?? 30) / 100}
+        iv={(paperTradeStock.currentIV ?? 45) / 100}
         currentCash={paperAccount?.currentCash ?? 0}
         onClose={() => setPaperTradeStock(null)}
         onSubmit={async (data) => {

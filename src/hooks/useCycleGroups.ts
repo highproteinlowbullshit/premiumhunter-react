@@ -63,8 +63,8 @@ function buildCycles(positions: WheelPosition[]): WheelCycle[] {
       const totalPremium = cycleLegs.reduce((s, l) => s + l.premiumCollected, 0);
       const capitalDeployed = cspLeg ? cspLeg.strike * cspLeg.contracts * 100 : 0;
       const openedAt = cycleLegs[0].openedAt;
-      const lastLeg = cycleLegs[cycleLegs.length - 1];
-      const closedAt = lastLeg.closedAt;
+      const allClosedDates = cycleLegs.map(l => l.closedAt).filter((d): d is string => d != null).sort();
+      const closedAt = allClosedDates[allClosedDates.length - 1] ?? null;
       const isComplete = cycleLegs.every((l) => closedStatuses.has(l.status));
       const wasAssigned = cycleLegs.some((l) => l.status === 'assigned');
 

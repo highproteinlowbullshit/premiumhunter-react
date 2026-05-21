@@ -33,7 +33,8 @@ function CostJourneyStep({ label, value, muted, projected }: {
 }
 
 function CostBasisJourney({ lot }: { lot: AssignedLot }) {
-  const perShare = (v: number) => `$${(v / (lot.shares * lot.contracts)).toFixed(2)}/sh`;
+  const totalSharesInLot = lot.shares * lot.contracts;
+  const perShare = (v: number) => totalSharesInLot > 0 ? `$${(v / totalSharesInLot).toFixed(2)}/sh` : '—';
   const cspEvents = lot.premiumEvents.filter(e => e.type === 'csp_premium');
   const ccEvents = lot.premiumEvents.filter(e => e.type === 'cc_premium');
   const afterCSP = lot.grossCostBasis - (cspEvents.reduce((s, e) => s + e.amount, 0));
@@ -49,7 +50,7 @@ function CostBasisJourney({ lot }: { lot: AssignedLot }) {
       ccEvents.slice(0, i + 1).reduce((s, ev) => s + ev.amount, 0);
     steps.push({ label: `After CC #${i + 1}`, value: perShare(lot.grossCostBasis - cum) });
   });
-  if (lot.currentCC && steps.length > 0) {
+  if (lot.currentCC) {
     steps.push({
       label: 'If current CC expires',
       value: perShare(lot.projectedFinalCostBasis),
@@ -189,9 +190,9 @@ function ActiveLotCard({ lot, onAddCC, onRemoveLot }: {
         <div style={{ background: 'rgba(5,13,26,0.4)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 8, padding: '10px 12px' }}>
           <div style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', fontSize: 10, marginBottom: 4 }}>Current price</div>
           <div style={{ color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace', fontSize: 14, fontWeight: 700 }}>
-            {lot.currentPrice ? `$${lot.currentPrice.toFixed(2)}` : '—'}
+            {lot.currentPrice !== null ? `$${lot.currentPrice.toFixed(2)}` : '—'}
           </div>
-          {lot.currentPrice && (
+          {lot.currentPrice !== null && (
             <div style={{ color: lot.currentPrice >= lot.breakEvenPrice ? '#00d68f' : '#f5c842', fontFamily: 'DM Sans, sans-serif', fontSize: 10, marginTop: 3 }}>
               {lot.currentPrice >= lot.breakEvenPrice ? '+' : '−'}${Math.abs(lot.currentPrice - lot.breakEvenPrice).toFixed(2)} vs breakeven
             </div>
@@ -202,7 +203,7 @@ function ActiveLotCard({ lot, onAddCC, onRemoveLot }: {
         <div style={{ background: 'rgba(5,13,26,0.4)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 8, padding: '10px 12px' }}>
           <div style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', fontSize: 10, marginBottom: 4 }}>Position value</div>
           <div style={{ color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace', fontSize: 13, fontWeight: 700 }}>
-            {lot.currentValue ? fmt$(lot.currentValue) : '—'}
+            {lot.currentValue !== null ? fmt$(lot.currentValue) : '—'}
           </div>
           <div style={{ color: '#2e4a6a', fontSize: 10, fontFamily: 'DM Sans, sans-serif', marginTop: 2 }}>True cost: {fmt$(lot.netCostBasis)}</div>
           {lot.unrealizedGainVsTrueCost !== null && (

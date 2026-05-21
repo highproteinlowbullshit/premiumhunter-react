@@ -80,7 +80,7 @@ export interface PortfolioEnhancedData {
 }
 
 const RANGE_MS: Record<EnhancedTimeRange, number> = {
-  '1M': 30, '3M': 90, '6M': 180, '1Y': 365, 'all': 730,
+  '1M': 30, '3M': 90, '6M': 180, '1Y': 365, 'all': 3650,
 };
 
 export function usePortfolioEnhanced(timeRange: EnhancedTimeRange) {
@@ -253,22 +253,25 @@ export function usePortfolioEnhanced(timeRange: EnhancedTimeRange) {
 
       const assignedLots: AssignedLot[] = lots.map(lot => {
         const totalShares = Number(lot.shares) * Number(lot.contracts);
-        const currentPrice = priceMap.get(lot.ticker) ?? null;
-        const currentValue = currentPrice ? currentPrice * totalShares : null;
+        const currentPrice = lot.status === 'holding' ? (priceMap.get(lot.ticker) ?? null) : null;
+        const currentValue = currentPrice !== null ? currentPrice * totalShares : null;
         const gross = Number(lot.gross_cost_basis);
         const net = Number(lot.net_cost_basis);
         const totalPremium = Number(lot.total_premium_collected);
 
         const unrealizedGain = currentValue !== null ? currentValue - gross : null;
         const unrealizedGainVsTrueCost = currentValue !== null ? currentValue - net : null;
-        const unrealizedGainPercent = unrealizedGainVsTrueCost !== null && net > 0
-          ? Math.round((unrealizedGainVsTrueCost / net) * 1000) / 10
+        const gainDenom = net > 0 ? net : gross > 0 ? gross : null;
+        const unrealizedGainPercent = unrealizedGainVsTrueCost !== null && gainDenom !== null
+          ? Math.round((unrealizedGainVsTrueCost / gainDenom) * 1000) / 10
           : null;
 
-        const currentCC = openCCsResult.data?.find(cc => cc.ticker === lot.ticker) ?? null;
+        const currentCC = lot.status === 'holding'
+          ? (openCCsResult.data?.find(cc => cc.ticker === lot.ticker) ?? null)
+          : null;
         const ccTotalForTicker = ccMap.get(lot.ticker) ?? 0;
         const tickerHoldingContracts = holdingContractsMap.get(lot.ticker) ?? Number(lot.contracts);
-        const ccPremiumForLot = tickerHoldingContracts > 0
+        const ccPremiumForLot = lot.status === 'holding' && tickerHoldingContracts > 0
           ? ccTotalForTicker * (Number(lot.contracts) / tickerHoldingContracts)
           : 0;
         const projectedFinalCostBasis = ccPremiumForLot > 0
