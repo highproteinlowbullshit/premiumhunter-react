@@ -39,13 +39,17 @@ function countTradingDays(start: Date, end: Date): number {
 function calcPnl(pos: {
   status: string;
   premium_collected: number;
-  closing_price: number | null;
+  closing_price?: number | null;
+  closing_premium?: number | null;
   contracts: number;
-}): number {
-  // No ×100: DB stores dollar amount per contract (same pattern as useMonthlyPnL.ts)
-  if (pos.status === 'expired') return pos.premium_collected * pos.contracts;
-  if (pos.closing_price !== null) return (pos.premium_collected - pos.closing_price) * pos.contracts;
-  return pos.premium_collected * pos.contracts; // assigned
+}, isPaperMode: boolean): number {
+  // Paper: premium_collected is per-share rate → multiply by 100; use closing_premium column
+  // Real: premium_collected is per-contract dollars; use closing_price column
+  const mult = isPaperMode ? 100 : 1;
+  const closingCost = isPaperMode ? (pos.closing_premium ?? null) : pos.closing_price;
+  if (pos.status === 'expired') return pos.premium_collected * pos.contracts * mult;
+  if (closingCost !== null) return (pos.premium_collected - closingCost) * pos.contracts * mult;
+  return pos.premium_collected * pos.contracts * mult; // assigned
 }
 
 export function useMonthlyTarget() {
@@ -83,9 +87,11 @@ export function useMonthlyTarget() {
 
       // Fetch 13 months of closed positions
       const thirteenMonthsAgo = new Date(Date.UTC(nowUTCYear, nowUTCMonth - 12, 1));
+      // Columns differ between tables: wheel_positions uses closing_price, paper_positions uses closing_premium
+      const closingCol = isPaperMode ? 'closing_premium' : 'closing_price';
       const { data: posRows } = await supabase
         .from(positionsTable)
-        .select('premium_collected, closing_price, contracts, closed_at, expiry, status')
+        .select(`premium_collected, ${closingCol}, contracts, closed_at, expiry, status`)
         .eq('user_id', user!.id)
         .in('status', ['closed', 'assigned', 'expired'])
         .gte('closed_at', thirteenMonthsAgo.toISOString());
@@ -96,7 +102,7 @@ export function useMonthlyTarget() {
         const d = (pos.closed_at ?? pos.expiry) as string | null;
         if (!d) continue;
         const mk = d.slice(0, 7);
-        earnedByMonth.set(mk, Math.round(((earnedByMonth.get(mk) ?? 0) + calcPnl(pos)) * 100) / 100);
+        earnedByMonth.set(mk, Math.round(((earnedByMonth.get(mk) ?? 0) + calcPnl(pos, isPaperMode)) * 100) / 100);
       }
 
       const currentEarned = earnedByMonth.get(currentMonthKey) ?? 0;

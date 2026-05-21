@@ -181,12 +181,12 @@ export function usePaperActions() {
       current_cash: currentCash + collateralReturn + realizedPnlAfterFees,
       total_realized_pnl: currentPnl + realizedPnlAfterFees,
       trades_total: currentTotal + 1,
-      trades_won: realizedPnlAfterFees > 0 ? currentWon + 1 : currentWon,
+      trades_won: realizedPnlAfterFees >= 0 ? currentWon + 1 : currentWon,
     }).eq('user_id', user.id);
 
-    const pnlStr = realizedPnl >= 0 ? `+$${realizedPnl.toFixed(0)}` : `-$${Math.abs(realizedPnl).toFixed(0)}`;
+    const pnlStr = realizedPnlAfterFees >= 0 ? `+$${realizedPnlAfterFees.toFixed(0)}` : `-$${Math.abs(realizedPnlAfterFees).toFixed(0)}`;
     const label = isFullClose ? 'Position closed' : `Closed ${closing}/${position.contracts} contracts`;
-    showToast(`${label} · Realized P&L: ${pnlStr}`, realizedPnl >= 0 ? 'success' : 'error');
+    showToast(`${label} · Realized P&L: ${pnlStr}`, realizedPnlAfterFees >= 0 ? 'success' : 'error');
     pendingOp.current = false;
   }, [user, showToast]);
 
@@ -225,29 +225,37 @@ export function usePaperActions() {
     if (!user || pendingOp.current) return;
     pendingOp.current = true;
 
-    const { data: pos } = await supabase.from('paper_positions').select('strategy, ticker, strike, contracts').eq('id', id).single();
+    const { data: pos } = await supabase.from('paper_positions').select('strategy, ticker, strike, contracts, premium_collected').eq('id', id).single();
     if (!pos) { pendingOp.current = false; return; }
+
+    // Premium kept on assignment (no buyback); paper premium_collected is per-share rate
+    const realizedPnl = Number(pos.premium_collected) * Number(pos.contracts) * 100;
 
     await supabase.from('paper_positions').update({
       status: 'assigned',
       closed_at: new Date().toISOString(),
+      realized_pnl: realizedPnl,
     }).eq('id', id);
 
-    // Update account: increment trade count; for CC assignments return the strike proceeds as cash
+    // Update account: return locked capital + credit premium
+    // CSP: collateral (strike × contracts × 100) was locked at open — return it now
+    // CC: shares called away → receive strike proceeds as cash
+    // Both cases: cash increases by strike proceeds; premium credited via total_realized_pnl
     const { data: acct, error: acctAssignErr } = await supabase
       .from('paper_accounts')
-      .select('current_cash, trades_total')
+      .select('current_cash, trades_total, trades_won, total_realized_pnl')
       .eq('user_id', user.id)
       .single();
     if (acctAssignErr || !acct) { showToast('Failed to read paper account', 'error'); pendingOp.current = false; return; }
 
     const strategy = pos.strategy as string;
-    // CC assignment: shares called away → receive strike × contracts × 100 in cash
-    const cashDelta = strategy === 'CC' ? Number(pos.strike) * Number(pos.contracts) * 100 : 0;
+    const cashDelta = Number(pos.strike) * Number(pos.contracts) * 100;
 
     await supabase.from('paper_accounts').update({
       trades_total: Number(acct.trades_total) + 1,
-      current_cash: Number(acct.current_cash) + cashDelta,
+      trades_won: Number(acct.trades_won) + 1, // assignment premium is always positive
+      current_cash: Number(acct.current_cash) + cashDelta + realizedPnl,
+      total_realized_pnl: Number(acct.total_realized_pnl) + realizedPnl,
     }).eq('user_id', user.id);
 
     if (strategy === 'CSP') {

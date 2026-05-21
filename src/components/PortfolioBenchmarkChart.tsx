@@ -70,7 +70,7 @@ function AttributionTooltip({ active, payload, label }: any) {
   const premium = payload.find((p: any) => p.dataKey === 'premiumIncome')?.value ?? 0;
   const gains = payload.find((p: any) => p.dataKey === 'capitalGains')?.value ?? 0;
   const total = premium + gains;
-  const pct = total > 0 ? Math.round((premium / total) * 100) : 100;
+  const pct = total > 0 ? Math.round((premium / total) * 100) : (premium >= 0 ? 100 : 0);
   return (
     <div style={{ background: 'rgba(10,22,40,0.97)', border: '1px solid rgba(0,229,196,0.12)', borderRadius: 8, padding: '10px 14px', fontFamily: 'DM Sans, sans-serif', fontSize: 12 }}>
       <div style={{ color: '#6a8fb0', marginBottom: 6, fontSize: 11 }}>{label}</div>

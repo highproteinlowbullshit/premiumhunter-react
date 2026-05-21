@@ -214,7 +214,7 @@ export function MonthlyTargetTracker() {
 
   const showCarryOverNote = progress?.lastMonthMissed && progress.lastMonthShortfall > 0 && progress.target !== null;
 
-  const hasTarget = !isLoading && progress?.target;
+  const hasTarget = !isLoading && progress?.target !== null && progress?.target !== undefined;
 
   return (
     <div

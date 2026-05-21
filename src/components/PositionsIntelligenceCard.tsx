@@ -82,7 +82,7 @@ function applyLivePrice(pos: PositionSnapshot, livePrice: number | undefined): P
       percentOfMaxProfit    = pos.premiumCollected > 0
         ? Math.max(0, Math.round(((pos.premiumCollected - bs.price * 100) / pos.premiumCollected) * 1000) / 10)
         : pos.percentOfMaxProfit;
-      dailyTheta = Math.round(Math.abs(bs.theta) * pos.contracts * 100 * 100) / 100;
+      dailyTheta = Math.round(Math.abs(bs.theta) * pos.contracts * 100) / 100;
     } catch { /* keep original snapshot values if BS fails */ }
   }
 
@@ -766,7 +766,7 @@ export function PositionsIntelligenceCard({ positions, summary, isLoading, onNav
                 </span>
               )}
               <span style={{ fontSize: 12, color: C.muted, fontFamily: 'DM Sans, sans-serif' }}>
-                {summary.totalCount} open
+                {liveSummary.totalCount} open
               </span>
               <HealthDots summary={liveSummary} />
             </div>

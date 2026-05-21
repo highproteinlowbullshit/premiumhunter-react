@@ -254,12 +254,13 @@ function getMarketInfo(): {
 }
 
 function isThirdFriday(): boolean {
-  const today = new Date();
-  if (today.getDay() !== 5) return false;
-  const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+  // Use Eastern Time — monthly option expiry Fridays are US-market events
+  const et = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+  if (et.getDay() !== 5) return false;
+  const firstDay = new Date(et.getFullYear(), et.getMonth(), 1);
   const offset = (5 - firstDay.getDay() + 7) % 7;
   const thirdFriday = 1 + offset + 14;
-  return today.getDate() === thirdFriday;
+  return et.getDate() === thirdFriday;
 }
 
 function calcPnl(pos: {
@@ -494,9 +495,9 @@ export function useDashboardIntelligence() {
     queryFn: async (): Promise<DashboardIntelligence> => {
       const now = new Date();
       const todayStr = now.toISOString().split('T')[0];
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-      const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString();
-      const lastMonthEnd = new Date(new Date(now.getFullYear(), now.getMonth(), 1).getTime() - 1).toISOString();
+      const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+      const lastMonthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1)).toISOString();
+      const lastMonthEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1) - 1).toISOString();
       const currentMonthKey = todayStr.slice(0, 7);
       const lastMonthKey = lastMonthStart.slice(0, 7);
 
@@ -698,9 +699,9 @@ export function useDashboardIntelligence() {
 
         // DTE
         const expiryDate = new Date(pos.expiry as string);
-        const dte = Math.max(0, Math.ceil(
-          (expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
-        ));
+        // Compare against UTC midnight today so date strings (UTC midnight) are consistent
+        const todayMidnightUTC = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+        const dte = Math.max(0, Math.ceil((expiryDate.getTime() - todayMidnightUTC) / 86_400_000));
         const dteZone: PositionSnapshot['dteZone'] =
           dte === 0 ? 'today'
           : dte <= 2 ? 'critical'
@@ -780,7 +781,7 @@ export function useDashboardIntelligence() {
               : null;
 
             // Seller theta: abs(theta) per share × 100 shares/contract × contracts
-            dailyTheta = Math.round(Math.abs(bs.theta) * contracts * 100 * 100) / 100;
+            dailyTheta = Math.round(Math.abs(bs.theta) * contracts * 100) / 100;
             assignmentProbability = Math.round(Math.abs(bs.delta) * 1000) / 10;
           } catch {
             // Black-Scholes failed — leave null
@@ -990,12 +991,12 @@ export function useDashboardIntelligence() {
         atMonthlyPnl.set(mk, Math.round(((atMonthlyPnl.get(mk) ?? 0) + calcPnl(p as any)) * 100) / 100);
       }
       let consecutiveProfitableMonths = 0;
-      const cmCheck = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const cmCheck = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
       for (let i = 0; i < 24; i++) {
-        const mk = `${cmCheck.getFullYear()}-${String(cmCheck.getMonth() + 1).padStart(2, '0')}`;
+        const mk = `${cmCheck.getUTCFullYear()}-${String(cmCheck.getUTCMonth() + 1).padStart(2, '0')}`;
         if ((atMonthlyPnl.get(mk) ?? 0) <= 0) break;
         consecutiveProfitableMonths++;
-        cmCheck.setMonth(cmCheck.getMonth() - 1);
+        cmCheck.setUTCMonth(cmCheck.getUTCMonth() - 1);
       }
 
       // ── Milestones ─────────────────────────────────────────────────────────

@@ -476,7 +476,7 @@ export function MonthlyPnLChart({ compact = false }: Props) {
               valueColor={data.currentMonthSoFar >= 0 ? '#00e5c4' : '#ff4d6d'}
             />
             <FooterStat
-              label="All time"
+              label="12-month total"
               value={`$${data.totalAllTime.toLocaleString()}`}
               sub={`across ${data.months.filter(m => m.positionsClosed > 0).length} active months`}
               valueColor="#e8f0fe"

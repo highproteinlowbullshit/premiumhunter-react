@@ -146,7 +146,8 @@ async function fetchPortfolioData(userId: string): Promise<PortfolioQueryResult>
     const closed = (closedRes.value.data as DbHolding[]).map(dbToHolding);
     computedRealizedPnl = closed.reduce((acc, h) => {
       if (h.closingPrice != null) {
-        return acc + (h.closingPrice - h.avgCost) * h.quantity;
+        const mult = (h.holdingType === 'leaps_call' || h.holdingType === 'leaps_put') ? 100 : 1;
+        return acc + (h.closingPrice - h.avgCost) * h.quantity * mult;
       }
       return acc;
     }, 0);
@@ -369,7 +370,14 @@ export function usePortfolio() {
   });
 
   const invalidate = useCallback(
-    () => queryClient.invalidateQueries({ queryKey: qKey }),
+    async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: qKey }),
+        queryClient.invalidateQueries({ queryKey: ['monthly-pnl'] }),
+        queryClient.invalidateQueries({ queryKey: ['ticker-performance'] }),
+        queryClient.invalidateQueries({ queryKey: ['portfolio-enhanced'] }),
+      ]);
+    },
     [queryClient, qKey]
   );
 
@@ -402,13 +410,13 @@ export function usePortfolio() {
   );
 
   const closeHolding = useCallback(
-    async (id: string, closingPrice: number): Promise<boolean> => {
+    async (id: string, closingPrice: number, closeDate?: string): Promise<boolean> => {
       if (!user) return false;
 
       const today = new Date().toISOString().split('T')[0];
       const { error } = await supabase
         .from('portfolio_holdings')
-        .update({ status: 'closed', closing_price: closingPrice, closed_at: today })
+        .update({ status: 'closed', closing_price: closingPrice, closed_at: closeDate ?? today })
         .eq('id', id)
         .eq('user_id', user.id);
 

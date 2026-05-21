@@ -706,7 +706,7 @@ function EditHoldingModal({ holding, onClose, onSubmit, totalCashBalance = 0 }: 
 interface CloseHoldingModalProps {
   holding: HoldingWithPrice;
   onClose: () => void;
-  onSubmit: (id: string, closingPrice: number, shouldAdjustCash: boolean) => void;
+  onSubmit: (id: string, closingPrice: number, shouldAdjustCash: boolean, closeDate: string) => void;
   totalCashBalance?: number;
 }
 
@@ -734,7 +734,7 @@ function CloseHoldingModal({ holding, onClose, onSubmit, totalCashBalance = 0 }:
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (price <= 0) return;
-    onSubmit(holding.id, price, doAdjustCash && isEligible);
+    onSubmit(holding.id, price, doAdjustCash && isEligible, closeDate);
   };
 
   const inputStyle: React.CSSProperties = {
@@ -1221,9 +1221,10 @@ function RealPortfolio() {
     id: string,
     price: number,
     shouldAdjustCash: boolean,
+    closeDate: string,
   ) => {
     const holding = closingHolding;
-    const success = await closeHolding(id, price);
+    const success = await closeHolding(id, price, closeDate);
     if (success && shouldAdjustCash && holding) {
       const multiplier = holding.holdingType === 'leaps_call' || holding.holdingType === 'leaps_put' ? 100 : 1;
       await adjustCash(holding.quantity * price * multiplier);
