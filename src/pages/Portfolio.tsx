@@ -1495,8 +1495,8 @@ function RealPortfolio() {
           fxRate={currency === 'SGD' ? sgdRate : 1}
         />
 
-        {/* Section C.5 — Assigned Shares */}
-        <AssignedSharesSection
+        {/* Section C.5 — Assigned Shares (temporarily disabled) */}
+        {/* <AssignedSharesSection
           activeLots={enhanced?.activeLots ?? []}
           closedLots={enhanced?.closedLots ?? []}
           hasAnyLots={enhanced?.hasAnyLots ?? false}
@@ -1505,7 +1505,7 @@ function RealPortfolio() {
           isLoading={!enhanced}
           onRemoveLot={handleRemoveLot}
           onAddCC={(ticker) => navigate(`/wheel?ticker=${encodeURIComponent(ticker)}&strategy=CC`)}
-        />
+        /> */}
 
         {/* Section C.6 — Ticker Performance League Table */}
         <TickerPerformanceTable
