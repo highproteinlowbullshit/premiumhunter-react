@@ -15,7 +15,7 @@ import { useRealtimePrices } from '../hooks/useRealtimePrices';
 import { WebSocketStatus } from '../components/WebSocketStatus';
 import { usePortfolioEnhanced, type EnhancedTimeRange } from '../hooks/usePortfolioEnhanced';
 import { PortfolioBenchmarkChart } from '../components/PortfolioBenchmarkChart';
-import { AssignedSharesSection } from '../components/AssignedSharesSection';
+// import { AssignedSharesSection } from '../components/AssignedSharesSection';
 import { useTickerPerformance } from '../hooks/useTickerPerformance';
 import { TickerPerformanceTable } from '../components/TickerPerformanceTable';
 import { usePageTitle } from '../hooks/usePageTitle';
@@ -1151,11 +1151,11 @@ function RealPortfolio() {
   const { data: performanceSummary, isLoading: perfLoading } = useTickerPerformance();
   const queryClient = useQueryClient();
 
-  const handleRemoveLot = useCallback(async (id: string) => {
-    await supabase.from('lot_premium_events').delete().eq('lot_id', id);
-    await supabase.from('assigned_share_lots').delete().eq('id', id);
-    void queryClient.invalidateQueries({ queryKey: ['portfolio-enhanced'] });
-  }, [queryClient]);
+  // const handleRemoveLot = useCallback(async (id: string) => {
+  //   await supabase.from('lot_premium_events').delete().eq('lot_id', id);
+  //   await supabase.from('assigned_share_lots').delete().eq('id', id);
+  //   void queryClient.invalidateQueries({ queryKey: ['portfolio-enhanced'] });
+  // }, [queryClient]);
 
   // Merge REST prices with WebSocket prices (WS takes precedence)
   const livePriceMap = useMemo(() => {

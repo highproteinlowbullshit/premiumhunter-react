@@ -49,17 +49,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    // Safety net: if getSession hangs (network asleep on iOS wake-up), unblock the UI
+    // after 6 s so the user isn't stuck on a spinner indefinitely.
+    const loadingTimeout = setTimeout(() => setLoading(false), 6000);
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      clearTimeout(loadingTimeout);
       setSession(session);
       if (!recoveryModeRef.current) {
         const u = session?.user ?? null;
         setUser(u);
+        // Unblock UI as soon as we know the identity — don't serialize ban check.
+        setLoading(false);
         if (u) {
-          const banned = await checkBanStatus(u.id);
-          setIsBanned(banned);
-          if (banned) await supabase.auth.signOut();
+          // Ban check fires concurrently; user sees the app while this resolves.
+          checkBanStatus(u.id).then(banned => {
+            setIsBanned(banned);
+            if (banned) supabase.auth.signOut();
+          });
         }
+      } else {
+        setLoading(false);
       }
+    }).catch(() => {
+      clearTimeout(loadingTimeout);
       setLoading(false);
     });
 

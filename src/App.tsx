@@ -129,7 +129,20 @@ function AppInner() {
         </>
       )}
       <ToastContainer />
-      <Sentry.ErrorBoundary fallback={(props) => <ErrorFallback onReset={props.resetError} />}>
+      <Sentry.ErrorBoundary fallback={(props) => {
+          // Stale JS chunk after a new deploy: the old hash URL is gone.
+          // Reload the page to pick up fresh chunks instead of showing an error screen.
+          const isChunkError =
+            props.error instanceof Error &&
+            (props.error.name === 'ChunkLoadError' ||
+             props.error.message.includes('Failed to fetch dynamically imported module') ||
+             props.error.message.includes('Importing a module script failed'));
+          if (isChunkError) {
+            window.location.reload();
+            return null;
+          }
+          return <ErrorFallback onReset={props.resetError} />;
+        }}>
         <Suspense fallback={<PageLoader />}>
           <div className={user ? (clockVisible ? 'mobile-nav-pad-clock' : 'mobile-nav-pad') : ''}>
           <Routes>
