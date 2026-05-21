@@ -139,7 +139,7 @@ function AppInner() {
              props.error.message.includes('Importing a module script failed'));
           if (isChunkError) {
             window.location.reload();
-            return null;
+            return <></>;
           }
           return <ErrorFallback onReset={props.resetError} />;
         }}>

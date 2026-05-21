@@ -79,7 +79,7 @@ export function AssignmentFlowModal({ position, onClose, onConfirm }: Props) {
   const { showToast } = useToast();
   const queryClient = useQueryClient();
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date().toLocaleDateString('sv-SE');
   const [step, setStep] = useState(0);
   const [assignmentDate, setAssignmentDate] = useState(today);
   const [contracts, setContracts] = useState(position.contracts);

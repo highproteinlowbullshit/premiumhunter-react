@@ -30,7 +30,7 @@ export function StockDetail() {
   const pct = stock.priceChangePct;
   const pctLabel = pct != null ? `${pct > 0 ? '+' : ''}${pct.toFixed(2)}%` : null;
   const earningsDaysAway = stock.earningsDate
-    ? Math.ceil((new Date(stock.earningsDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+    ? Math.ceil((new Date(stock.earningsDate + 'T00:00:00').getTime() - Date.now()) / (1000 * 60 * 60 * 24))
     : null;
 
   return (
@@ -165,8 +165,8 @@ export function StockDetail() {
         {/* Earnings + Strategy suggestion */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4"
           style={{ opacity: mounted ? 1 : 0, transition: 'opacity 0.5s ease 0.3s' }}>
-          {/* Earnings info */}
-          {stock.earningsDate && (
+          {/* Earnings info — only show if earnings are in the future */}
+          {stock.earningsDate && earningsDaysAway !== null && earningsDaysAway > 0 && (
             <div className="rounded-xl p-5"
               style={{
                 background: 'rgba(13,27,53,0.6)',
@@ -190,7 +190,7 @@ export function StockDetail() {
                 <div>
                   <p className="font-semibold"
                     style={{ fontFamily: 'JetBrains Mono, monospace', color: '#e8f0fe' }}>
-                    {new Date(stock.earningsDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                    {new Date(stock.earningsDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
                   </p>
                   {earningsDaysAway !== null && (
                     <p className="text-xs mt-0.5"

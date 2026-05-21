@@ -80,7 +80,17 @@ export function FeatureGate({
 
   if (isSuperuser) return <>{children}</>
   if (can(feature)) return <>{children}</>
-  if (isLoading) return null
+  if (isLoading) {
+    // Show blurred placeholder while subscription loads — prevents layout shift
+    // that would occur if we returned null and then switched to full content
+    return (
+      <div style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', minHeight: blurHeight }}>
+        <div style={{ filter: 'blur(5px)', pointerEvents: 'none', userSelect: 'none', opacity: 0.45, minHeight: blurHeight }}>
+          {children}
+        </div>
+      </div>
+    )
+  }
   if (fallback) return <>{fallback}</>
   if (mode === 'hide') return null
   if (mode === 'lock') return <LockCard />

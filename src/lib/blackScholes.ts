@@ -507,7 +507,7 @@ export function aggregatePortfolioGreeks(
     stocksDown10Percent: Math.round(estimatePortfolioPnL(-0.10) * 100) / 100,
     ivUp10Percent: Math.round(estimateVegaPnL(10) * 100) / 100,
     ivDown10Percent: Math.round(estimateVegaPnL(-10) * 100) / 100,
-    oneWeekFromNow: Math.round(totalTheta * 5 * 100) / 100,
+    oneWeekFromNow: Math.round(weeklyTheta * 100) / 100,
     atExpiry: Math.round(
       positionGreeks.reduce((s, p) => s + p.dollarThetaToExpiry, 0) * 100,
     ) / 100,
@@ -515,9 +515,9 @@ export function aggregatePortfolioGreeks(
 
   const gammaRatio = Math.abs(totalGamma) / Math.max(positionGreeks.length, 1)
   const gammaRisk: PortfolioGreeks['gammaRisk'] =
-    gammaRatio < 0.5 ? 'low'
-    : gammaRatio < 2 ? 'moderate'
-    : gammaRatio < 5 ? 'high'
+    gammaRatio < 50 ? 'low'
+    : gammaRatio < 200 ? 'moderate'
+    : gammaRatio < 500 ? 'high'
     : 'extreme'
 
   const vegaRatio = Math.abs(totalVega) / Math.max(Math.abs(totalTheta), 1)

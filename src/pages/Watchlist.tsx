@@ -92,15 +92,17 @@ export function Watchlist() {
     if (!aLoaded) return 1;
     if (!bLoaded) return -1;
 
-    let aVal: string | number;
-    let bVal: string | number;
     if (sort.field === 'ticker') {
-      aVal = a.ticker;
-      bVal = b.ticker;
-    } else {
-      aVal = a.data!.stock[sort.field] as number;
-      bVal = b.data!.stock[sort.field] as number;
+      const cmp = a.ticker.localeCompare(b.ticker);
+      return sort.direction === 'asc' ? cmp : -cmp;
     }
+
+    const aRaw = a.data!.stock[sort.field] as number;
+    const bRaw = b.data!.stock[sort.field] as number;
+    // Zero/missing values always sort to end regardless of direction
+    const aVal = aRaw > 0 ? aRaw : sort.direction === 'asc' ? Infinity : -Infinity;
+    const bVal = bRaw > 0 ? bRaw : sort.direction === 'asc' ? Infinity : -Infinity;
+    if (aVal === bVal) return a.ticker.localeCompare(b.ticker); // stable tie-break
     if (sort.direction === 'asc') return aVal > bVal ? 1 : -1;
     return aVal < bVal ? 1 : -1;
   });
@@ -519,7 +521,7 @@ function WatchlistRow({ ticker, data, isLoading, isLast, onView, onRemove, delay
         ) : (
           <span className="text-sm font-medium tabular-nums"
             style={{ color: '#9ab4d4', fontFamily: 'JetBrains Mono, monospace' }}>
-            {stock && stock.ivPercentile > 0 ? stock.ivPercentile : '—'}
+            {stock && stock.ivPercentile > 0 ? `${stock.ivPercentile}%` : '—'}
           </span>
         )}
       </div>

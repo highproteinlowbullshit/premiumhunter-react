@@ -13,10 +13,10 @@ export interface SubscriptionData {
 }
 
 export function useSubscription() {
-  const { user } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const queryClient = useQueryClient()
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading: queryLoading } = useQuery({
     queryKey: ['subscription', user?.id],
     queryFn: async (): Promise<SubscriptionData> => {
       if (!user) return { tier: 'free', status: 'free', accessUntil: null }
@@ -48,6 +48,7 @@ export function useSubscription() {
     enabled: !!user,
   })
 
+  const isLoading = authLoading || queryLoading
   const tier = data?.tier ?? 'free'
 
   return {

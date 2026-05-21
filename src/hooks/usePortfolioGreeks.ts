@@ -71,7 +71,7 @@ export function usePortfolioGreeks(): {
       return Array.from(best.values())
     },
     staleTime: 30 * 60 * 1000,
-    enabled: tickers.length > 0,
+    enabled: !!user && tickers.length > 0,
   })
 
   const { prices: realtimePrices } = useRealtimePrices(tickers)
