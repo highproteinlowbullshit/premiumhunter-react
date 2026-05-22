@@ -252,7 +252,7 @@ function buildSectorMomentumMap(
 
 // ── Score components struct ────────────────────────────────────────────────
 
-interface ScoreComponents {
+export interface ScoreComponents {
   ivRankScore: number;
   ivHvScore: number;
   earningsSafetyScore: number;
@@ -263,7 +263,7 @@ interface ScoreComponents {
   total: number;
 }
 
-function computeCSPScore(
+export function computeCSPScore(
   stock: ScreenerStock,
   allStocks: ScreenerStock[],
   prefs: ScoringPreferences,

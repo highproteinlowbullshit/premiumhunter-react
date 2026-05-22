@@ -126,6 +126,7 @@ export function useScreenerStream(version = 0): ScreenerStreamState {
               const p = row.current_price ?? row.prev_close ?? null;
               return p != null && p > 0 ? Math.round(p * 0.90 * 100) : null;
             })(),
+            wheelScore: null,
           };
         });
         if (!cancelledRef.current) {
@@ -172,6 +173,7 @@ export function useScreenerStream(version = 0): ScreenerStreamState {
               atmOpenInterest: null,
               dataSource: 'live' as const,
               capitalRequired: null,
+              wheelScore: null,
             } satisfies ScreenerStock;
           });
           setStocks((prev) => {

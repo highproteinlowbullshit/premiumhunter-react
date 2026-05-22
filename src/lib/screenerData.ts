@@ -20,6 +20,7 @@ export interface ScreenerStock {
   atmOpenInterest: number | null; // total ATM open interest (calls + puts)
   dataSource: 'live' | 'cached';
   capitalRequired: number | null; // ~10% OTM CSP collateral for 1 contract ≈ price × 0.90 × 100
+  wheelScore: number | null;      // composite CSP suitability score 0–100 (computed client-side)
 }
 
 export const SECTORS: Array<'All' | Sector> = [
@@ -57,12 +58,13 @@ export const SECTOR_COLORS: Record<Sector, { text: string; bg: string; border: s
   Telecom:      { text: '#c084fc', bg: 'rgba(192,132,252,0.1)', border: 'rgba(192,132,252,0.2)' },
 };
 
-export type SortField = 'ivRank' | 'ivPercentile' | 'price' | 'volume' | 'ticker';
+export type SortField = 'wheelScore' | 'ivRank' | 'ivPercentile' | 'price' | 'volume' | 'ticker';
 
 export const SORT_OPTIONS: { field: SortField; label: string }[] = [
-  { field: 'ivRank',       label: 'IV Rank'     },
-  { field: 'ivPercentile', label: 'IV%ile'       },
-  { field: 'price',        label: 'Price'        },
-  { field: 'volume',       label: 'Volume'       },
-  { field: 'ticker',       label: 'Ticker A–Z'  },
+  { field: 'wheelScore',   label: 'Wheel Score'  },
+  { field: 'ivRank',       label: 'IV Rank'      },
+  { field: 'ivPercentile', label: 'IV%ile'        },
+  { field: 'price',        label: 'Price'         },
+  { field: 'volume',       label: 'Volume'        },
+  { field: 'ticker',       label: 'Ticker A–Z'   },
 ];

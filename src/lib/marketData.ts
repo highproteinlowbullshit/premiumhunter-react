@@ -115,6 +115,7 @@ function buildScreenerFromLive(
       const p = quote?.c && quote.c > 0 ? quote.c : (quote?.pc && quote.pc > 0 ? quote.pc : null);
       return p != null && p > 0 ? Math.round(p * 0.90 * 100) : null;
     })(),
+    wheelScore: null,
   };
 }
 

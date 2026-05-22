@@ -24,6 +24,7 @@ import { EarningsBadge } from '../components/EarningsBadge';
 import { supabase } from '../lib/supabase';
 import { Tooltip } from '../components/ui/Tooltip';
 import { Lock, BarChart2 } from 'lucide-react';
+import { computeCSPScore, DEFAULT_SCORING_PREFS, type ScoreComponents } from '../lib/topPicksEngine';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // IV data freshness
@@ -118,6 +119,69 @@ function ivRankColors(iv: number | null) {
   return           { text: '#ff4d6d', bg: 'rgba(255,77,109,0.12)',  border: 'rgba(255,77,109,0.25)'  };
 }
 
+function wheelScoreColors(score: number | null) {
+  if (score == null) return { text: '#4a6a8a', bg: 'rgba(74,106,138,0.08)', border: 'rgba(74,106,138,0.15)' };
+  if (score >= 70) return { text: '#00d68f', bg: 'rgba(0,214,143,0.12)',  border: 'rgba(0,214,143,0.25)'  };
+  if (score >= 50) return { text: '#f5c842', bg: 'rgba(245,200,66,0.12)', border: 'rgba(245,200,66,0.25)' };
+  if (score >= 30) return { text: '#f97316', bg: 'rgba(249,115,22,0.12)', border: 'rgba(249,115,22,0.25)' };
+  return           { text: '#ff4d6d', bg: 'rgba(255,77,109,0.12)',  border: 'rgba(255,77,109,0.25)'  };
+}
+
+function WheelScoreBadge({ score, breakdown }: { score: number | null; breakdown: ScoreComponents | null }) {
+  const colors = wheelScoreColors(score);
+  if (score == null) {
+    return <span style={{ color: '#2e4a6a', fontFamily: 'JetBrains Mono, monospace', fontSize: 13 }}>--</span>;
+  }
+  const badge = (
+    <span
+      className="inline-flex items-center justify-center w-10 py-1 rounded-lg text-sm font-bold tabular-nums cursor-default"
+      style={{ color: colors.text, background: colors.bg, border: `1px solid ${colors.border}`, fontFamily: 'JetBrains Mono, monospace' }}
+    >
+      {score}
+    </span>
+  );
+  if (!breakdown) return badge;
+  return (
+    <Tooltip
+      content={(
+        <div style={{ minWidth: 190 }}>
+          <div style={{ marginBottom: 6, fontWeight: 700, color: '#e8f0fe', fontSize: 12 }}>Wheel Score</div>
+          {[
+            { label: 'IV Rank',       pts: breakdown.ivRankScore,         max: 30 },
+            { label: 'IV/HV',         pts: breakdown.ivHvScore,           max: 12 },
+            { label: 'Earnings Safe', pts: breakdown.earningsSafetyScore, max: 20 },
+            { label: 'Liquidity',     pts: breakdown.liquidityScore,      max: 15 },
+            { label: 'Momentum',      pts: breakdown.momentumScore,       max: 10 },
+            { label: 'Skew',          pts: breakdown.skewScore,           max: 8  },
+          ].map(({ label, pts, max }) => (
+            <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+              <span style={{ width: 82, fontSize: 11, color: '#9ab4d4', fontFamily: 'DM Sans, sans-serif', flexShrink: 0 }}>{label}</span>
+              <div style={{ flex: 1, height: 4, background: 'rgba(255,255,255,0.08)', borderRadius: 2, overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${(pts / max) * 100}%`, background: colors.text, borderRadius: 2 }} />
+              </div>
+              <span style={{ width: 30, textAlign: 'right', fontSize: 11, color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace', flexShrink: 0 }}>{pts}/{max}</span>
+            </div>
+          ))}
+          {breakdown.penalties > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, paddingTop: 4, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+              <span style={{ fontSize: 11, color: '#ff4d6d', fontFamily: 'DM Sans, sans-serif' }}>Penalties</span>
+              <span style={{ fontSize: 11, color: '#ff4d6d', fontFamily: 'JetBrains Mono, monospace' }}>-{breakdown.penalties}</span>
+            </div>
+          )}
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, paddingTop: 4, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#e8f0fe', fontFamily: 'DM Sans, sans-serif' }}>Total</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: colors.text, fontFamily: 'JetBrains Mono, monospace' }}>{score}</span>
+          </div>
+        </div>
+      )}
+      position="right"
+      maxWidth={240}
+    >
+      {badge}
+    </Tooltip>
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
@@ -149,6 +213,7 @@ const DEFAULT_FILTERS: Filters = {
 type StockWithAffordability = ScreenerStock & {
   isAffordable: boolean | null;
   contractsAffordable: number;
+  wheelScoreBreakdown: ScoreComponents | null;
 };
 
 export function Screener() {
@@ -235,7 +300,16 @@ export function Screener() {
       const contractsAffordable: number = capitalPerTrade > 0 && cap > 0
         ? Math.floor(capitalPerTrade / cap)
         : 0;
-      return { ...s, isAffordable, contractsAffordable };
+      const breakdown = (s.ivRank != null && s.price != null && s.price > 0)
+        ? computeCSPScore(s, stocks, DEFAULT_SCORING_PREFS)
+        : null;
+      return {
+        ...s,
+        wheelScore: breakdown?.total ?? null,
+        isAffordable,
+        contractsAffordable,
+        wheelScoreBreakdown: breakdown,
+      };
     }),
     [stocks, capitalPerTrade]
   );
@@ -451,6 +525,7 @@ export function Screener() {
                         isAffordable={(stock as StockWithAffordability).isAffordable}
                         contractsAffordable={(stock as StockWithAffordability).contractsAffordable}
                         capitalPerTrade={capitalPerTrade > 0 ? capitalPerTrade : undefined}
+                        wheelScoreBreakdown={(stock as StockWithAffordability).wheelScoreBreakdown}
                       />
                     ))}
                   </tbody>
@@ -809,6 +884,7 @@ function StickyHeader({ filters, set, earningsUrgentCount }: {
     { key: 'ticker',       label: 'Symbol'    },
     { key: null,           label: 'Sector'    },
     { key: 'price',        label: 'Price'     },
+    { key: 'wheelScore',   label: 'Wheel'     },
     { key: 'ivRank',       label: 'IV Rank'   },
     { key: 'ivPercentile', label: 'IV%ile'    },
     { key: null,           label: 'IV/HV'     },
@@ -822,6 +898,7 @@ function StickyHeader({ filters, set, earningsUrgentCount }: {
     'Symbol':        'Ticker symbol. Click to open the stock detail page.',
     'Sector':        'Stock sector classification for filtering.',
     'Price':         'Current stock price. Updates every 60 seconds.',
+    'Wheel':         'Composite wheel-strategy score (0–100). Combines IV rank, IV/HV ratio, earnings safety, liquidity, momentum, and put skew. Hover a score to see the full breakdown.',
     'IV Rank':       'Where current IV sits relative to the past 52 weeks. 0 = historically cheap, 100 = historically expensive. Above 50 is generally good for selling premium.',
     'IV%ile':        'Percentage of days over the past year with lower IV than today. 90th percentile means IV is higher than on 90% of past days.',
     'IV/HV':         'Implied Volatility ÷ 30-day Historical Volatility. Above 1.3 means options are expensive relative to actual stock movement — ideal for selling premium.',
@@ -894,7 +971,7 @@ function StickyHeader({ filters, set, earningsUrgentCount }: {
 // ─────────────────────────────────────────────────────────────────────────────
 function DesktopRow({
   stock, isLast, watched, onToggleWatch, onClick, isPaperMode, onPaperTrade,
-  isAffordable, contractsAffordable, capitalPerTrade,
+  isAffordable, contractsAffordable, capitalPerTrade, wheelScoreBreakdown,
 }: {
   stock: ScreenerStock;
   isLast: boolean;
@@ -906,6 +983,7 @@ function DesktopRow({
   isAffordable?: boolean | null;
   contractsAffordable?: number;
   capitalPerTrade?: number;
+  wheelScoreBreakdown?: ScoreComponents | null;
 }) {
   const [hovered, setHovered] = useState(false);
   const ivColors = ivRankColors(stock.ivRank);
@@ -991,6 +1069,11 @@ function DesktopRow({
             </div>
           </Tooltip>
         )}
+      </td>
+
+      {/* Wheel Score */}
+      <td className="py-3.5 px-3">
+        <WheelScoreBadge score={stock.wheelScore} breakdown={wheelScoreBreakdown ?? null} />
       </td>
 
       {/* IV Rank — hero column */}
@@ -1176,14 +1259,15 @@ function MobileCard({
             value: stock.price != null ? `$${stock.price.toFixed(2)}` : '--',
             sub: stock.priceChange != null ? `${stock.priceChange >= 0 ? '+' : ''}${stock.priceChange.toFixed(2)}%` : null,
             subColor: stock.priceChange != null ? (stock.priceChange >= 0 ? '#00d68f' : '#ff4d6d') : '',
+            color: undefined,
           },
-          { label: 'IV%ile', value: stock.ivPercentile != null ? String(stock.ivPercentile) : '--', sub: null, subColor: '' },
-          { label: 'IV/HV', value: stock.ivHvRatio != null ? `${stock.ivHvRatio.toFixed(2)}x` : '--', sub: null, subColor: '' },
-          { label: 'Volume', value: formatVolume(stock.volume), sub: null, subColor: '' },
-        ].map(({ label, value, sub, subColor }) => (
+          { label: 'Wheel', value: stock.wheelScore != null ? String(stock.wheelScore) : '--', sub: null, subColor: '', color: wheelScoreColors(stock.wheelScore).text },
+          { label: 'IV/HV', value: stock.ivHvRatio != null ? `${stock.ivHvRatio.toFixed(2)}x` : '--', sub: null, subColor: '', color: undefined },
+          { label: 'Volume', value: formatVolume(stock.volume), sub: null, subColor: '', color: undefined },
+        ].map(({ label, value, sub, subColor, color }) => (
           <div key={label}>
             <p className="text-xs mb-0.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>{label}</p>
-            <p className="text-sm font-medium tabular-nums" style={{ color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace' }}>{value}</p>
+            <p className="text-sm font-medium tabular-nums" style={{ color: color ?? '#e8f0fe', fontFamily: 'JetBrains Mono, monospace' }}>{value}</p>
             {sub && <p className="text-xs" style={{ color: subColor, fontFamily: 'JetBrains Mono, monospace' }}>{sub}</p>}
           </div>
         ))}
