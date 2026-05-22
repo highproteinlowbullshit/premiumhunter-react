@@ -291,8 +291,23 @@ export function Screener() {
 
   // ── Affordability enrichment ──────────────────────────────────────────────
 
+  // Wheel scores: O(n²) — only recompute when stock data or sector prefs change.
+  // prefs.preferredSectors reference is stable when only capitalPerTrade changes,
+  // so this memo does NOT fire on every capital-per-trade keystroke.
+  const stocksWithScores = useMemo(() => {
+    const scoringPrefs = { ...DEFAULT_SCORING_PREFS, preferredSectors: prefs.preferredSectors };
+    return stocks.map(s => {
+      const breakdown = (s.ivRank != null && s.price != null && s.price > 0)
+        ? computeCSPScore(s, stocks, scoringPrefs)
+        : null;
+      return { ...s, wheelScore: breakdown?.total ?? null, wheelScoreBreakdown: breakdown };
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stocks, prefs.preferredSectors]);
+
+  // Affordability: O(n) — recomputes on every capital-per-trade change (cheap).
   const stocksEnriched = useMemo<StockWithAffordability[]>(() =>
-    stocks.map(s => {
+    stocksWithScores.map(s => {
       const cap = s.capitalRequired ?? 0;
       const isAffordable: boolean | null = capitalPerTrade > 0 && cap > 0
         ? cap <= capitalPerTrade
@@ -300,18 +315,9 @@ export function Screener() {
       const contractsAffordable: number = capitalPerTrade > 0 && cap > 0
         ? Math.floor(capitalPerTrade / cap)
         : 0;
-      const breakdown = (s.ivRank != null && s.price != null && s.price > 0)
-        ? computeCSPScore(s, stocks, DEFAULT_SCORING_PREFS)
-        : null;
-      return {
-        ...s,
-        wheelScore: breakdown?.total ?? null,
-        isAffordable,
-        contractsAffordable,
-        wheelScoreBreakdown: breakdown,
-      };
+      return { ...s, isAffordable, contractsAffordable };
     }),
-    [stocks, capitalPerTrade]
+    [stocksWithScores, capitalPerTrade]
   );
 
   // ── Filtered + sorted stocks ──────────────────────────────────────────────
