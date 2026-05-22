@@ -94,7 +94,12 @@ function RealWheelTracker() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const handleRefresh = useCallback(async () => {
-    await queryClient.invalidateQueries({ queryKey: ['positions', user?.id] });
+    await Promise.all([
+      queryClient.refetchQueries({ queryKey: ['positions', user?.id] }),
+      queryClient.refetchQueries({ queryKey: ['open-positions-for-greeks', user?.id] }),
+      queryClient.refetchQueries({ queryKey: ['monthly-pnl', user?.id] }),
+      queryClient.refetchQueries({ queryKey: ['monthly-target'] }),
+    ]);
   }, [queryClient, user?.id]);
   const { positions, openPositions, monthlyPnL, isLoading, addPosition, removePosition, closePosition, editPosition, assignPosition } = usePositions();
   const cycleGroups = useCycleGroups(positions);

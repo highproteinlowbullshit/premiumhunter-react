@@ -77,7 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         setSession(session);
         if (event === 'PASSWORD_RECOVERY') {
           recoveryModeRef.current = true;
@@ -86,14 +86,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } else {
           recoveryModeRef.current = false;
           const u = session?.user ?? null;
-          if (u) {
-            const banned = await checkBanStatus(u.id);
-            if (banned) { setIsBanned(true); await supabase.auth.signOut(); return; }
-            setIsBanned(false);
-          } else {
-            setIsBanned(false);
-          }
+          // Unblock UI immediately — same non-blocking pattern as getSession handler.
+          // Awaiting checkBanStatus here was the source of the slow sign-in: user=null
+          // persisted for 500-1500ms, bouncing ProtectedRoute back to /login on each sign-in.
           setUser(u);
+          setIsBanned(false);
+          if (u) {
+            checkBanStatus(u.id).then(banned => {
+              setIsBanned(banned);
+              if (banned) supabase.auth.signOut();
+            });
+          }
         }
         setLoading(false);
 

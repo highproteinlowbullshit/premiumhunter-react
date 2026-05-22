@@ -1,6 +1,8 @@
-import { useState, useRef, useMemo, useEffect } from 'react';
+import { useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { usePaperMode } from '../context/PaperModeContext';
+import { PullToRefresh } from '../components/ui/PullToRefresh';
 import { PaperPortfolio } from './PaperPortfolio';
 import { usePortfolio, type HoldingWithPrice } from '../hooks/usePortfolio';
 import { usePositions } from '../hooks/usePositions';
@@ -19,6 +21,7 @@ import { TickerPerformanceTable } from '../components/TickerPerformanceTable';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { Banknote, TrendingUp, RefreshCw, AlertTriangle, CheckCircle, X } from 'lucide-react';
 import { EmptyState } from '../components/ui/EmptyState';
+import { useAuth } from '../context/AuthContext';
 
 type Currency = 'USD' | 'SGD';
 const SGD_FALLBACK_RATE = 1.275; // fallback if Finnhub fetch fails
@@ -1094,6 +1097,16 @@ export function Portfolio() {
 
 function RealPortfolio() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const handleRefresh = useCallback(async () => {
+    await Promise.all([
+      queryClient.refetchQueries({ queryKey: ['portfolio', user?.id] }),
+      queryClient.refetchQueries({ queryKey: ['portfolio-enhanced', user?.id] }),
+      queryClient.refetchQueries({ queryKey: ['ticker-performance', user?.id] }),
+      queryClient.refetchQueries({ queryKey: ['positions', user?.id] }),
+    ]);
+  }, [queryClient, user?.id]);
   const {
     holdingsWithPrice,
     isLoading,
@@ -1313,6 +1326,7 @@ function RealPortfolio() {
   ];
 
   return (
+    <PullToRefresh onRefresh={handleRefresh}>
     <div className="min-h-screen mesh-bg pt-24 pb-12 px-4 sm:px-6">
       <div style={{ maxWidth: 1200, margin: '0 auto' }}>
         {/* Header */}
@@ -2039,5 +2053,6 @@ function RealPortfolio() {
         initialCostBasis={leapsCalcHolding?.avgCost}
       />
     </div>
+    </PullToRefresh>
   );
 }

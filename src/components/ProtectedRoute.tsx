@@ -1,4 +1,4 @@
-import { Navigate, useLocation, Outlet } from 'react-router-dom';
+import { Navigate, useLocation, Outlet, type Location } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useDisclaimer } from '../hooks/useDisclaimer';
 import { DisclaimerModal } from './DisclaimerModal';
@@ -7,8 +7,12 @@ import { PageLoader } from './PageLoader';
 /** Redirects already-authenticated users away from guest-only pages (login, signup). */
 export function GuestRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
+  const location = useLocation();
   if (loading) return null;
-  if (user) return <Navigate to="/dashboard" replace />;
+  if (user) {
+    const from = (location.state as { from?: Location })?.from?.pathname || '/dashboard';
+    return <Navigate to={from} replace />;
+  }
   return <>{children}</>;
 }
 

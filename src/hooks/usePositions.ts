@@ -83,6 +83,7 @@ export function usePositions() {
     enabled: !!user,
     staleTime: 30_000,
     retry: 3,
+    refetchOnWindowFocus: true,
   });
 
   // ── Add position ────────────────────────────────────────────────────────────

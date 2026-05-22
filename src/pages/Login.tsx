@@ -1,13 +1,10 @@
 import { useState } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { usePageTitle } from '../hooks/usePageTitle';
 
 export function Login() {
   usePageTitle('Login');
-  const navigate = useNavigate();
-  const location = useLocation();
-  const from = (location.state as any)?.from?.pathname || '/dashboard';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -26,8 +23,8 @@ export function Login() {
       setLoading(false);
       return;
     }
-
-    navigate(from, { replace: true });
+    // On success, keep spinner running — GuestRoute redirects once user is set by onAuthStateChange.
+    // Navigating here caused a bounce-to-login because user was still null at that point.
   };
 
   const inputBase = {
