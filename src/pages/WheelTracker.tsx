@@ -121,7 +121,7 @@ function RealWheelTracker() {
     today.setHours(0, 0, 0, 0);
     return openPositions.reduce(
       (acc, pos) => {
-        const d = new Date(pos.expiry);
+        const d = new Date(pos.expiry + 'T00:00:00');
         d.setHours(0, 0, 0, 0);
         const dte = Math.ceil((d.getTime() - today.getTime()) / 86400000);
         if (dte === 0) acc.expiringToday++;
@@ -577,11 +577,12 @@ function ClosePositionModal({ position, onClose, onConfirm }: {
   const btcCost = closingPriceNum * 100 * contractsToCloseNum;
   const previewPnl = closingPrice && !isNaN(closingPriceNum) ? premiumForClosed - btcCost : null;
   const previewPnlAfterFees = previewPnl !== null ? previewPnl - optionFees : null;
-  const netRetained = previewPnlAfterFees !== null ? Math.max(0, previewPnlAfterFees) : 0;
+  const netRetained = previewPnlAfterFees ?? 0;
 
   const lotTotalShares = openLot ? Number(openLot.shares) * Number(openLot.contracts) : 0;
   const currentNetCost = openLot ? Number(openLot.net_cost_basis) : 0;
-  const newNetCost = openLot && netRetained > 0 ? Math.max(0, currentNetCost - netRetained) : currentNetCost;
+  // netRetained can be negative (CC bought back at a loss) — cost basis increases in that case
+  const newNetCost = openLot ? Math.max(0, currentNetCost - netRetained) : currentNetCost;
   const newCostPerShare = lotTotalShares > 0 ? newNetCost / lotTotalShares : Number(openLot?.cost_basis_per_share ?? 0);
 
   const inputStyle = {
@@ -793,12 +794,14 @@ function ClosePositionModal({ position, onClose, onConfirm }: {
         </div>
       )}
 
-      {hasCCLot && netRetained > 0 && (
+      {hasCCLot && netRetained !== 0 && (
         <div className="rounded-lg px-4 py-3 mb-4"
           style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.06)' }}>
           <p className="text-xs leading-relaxed" style={{ color: '#6a8fb0', fontFamily: 'DM Sans, sans-serif' }}>
-            The net premium retained will reduce your <span style={{ color: '#e8f0fe' }}>{position.ticker}</span> lot
-            cost basis by <span style={{ color: '#00e5c4' }}>${lotTotalShares > 0 ? (netRetained / lotTotalShares).toFixed(2) : '0.00'}/share</span>.
+            {netRetained > 0
+              ? <>The net premium retained will reduce your <span style={{ color: '#e8f0fe' }}>{position.ticker}</span> lot cost basis by <span style={{ color: '#00e5c4' }}>${lotTotalShares > 0 ? (netRetained / lotTotalShares).toFixed(2) : '0.00'}/share</span>.</>
+              : <>Buying back at a loss will increase your <span style={{ color: '#e8f0fe' }}>{position.ticker}</span> lot cost basis by <span style={{ color: '#ff4d6d' }}>${lotTotalShares > 0 ? (Math.abs(netRetained) / lotTotalShares).toFixed(2) : '0.00'}/share</span>.</>
+            }
           </p>
         </div>
       )}

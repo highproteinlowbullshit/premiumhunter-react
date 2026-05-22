@@ -81,7 +81,8 @@ export function blackScholes(params: {
 // ── Helper: years to expiry ───────────────────────────────────────────────────
 
 export function yearsToExpiry(expiryDate: string): number {
-  const expiry = new Date(expiryDate);
+  // Append T12:00:00 so date-only strings parse as local noon, not UTC midnight.
+  const expiry = new Date(expiryDate.includes('T') ? expiryDate : expiryDate + 'T12:00:00');
   const today = new Date();
   const diffMs = expiry.getTime() - today.getTime();
   return Math.max(0, diffMs / (1000 * 60 * 60 * 24 * 365));

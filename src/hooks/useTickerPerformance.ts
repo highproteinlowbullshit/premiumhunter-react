@@ -187,7 +187,7 @@ export function useTickerPerformance() {
           monthlyReturns.set(monthKey, (monthlyReturns.get(monthKey) ?? 0) + pnl)
 
           const dte = Math.ceil(
-            (new Date(pos.expiry).getTime() - new Date(pos.opened_at).getTime()) / 86400000
+            (new Date(pos.expiry + 'T00:00:00').getTime() - new Date(pos.opened_at).getTime()) / 86400000
           )
           if (dte > 0) dteList.push(dte)
         }
@@ -205,10 +205,10 @@ export function useTickerPerformance() {
           ? Math.max(1, Math.ceil((new Date(lastDate).getTime() - new Date(firstDate).getTime()) / 86400000))
           : 1
 
-        const returnOnCapital = avgCapital > 0 ? (totalPnL / totalCapital) * 100 : 0
+        const returnOnCapital = avgCapital > 0 ? (combinedPnL / totalCapital) * 100 : 0
         const annualisedReturn =
           totalDays > 0 && avgCapital > 0
-            ? ((totalPnL / totalCapital) * (365 / totalDays)) * 100
+            ? ((combinedPnL / totalCapital) * (365 / totalDays)) * 100
             : 0
 
         const totalTrades = tickerPositions.length

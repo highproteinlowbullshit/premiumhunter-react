@@ -261,6 +261,7 @@ export interface ScoreComponents {
   liquidityScore: number;
   momentumScore: number;
   skewScore: number;
+  sectorBonus: number;
   penalties: number;
   total: number;
 }
@@ -285,9 +286,9 @@ export function computeCSPScore(
   // IV/HV ratio (12 pts)
   const ivHvPts = calcIVHvScore(stock, 12);
 
-  // Earnings safety (20 pts)
+  // Earnings safety (20 pts) — no known date is safest (full 20)
   let earnPts = 0;
-  if (dte === null) earnPts = 16;
+  if (dte === null) earnPts = 20;
   else if (dte > 45) earnPts = 20;
   else if (dte >= 30) earnPts = 14;
   else if (dte >= 15) earnPts = 6;
@@ -325,6 +326,7 @@ export function computeCSPScore(
     liquidityScore: liqPts,
     momentumScore: momPts,
     skewScore: skewPts,
+    sectorBonus,
     penalties: penaltyPts,
     total,
   };
@@ -359,10 +361,9 @@ function computeCCScore(
   else if (change < -3) trendPts = 4;
   else trendPts = 9; // -3 to -1
 
-  // Earnings safety (18 pts)
+  // Earnings safety (18 pts) — no known date is safest (full 18)
   let earnPts = 0;
-  if (dte === null) earnPts = 14;
-  else if (dte > 45) earnPts = 18;
+  if (dte === null || dte > 45) earnPts = 18;
   else if (dte >= 30) earnPts = 13;
   else if (dte >= 15) earnPts = 5;
 
@@ -392,6 +393,7 @@ function computeCCScore(
     liquidityScore: liqPts,
     momentumScore: trendPts,
     skewScore: skewPts,
+    sectorBonus,
     penalties: penaltyPts,
     total,
   };

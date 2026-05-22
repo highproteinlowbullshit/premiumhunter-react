@@ -108,7 +108,7 @@ function formatVolume(v: number | null): string {
 }
 
 function daysUntil(dateStr: string): number {
-  return Math.ceil((new Date(dateStr).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+  return Math.ceil((new Date(dateStr + 'T00:00:00').getTime() - Date.now()) / (1000 * 60 * 60 * 24));
 }
 
 function ivRankColors(iv: number | null) {
@@ -148,11 +148,12 @@ function WheelScoreBadge({ score, breakdown }: { score: number | null; breakdown
           <div style={{ marginBottom: 6, fontWeight: 700, color: '#e8f0fe', fontSize: 12 }}>Wheel Score</div>
           {[
             { label: 'IV Rank',       pts: breakdown.ivRankScore,         max: 30 },
-            { label: 'IV/HV',         pts: breakdown.ivHvScore,           max: 12 },
+            { label: 'HV30/HV60',     pts: breakdown.ivHvScore,           max: 12 },
             { label: 'Earnings Safe', pts: breakdown.earningsSafetyScore, max: 20 },
             { label: 'Liquidity',     pts: breakdown.liquidityScore,      max: 15 },
             { label: 'Momentum',      pts: breakdown.momentumScore,       max: 10 },
             { label: 'Skew',          pts: breakdown.skewScore,           max: 8  },
+            ...(breakdown.sectorBonus > 0 ? [{ label: 'Sector Bonus', pts: breakdown.sectorBonus, max: 5 }] : []),
           ].map(({ label, pts, max }) => (
             <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
               <span style={{ width: 82, fontSize: 11, color: '#9ab4d4', fontFamily: 'DM Sans, sans-serif', flexShrink: 0 }}>{label}</span>
@@ -365,8 +366,7 @@ export function Screener() {
     const avgIV   = withIV.length ? Math.round(withIV.reduce((a, s) => a + s.ivRank!, 0) / withIV.length) : 0;
     const earningsUrgentCount = filtered.filter((s) => {
       if (!s.earningsDate) return false;
-      const dte = Math.ceil((new Date(s.earningsDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-      return dte <= 14;
+      return daysUntil(s.earningsDate) <= 14;
     }).length;
     return { total: filtered.length, avgIV, highIV, earningsUrgentCount };
   }, [filtered]);

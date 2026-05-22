@@ -191,12 +191,12 @@ export function usePortfolioEnhanced(timeRange: EnhancedTimeRange) {
       const totalRealizedPnL = totalPremiumIncome + totalGains;
       const premiumPct = totalRealizedPnL > 0
         ? Math.round((totalPremiumIncome / totalRealizedPnL) * 1000) / 10
-        : 100;
+        : 0;
 
       const monthlyAttribution: MonthlyAttribution[] = Array.from(monthMap.entries())
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([mk, d]) => ({
-          month: new Date(mk + '-01').toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+          month: new Date(mk + '-01T12:00:00').toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
           monthKey: mk,
           premiumIncome: Math.round(d.premium * 100) / 100,
           capitalGains: Math.round(d.gains * 100) / 100,
@@ -291,7 +291,7 @@ export function usePortfolioEnhanced(timeRange: EnhancedTimeRange) {
         let lotAnnualisedReturn: number | null = null;
         if (lot.status !== 'holding' && lot.exit_date && lot.total_lot_return != null) {
           const daysHeld = Math.ceil(
-            (new Date(lot.exit_date).getTime() - new Date(lot.assignment_date).getTime()) / 86_400_000
+            (new Date(lot.exit_date + 'T12:00:00').getTime() - new Date(lot.assignment_date + 'T12:00:00').getTime()) / 86_400_000
           );
           const basis = net > 0 ? net : gross;
           if (daysHeld > 0 && basis > 0) {
@@ -321,7 +321,7 @@ export function usePortfolioEnhanced(timeRange: EnhancedTimeRange) {
             strike: Number(currentCC.strike),
             expiry: currentCC.expiry as string,
             premium: Number(currentCC.premium_collected),
-            dte: Math.max(0, Math.ceil((new Date(currentCC.expiry).getTime() - Date.now()) / 86_400_000)),
+            dte: Math.max(0, Math.ceil((new Date(currentCC.expiry + 'T12:00:00').getTime() - Date.now()) / 86_400_000)),
           } : null,
           premiumEvents,
           projectedFinalCostBasis: Math.round(projectedFinalCostBasis * 100) / 100,
@@ -340,9 +340,9 @@ export function usePortfolioEnhanced(timeRange: EnhancedTimeRange) {
       const orphanedAssignments = closed.filter((pos: any) => {
         if (pos.status !== 'assigned') return false;
         const rawTs = pos.closed_at ?? pos.opened_at ?? '';
-        // Use local-time date (sv-SE locale gives YYYY-MM-DD) to match assignment_date
-        // which is a date column stored in the user's trading day, not UTC.
-        const localDate = rawTs ? new Date(rawTs).toLocaleDateString('sv-SE') : '';
+        // Extract date from ISO timestamp by splitting on 'T' — avoids locale/timezone
+        // conversion that could shift the date near UTC midnight.
+        const localDate = rawTs ? rawTs.split('T')[0] : '';
         const key = pos.ticker + '|' + localDate;
         return !existingLotTickers.has(key);
       }).length;

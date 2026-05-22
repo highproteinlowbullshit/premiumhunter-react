@@ -37,6 +37,19 @@ export function useRealtimePrices(tickers: string[]): {
     if (!tickerKey) return;
     const upperTickers = tickerKey.split(',').filter(Boolean);
 
+    // Re-seed from singleton cache for any tickers not yet in state.
+    // This fills in prices for newly-added tickers that the WS already has cached.
+    setPrices((prev) => {
+      const next = new Map(prev);
+      for (const t of upperTickers) {
+        if (!next.has(t)) {
+          const last = finnhubWS.getLastPrice(t);
+          if (last !== undefined) next.set(t, last);
+        }
+      }
+      return next;
+    });
+
     const unsubscribers = upperTickers.map((ticker) =>
       finnhubWS.subscribe(ticker, (price: number) => {
         setPrices((prev) => {

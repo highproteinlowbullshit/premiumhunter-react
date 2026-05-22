@@ -516,8 +516,9 @@ export function usePortfolio() {
           showToast('Holding saved — but failed to adjust cash position. Update manually.', 'error');
         }
       }
+      await invalidate();
     },
-    [user, showToast]
+    [user, showToast, invalidate]
   );
 
   return {

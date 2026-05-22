@@ -24,7 +24,7 @@ interface DbPosition {
 }
 
 function dbToPosition(row: DbPosition): WheelPosition {
-  const expDate = new Date(row.expiry);
+  const expDate = new Date(row.expiry + 'T00:00:00');
   const dte = Math.max(0, Math.ceil((expDate.getTime() - Date.now()) / 86_400_000));
   return {
     id: row.id,
@@ -89,7 +89,7 @@ export function usePositions() {
   // ── Add position ────────────────────────────────────────────────────────────
   const addPosition = useCallback(
     async (data: AddPositionData) => {
-      const expDate = new Date(data.expiry);
+      const expDate = new Date(data.expiry + 'T00:00:00');
       const dte = Math.max(0, Math.ceil((expDate.getTime() - Date.now()) / 86_400_000));
       const tempId = `tmp-${Date.now()}`;
 
@@ -351,7 +351,7 @@ export function usePositions() {
 
           if (lot) {
             const lotTotalShares = Number(lot.shares) * Number(lot.contracts);
-            const newTotalPremium = Math.max(0, Number(lot.total_premium_collected) + netRetained);
+            const newTotalPremium = Number(lot.total_premium_collected) + netRetained;
             const newNetCost = Math.max(0, Number(lot.net_cost_basis) - netRetained);
             const newCostPerShare = lotTotalShares > 0 ? newNetCost / lotTotalShares : 0;
 
@@ -640,7 +640,7 @@ export function usePositions() {
       const newTotal = data.premiumCollected * data.contracts;
       const premiumDelta = newTotal - oldTotal;
 
-      const newDte = Math.max(0, Math.ceil((new Date(data.expiry).getTime() - Date.now()) / 86_400_000));
+      const newDte = Math.max(0, Math.ceil((new Date(data.expiry + 'T00:00:00').getTime() - Date.now()) / 86_400_000));
       queryClient.setQueryData(qKey, (old: WheelPosition[] = []) =>
         old.map((p) =>
           p.id === id

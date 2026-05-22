@@ -43,7 +43,7 @@ function calcHV(closes: number[], window: number): number {
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export interface PolygonIVData {
-  ivRank: number;         // 0–100 based on rolling HV position
+  ivRank: number | null;  // 0–100 based on rolling HV position; null when 52-wk range is flat
   ivPercentile: number;   // % of past HV30 values below current
   currentHV: number;      // most recent 30-day annualized HV (%)
   hv30: number;           // same — explicit alias
@@ -208,7 +208,7 @@ export async function getIVData(
     const ivRank =
       hv52wkHigh > hv52wkLow
         ? Math.round(((currentHV - hv52wkLow) / (hv52wkHigh - hv52wkLow)) * 100)
-        : 50;
+        : null;
 
     // IV Percentile: % of past HV values that were <= current
     const belowCount = hvSeries.filter((v) => v < currentHV).length;
@@ -242,7 +242,7 @@ export async function getIVData(
     }
 
     const result: PolygonIVData = {
-      ivRank: Math.min(100, Math.max(0, ivRank)),
+      ivRank: ivRank !== null ? Math.min(100, Math.max(0, ivRank)) : null,
       ivPercentile: Math.min(100, Math.max(0, ivPercentile)),
       currentHV,
       hv30: currentHV,

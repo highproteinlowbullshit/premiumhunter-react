@@ -54,7 +54,7 @@ function holdingTypeBadgeColor(type: HoldingType): string {
 }
 
 function getDte(expiry: string): number {
-  return Math.max(0, Math.ceil((new Date(expiry).getTime() - Date.now()) / 86400000));
+  return Math.max(0, Math.ceil((new Date(expiry + 'T00:00:00').getTime() - Date.now()) / 86400000));
 }
 
 // ── Add Holding Modal ──────────────────────────────────────────────────────────
@@ -105,8 +105,8 @@ function AddHoldingModal({ onClose, onSubmit, livePrices, totalCashBalance }: Ad
   const cashImpact = isEligible && qty > 0 && cost > 0 ? -(qty * cost * multiplier) : null;
   const balanceAfter = cashImpact !== null ? totalCashBalance + cashImpact : null;
   const wouldOverdraw = balanceAfter !== null && balanceAfter < 0;
-  const estMV = !isCash && livePrice != null ? livePrice * qty : null;
-  const estPnl = estMV != null ? estMV - cost * qty : null;
+  const estMV = !isCash && livePrice != null ? livePrice * qty * multiplier : null;
+  const estPnl = estMV != null ? estMV - cost * qty * multiplier : null;
 
   // BS estimate for LEAPS
   const strikeNum = parseFloat(strike) || 0;
@@ -1178,7 +1178,8 @@ function RealPortfolio() {
     return holdingsWithPrice.reduce((acc, h) => {
       if (h.holdingType === 'cash') return acc + h.quantity;
       const livePrice = wsPrices.get(h.ticker.toUpperCase()) ?? h.currentPrice ?? 0;
-      return acc + livePrice * h.quantity;
+      const mult = h.holdingType === 'leaps_call' || h.holdingType === 'leaps_put' ? 100 : 1;
+      return acc + livePrice * h.quantity * mult;
     }, 0);
   }, [holdingsWithPrice, wsPrices]);
 
@@ -1187,8 +1188,9 @@ function RealPortfolio() {
     return holdingsWithPrice.reduce((acc, h) => {
       if (h.holdingType === 'cash') return acc;
       const livePrice = wsPrices.get(h.ticker.toUpperCase()) ?? h.currentPrice ?? 0;
-      const costBasis = (h.avgCost ?? 0) * h.quantity;
-      return acc + (livePrice * h.quantity - costBasis);
+      const mult = h.holdingType === 'leaps_call' || h.holdingType === 'leaps_put' ? 100 : 1;
+      const costBasis = (h.avgCost ?? 0) * h.quantity * mult;
+      return acc + (livePrice * h.quantity * mult - costBasis);
     }, 0);
   }, [holdingsWithPrice, wsPrices]);
 
@@ -1246,7 +1248,7 @@ function RealPortfolio() {
     const success = await editHolding(id, data);
     if (success && shouldAdjustCash && original && data.quantity != null && data.avgCost != null) {
       const origMultiplier = original.holdingType === 'leaps_call' || original.holdingType === 'leaps_put' ? 100 : 1;
-      const newMultiplier = (data.holdingType ?? original.holdingType) === 'leaps_call' || (data.holdingType ?? original.holdingType) === 'leaps_put' ? 100 : 1;
+      const newMultiplier = ((data.holdingType ?? original.holdingType) === 'leaps_call' || (data.holdingType ?? original.holdingType) === 'leaps_put') ? 100 : 1;
       const oldBasis = original.quantity * original.avgCost * origMultiplier;
       const newBasis = data.quantity * data.avgCost * newMultiplier;
       const delta = -(newBasis - oldBasis);
@@ -1671,7 +1673,7 @@ function RealPortfolio() {
                           <td style={{ padding: '12px 14px', fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}>
                             {h.expiry && dte != null ? (
                               <span style={{ color: dte < 30 ? '#ff4d6d' : '#9ab4d4' }}>
-                                {new Date(h.expiry).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })}
+                                {new Date(h.expiry + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })}
                                 <span style={{ marginLeft: 4, fontSize: 10, opacity: 0.8 }}>({dte}d)</span>
                               </span>
                             ) : (
@@ -1802,7 +1804,7 @@ function RealPortfolio() {
                             <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}>
                               {h.expiry && dte != null ? (
                                 <span style={{ color: dte < 30 ? '#ff4d6d' : '#9ab4d4' }}>
-                                  {new Date(h.expiry).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })}
+                                  {new Date(h.expiry + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })}
                                 </span>
                               ) : (
                                 <span style={{ color: '#4a6a8a' }}>—</span>
@@ -1977,7 +1979,7 @@ function RealPortfolio() {
                           ${p.strike.toFixed(2)}
                         </td>
                         <td style={{ padding: '12px 14px', color: '#9ab4d4', fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}>
-                          {new Date(p.expiry).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })}
+                          {new Date(p.expiry + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })}
                         </td>
                         <td style={{ padding: '12px 14px', color: '#00d68f', fontFamily: 'JetBrains Mono, monospace', fontSize: 13 }}>
                           {formatDollars(p.premiumCollected)}

@@ -59,9 +59,18 @@ export function useAssignmentProbabilities(
     return map;
   }, [ivRows]);
 
+  // Stable key derived from live prices so the memo only recomputes when prices
+  // actually change — not on every render that produces a new Map reference.
+  const priceKey = useMemo(
+    () => [...livePrices.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([t, p]) => `${t}:${p}`).join(','),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [[...livePrices.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([t, p]) => `${t}:${p}`).join(',')]
+  );
+
   const probabilities = useMemo<Map<string, AssignmentProbabilityResult>>(
     () => calculateAssignmentProbabilitiesBatch(positions, livePrices, ivMap),
-    [positions, livePrices, ivMap]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [positions.map(p => p.id).join(','), priceKey, ivMap]
   );
 
   const summary = useMemo(() => {
