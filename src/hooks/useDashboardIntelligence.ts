@@ -3,7 +3,6 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { usePaperMode } from '../context/PaperModeContext';
 import { blackScholes, estimateVolatility } from '../lib/blackScholes';
-import { estimateIV } from '../lib/ivEstimate';
 import { getQuote, getNextEarnings } from '../lib/finnhub';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -724,16 +723,14 @@ export function useDashboardIntelligence() {
           : screenIV?.current_price
           ? Number(screenIV.current_price)
           : null;
-        // Use VRP-adjusted IV (same estimateIV path as usePortfolioGreeks) so theta
-        // values match between this section and the Portfolio Greeks section.
+        // Use raw HV30 as IV — no VRP adjustment.
         const hv30Raw = posIV?.current_hv
           ? Number(posIV.current_hv)
           : screenIV?.hv_30
           ? Number(screenIV.hv_30)
           : null;
-        const earningsDTEForIV = earningsDaysMap.get(pos.ticker as string) ?? null;
         const iv = hv30Raw != null && hv30Raw > 0
-          ? estimateIV(hv30Raw, null, null, earningsDTEForIV) / 100
+          ? hv30Raw / 100
           : estimateVolatility(pos.ticker as string);
 
         // Price distance and safety

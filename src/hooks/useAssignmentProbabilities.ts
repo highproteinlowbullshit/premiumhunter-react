@@ -3,7 +3,6 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { calculateAssignmentProbabilitiesBatch, type AssignmentProbabilityResult } from '../lib/blackScholes';
-import { estimateIV } from '../lib/ivEstimate';
 
 interface OpenPosition {
   id: string;
@@ -54,17 +53,7 @@ export function useAssignmentProbabilities(
     for (const row of ivRows ?? []) {
       const hv30Raw = row.current_hv ?? row.hv_30;
       if (!seen.has(row.ticker) && hv30Raw) {
-        const hv30 = Number(hv30Raw);
-        const earningsDTE = row.earnings_date
-          ? Math.ceil((new Date(row.earnings_date + 'T00:00:00').getTime() - Date.now()) / 86_400_000)
-          : null;
-        const iv = estimateIV(
-          hv30,
-          row.iv_hv_ratio != null ? Number(row.iv_hv_ratio) : null,
-          row.iv_rank != null ? Number(row.iv_rank) : null,
-          earningsDTE,
-        );
-        map.set(row.ticker, iv / 100);
+        map.set(row.ticker, Number(hv30Raw) / 100);
         seen.add(row.ticker);
       }
     }

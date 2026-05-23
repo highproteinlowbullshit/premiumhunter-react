@@ -2,7 +2,6 @@ import { STOCK_LIST, STOCK_META } from './stockList';
 import { getQuote, getProfile, getNextEarnings } from './finnhub';
 import { getIVData } from './polygon';
 import { supabase } from './supabase';
-import { estimateIV } from './ivEstimate';
 import type { ScreenerStock } from './screenerData';
 import type { StockTicker, IVDataPoint } from '../types';
 
@@ -96,12 +95,7 @@ function buildScreenerFromLive(
 ): ScreenerStock {
   const meta = STOCK_META[ticker];
   const hv30 = hv?.hv30 ?? null;
-  const earningsDTE = earningsDate
-    ? Math.ceil((new Date(earningsDate + 'T00:00:00').getTime() - Date.now()) / 86_400_000)
-    : null;
-  const estimatedIV = hv30 != null && hv30 > 0
-    ? estimateIV(hv30, hv?.ivHvRatio ?? null, hv?.ivRank ?? null, earningsDTE)
-    : null;
+  const estimatedIV = hv30;
   return {
     ticker,
     name: meta?.name ?? ticker,

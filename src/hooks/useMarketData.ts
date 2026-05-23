@@ -7,7 +7,6 @@ import {
   getSupabaseCachedToday,
   fetchScreenerStock,
 } from '../lib/marketData';
-import { estimateIV } from '../lib/ivEstimate';
 import { STOCK_LIST } from '../lib/stockList';
 import type { ScreenerStock } from '../lib/screenerData';
 
@@ -107,12 +106,7 @@ export function useScreenerStream(version = 0): ScreenerStreamState {
           const row = cachedMap.get(s.ticker)!;
           const hv30 = row.hv_30;
           const earningsDate = row.earnings_date ?? null;
-          const earningsDTE = earningsDate
-            ? Math.ceil((new Date(earningsDate + 'T00:00:00').getTime() - Date.now()) / 86_400_000)
-            : null;
-          const estimatedIVVal = hv30 != null && hv30 > 0
-            ? estimateIV(hv30, row.iv_hv_ratio ?? null, row.iv_rank ?? null, earningsDTE)
-            : null;
+          const estimatedIVVal = hv30;
           return {
             ticker: s.ticker,
             name: s.name,

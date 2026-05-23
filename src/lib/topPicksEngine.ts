@@ -205,17 +205,7 @@ function calcLiquidityScore(stock: ScreenerStock, allStocks: ScreenerStock[], ma
   return Math.round(volumePts(stock, allStocks, maxPts * 0.7) + oiPts(stock, maxPts * 0.3));
 }
 
-/**
- * Effective IV/HV ratio for scoring. Uses estimatedIV/hv30 when possible
- * because stock.ivHvRatio is stored as currentIV/hv30 and currentIV in this
- * database is HV30 (historical vol) — so the stored ratio is always ~1.0 and
- * carries no signal. estimatedIV is the VRP-adjusted estimate, so
- * estimatedIV/hv30 correctly reflects implied-over-realised premium.
- */
 function effectiveIVHvRatio(stock: ScreenerStock): number | null {
-  if (stock.estimatedIV != null && stock.hv30 != null && stock.hv30 > 0) {
-    return stock.estimatedIV / stock.hv30;
-  }
   return stock.ivHvRatio;
 }
 

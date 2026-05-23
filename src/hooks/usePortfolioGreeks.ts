@@ -11,7 +11,6 @@ import {
   type PositionGreeks,
   type PortfolioGreeks,
 } from '../lib/blackScholes'
-import { estimateIV } from '../lib/ivEstimate'
 
 export function usePortfolioGreeks(): {
   greeks: PortfolioGreeks | null
@@ -107,21 +106,9 @@ export function usePortfolioGreeks(): {
 
         const currentPrice = livePrice ?? iv?.current_price ?? 0
         const hv30Raw = iv?.current_hv ?? iv?.hv_30
-        let impliedVolatility: number
-        if (hv30Raw != null && Number(hv30Raw) > 0) {
-          const hv30 = Number(hv30Raw)
-          const earningsDTE = iv?.earnings_date
-            ? Math.ceil((new Date(iv.earnings_date + 'T00:00:00').getTime() - Date.now()) / 86_400_000)
-            : null
-          impliedVolatility = estimateIV(
-            hv30,
-            iv?.iv_hv_ratio != null ? Number(iv.iv_hv_ratio) : null,
-            iv?.iv_rank != null ? Number(iv.iv_rank) : null,
-            earningsDTE,
-          ) / 100
-        } else {
-          impliedVolatility = estimateVolatility(pos.ticker)
-        }
+        const impliedVolatility = hv30Raw != null && Number(hv30Raw) > 0
+          ? Number(hv30Raw) / 100
+          : estimateVolatility(pos.ticker)
 
         // current_hv is 30-day historical vol from the nightly cron, not live Polygon IV
         const ivSource: PositionGreeks['ivSource'] =
