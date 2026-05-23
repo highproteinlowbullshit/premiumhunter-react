@@ -383,10 +383,6 @@ export function calculatePositionGreeks(params: {
     optionType,
   })
 
-  const rho = optionType === 'call'
-    ? strike * T * Math.exp(-riskFreeRate * T) * normalCDF(bs.d2) / 100
-    : -strike * T * Math.exp(-riskFreeRate * T) * normalCDF(-bs.d2) / 100
-
   const multiplier = contracts * 100
   const positionDelta = bs.delta * multiplier
   const positionGamma = bs.gamma * multiplier
@@ -397,6 +393,13 @@ export function calculatePositionGreeks(params: {
   const sellerTheta = positionTheta * -1
   const sellerVega = positionVega * -1
   const sellerGamma = positionGamma * -1
+
+  // Rho: per 1% rate move, seller perspective, dollar-scaled like other Greeks.
+  // Buyer put-rho is negative (put buyer loses when rates rise); seller's is positive.
+  const buyerRho = optionType === 'call'
+    ? strike * T * Math.exp(-riskFreeRate * T) * normalCDF(bs.d2) / 100
+    : -strike * T * Math.exp(-riskFreeRate * T) * normalCDF(-bs.d2) / 100
+  const sellerRho = -buyerRho * multiplier
 
   const dollarThetaToday = sellerTheta
   const dollarThetaToExpiry = bs.timeValue * multiplier
@@ -413,7 +416,7 @@ export function calculatePositionGreeks(params: {
     gamma: bs.gamma,
     theta: bs.theta,
     vega: bs.vega,
-    rho: Math.round(rho * 10000) / 10000,
+    rho: Math.round(sellerRho * 100) / 100,
     positionDelta, positionGamma, positionTheta, positionVega,
     sellerDelta: Math.round(sellerDelta * 100) / 100,
     sellerTheta: Math.round(sellerTheta * 100) / 100,
@@ -430,6 +433,19 @@ export function calculatePositionGreeks(params: {
     ivSource,
     calculatedAt: new Date().toISOString(),
   }
+}
+
+// Projects cumulative theta over `days` using the θ ∝ 1/√T acceleration model,
+// consistent with generateThetaProjection in PortfolioGreeksDashboard.
+function projectThetaDays(dailyTheta: number, dte: number, days: number): number {
+  if (dte <= 0 || dailyTheta <= 0) return 0
+  let cumulative = 0
+  const n = Math.min(Math.ceil(dte), days)
+  for (let d = 1; d <= n; d++) {
+    const dteRemaining = Math.max(0.5, dte - (d - 1))
+    cumulative += dailyTheta * Math.sqrt(dte / dteRemaining)
+  }
+  return cumulative
 }
 
 export function aggregatePortfolioGreeks(
@@ -468,12 +484,14 @@ export function aggregatePortfolioGreeks(
     }))
     .sort((a, b) => b.dailyTheta - a.dailyTheta)
 
+  // Use the θ ∝ 1/√T model so weekly matches the projection chart.
   const weeklyTheta = positionGreeks.reduce(
-    (s, p) => s + p.dollarThetaToday * Math.min(p.dte, 5),
+    (s, p) => s + projectThetaDays(p.dollarThetaToday, p.dte, 5),
     0,
   )
+  // "To expiry" = sum of remaining time value per position — exact, no cap, no linear extrapolation.
   const monthlyTheta = positionGreeks.reduce(
-    (sum, p) => sum + p.dollarThetaToday * Math.min(p.dte, 30),
+    (sum, p) => sum + p.dollarThetaToExpiry,
     0,
   )
 
@@ -483,8 +501,10 @@ export function aggregatePortfolioGreeks(
     : 0
 
   const expiringThisWeek = positionGreeks.filter(p => p.dte <= 7)
+  // Use dollarThetaToExpiry (remaining time value) — theta acceleration is most
+  // severe in the final week, making linear theta*dte a significant underestimate.
   const premiumExpiringThisWeek = expiringThisWeek.reduce(
-    (s, p) => s + p.dollarThetaToday * p.dte,
+    (s, p) => s + p.dollarThetaToExpiry,
     0,
   )
 
