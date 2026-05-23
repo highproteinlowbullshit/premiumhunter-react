@@ -535,11 +535,20 @@ function ZoneScenarios({ greeks }: { greeks: PortfolioGreeks }) {
                 key={row.label}
                 style={{
                   ...rowBase,
-                  background: i % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent',
-                  ...(row.accent ? { borderLeft: '2px solid #14b8a6', paddingLeft: 10 } : {}),
+                  background: row.accent
+                    ? 'rgba(20,184,166,0.07)'
+                    : i % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent',
+                  borderRadius: row.accent ? 8 : rowBase.borderRadius,
+                  border: row.accent ? '1px solid rgba(20,184,166,0.18)' : 'none',
                 }}
               >
-                <span className="text-sm" style={{ color: '#9ab4d4', fontFamily: 'DM Sans, sans-serif' }}>{row.label}</span>
+                <span className="text-sm" style={{
+                  color: row.accent ? '#14b8a6' : '#9ab4d4',
+                  fontFamily: 'DM Sans, sans-serif',
+                  fontWeight: row.accent ? 600 : 400,
+                }}>
+                  {row.label}
+                </span>
                 <ScenarioValue value={row.value} />
               </div>
             ))}
