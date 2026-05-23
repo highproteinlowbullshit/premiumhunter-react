@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { usePaperMode } from '../context/PaperModeContext';
 import { blackScholes, estimateVolatility } from '../lib/blackScholes';
+import { estimateIV } from '../lib/ivEstimate';
 import { getQuote, getNextEarnings } from '../lib/finnhub';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -723,13 +724,17 @@ export function useDashboardIntelligence() {
           : screenIV?.current_price
           ? Number(screenIV.current_price)
           : null;
-        // Prefer position-specific current_hv, then iv_snapshots hv_30 (same source WheelTracker uses), then estimate
-        const rawIV = posIV?.current_hv
-          ? Number(posIV.current_hv) / 100
+        // Use VRP-adjusted IV (same estimateIV path as usePortfolioGreeks) so theta
+        // values match between this section and the Portfolio Greeks section.
+        const hv30Raw = posIV?.current_hv
+          ? Number(posIV.current_hv)
           : screenIV?.hv_30
-          ? Number(screenIV.hv_30) / 100
+          ? Number(screenIV.hv_30)
           : null;
-        const iv = rawIV ?? estimateVolatility(pos.ticker as string);
+        const earningsDTEForIV = earningsDaysMap.get(pos.ticker as string) ?? null;
+        const iv = hv30Raw != null && hv30Raw > 0
+          ? estimateIV(hv30Raw, null, null, earningsDTEForIV) / 100
+          : estimateVolatility(pos.ticker as string);
 
         // Price distance and safety
         const isITM = currentPrice !== null
