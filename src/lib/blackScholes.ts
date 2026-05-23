@@ -10,8 +10,11 @@ function normalCDF(x: number): number {
   const p  =  0.3275911;
   const sign = x < 0 ? -1 : 1;
   const absX = Math.abs(x);
-  const t = 1.0 / (1.0 + p * absX);
-  const y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-absX * absX);
+  // A&S 7.1.26 approximates erf(z) with exp(-z²). To get Φ(x) = 0.5*(1+erf(x/√2))
+  // evaluate the polynomial at x/√2 and use exp(-(x/√2)²) = exp(-x²/2).
+  const z = absX / Math.SQRT2;
+  const t = 1.0 / (1.0 + p * z);
+  const y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-z * z);
   return 0.5 * (1.0 + sign * y);
 }
 
@@ -336,7 +339,9 @@ export function calculatePositionGreeks(params: {
   } = params
 
   const today = new Date()
-  const expiryDate = new Date(expiry)
+  // Parse date-only strings as local noon to avoid UTC midnight shifting the date
+  // to the prior evening for US users (same convention as yearsToExpiry).
+  const expiryDate = new Date(expiry.includes('T') ? expiry : expiry + 'T12:00:00')
   const dte = Math.max(0, Math.ceil(
     (expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
   ))
@@ -597,8 +602,7 @@ export function calculateAssignmentProbabilitiesBatch(
     const spotPrice = priceMap.get(position.ticker);
     if (!spotPrice || spotPrice <= 0) return;
 
-    const expiryDate = new Date(position.expiry);
-    expiryDate.setHours(0, 0, 0, 0);
+    const expiryDate = new Date(position.expiry.includes('T') ? position.expiry : position.expiry + 'T12:00:00');
     const daysToExpiry = Math.max(0, Math.ceil(
       (expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
     ));

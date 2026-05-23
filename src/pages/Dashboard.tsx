@@ -107,10 +107,10 @@ function RealDashboard() {
 
   const handleRefresh = useCallback(async () => {
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['watchlist'] }),
-      queryClient.invalidateQueries({ queryKey: ['dashboard-intelligence'] }),
-      queryClient.invalidateQueries({ queryKey: ['open-positions-for-greeks'] }),
-      queryClient.invalidateQueries({ queryKey: ['portfolio-greeks'] }),
+      queryClient.refetchQueries({ queryKey: ['watchlist'] }),
+      queryClient.refetchQueries({ queryKey: ['dashboard-intelligence'] }),
+      queryClient.refetchQueries({ queryKey: ['open-positions-for-greeks'] }),
+      queryClient.refetchQueries({ queryKey: ['portfolio-greeks'] }),
     ]);
   }, [queryClient]);
 
