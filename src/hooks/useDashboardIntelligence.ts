@@ -783,7 +783,8 @@ export function useDashboardIntelligence() {
               : null;
 
             // Seller theta: abs(theta) per share × 100 shares/contract × contracts
-            dailyTheta = Math.round(Math.abs(bs.theta) * contracts * 100) / 100;
+            const dollarTheta = Math.abs(bs.theta) * contracts * 100;
+            dailyTheta = Math.round(dollarTheta * 100) / 100;
             assignmentProbability = Math.round(Math.abs(bs.delta) * 1000) / 10;
           } catch {
             // Black-Scholes failed — leave null

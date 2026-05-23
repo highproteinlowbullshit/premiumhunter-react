@@ -82,7 +82,8 @@ function applyLivePrice(pos: PositionSnapshot, livePrice: number | undefined): P
       percentOfMaxProfit    = pos.premiumCollected > 0
         ? Math.max(0, Math.round(((pos.premiumCollected - bs.price * 100) / pos.premiumCollected) * 1000) / 10)
         : pos.percentOfMaxProfit;
-      dailyTheta = Math.round(Math.abs(bs.theta) * pos.contracts * 100) / 100;
+      const dollarTheta = Math.abs(bs.theta) * pos.contracts * 100;
+      dailyTheta = Math.round(dollarTheta * 100) / 100;
     } catch { /* keep original snapshot values if BS fails */ }
   }
 
