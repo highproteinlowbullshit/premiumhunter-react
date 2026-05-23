@@ -7,6 +7,7 @@ import {
   getSupabaseCachedToday,
   fetchScreenerStock,
 } from '../lib/marketData';
+import { estimateIV } from '../lib/ivEstimate';
 import { STOCK_LIST } from '../lib/stockList';
 import type { ScreenerStock } from '../lib/screenerData';
 
@@ -14,7 +15,7 @@ const SCREENER_BATCH = 20;         // tickers per batch
 const SCREENER_BATCH_DELAY_MS = 50; // ms between batches
 // 12 hours — cron pre-calculates IV nightly, so cached data is valid all day
 const SCREENER_CACHE_TTL = 12 * 60 * 60 * 1000;
-const SCREENER_LS_KEY = 'ph_screener_v4'; // bumped: query today+yesterday to cover midnight UTC boundary
+const SCREENER_LS_KEY = 'ph_screener_v5'; // bumped: estimatedIV + earningsDate added to cached rows
 
 // ── Module-level session cache ─────────────────────────────────────────────
 // In-memory: survives navigation within a session.
@@ -104,6 +105,14 @@ export function useScreenerStream(version = 0): ScreenerStreamState {
       if (cachedTickers.length > 0 && !cancelledRef.current) {
         const cachedStocks: ScreenerStock[] = cachedTickers.map((s) => {
           const row = cachedMap.get(s.ticker)!;
+          const hv30 = row.hv_30;
+          const earningsDate = row.earnings_date ?? null;
+          const earningsDTE = earningsDate
+            ? Math.ceil((new Date(earningsDate + 'T00:00:00').getTime() - Date.now()) / 86_400_000)
+            : null;
+          const estimatedIVVal = hv30 != null && hv30 > 0
+            ? estimateIV(hv30, row.iv_hv_ratio ?? null, row.iv_rank ?? null, earningsDTE)
+            : null;
           return {
             ticker: s.ticker,
             name: s.name,
@@ -113,12 +122,13 @@ export function useScreenerStream(version = 0): ScreenerStreamState {
             ivRank: row.iv_rank,
             ivPercentile: row.iv_percentile,
             currentIV: row.current_hv,
-            hv30: row.hv_30,
+            hv30,
             ivHvRatio: row.iv_hv_ratio,
             iv52wkHigh: row.hv_52wk_high,
             iv52wkLow: row.hv_52wk_low,
             volume: row.volume ?? null,
-            earningsDate: null,
+            earningsDate,
+            estimatedIV: estimatedIVVal,
             putCallSkew: row.put_call_skew ?? null,
             atmOpenInterest: row.atm_open_interest ?? null,
             dataSource: 'cached' as const,
@@ -169,6 +179,7 @@ export function useScreenerStream(version = 0): ScreenerStreamState {
               iv52wkLow: null,
               volume: null,
               earningsDate: null,
+              estimatedIV: null,
               putCallSkew: null,
               atmOpenInterest: null,
               dataSource: 'live' as const,

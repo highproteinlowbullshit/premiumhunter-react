@@ -11,6 +11,7 @@ import {
   type PositionGreeks,
   type PortfolioGreeks,
 } from '../lib/blackScholes'
+import { estimateIV } from '../lib/ivEstimate'
 
 export function usePortfolioGreeks(): {
   greeks: PortfolioGreeks | null
@@ -51,7 +52,7 @@ export function usePortfolioGreeks(): {
       if (tickers.length === 0) return []
       const { data } = await supabase
         .from('iv_snapshots')
-        .select('ticker, current_hv, hv_30, current_price, iv_rank')
+        .select('ticker, current_hv, hv_30, current_price, iv_rank, iv_hv_ratio, earnings_date')
         .in('ticker', tickers)
         .gte('snapshot_date', threeDaysAgo)
         .eq('calculation_success', true)
@@ -78,7 +79,7 @@ export function usePortfolioGreeks(): {
 
   // Memoized so the Map object is stable between renders (ivData has a 6h staleTime)
   const ivMap = useMemo(
-    () => new Map((ivData ?? []).map((d: { ticker: string; current_hv: number | null; hv_30: number | null; current_price: number | null }) => [d.ticker, d])),
+    () => new Map((ivData ?? []).map((d: { ticker: string; current_hv: number | null; hv_30: number | null; current_price: number | null; iv_rank: number | null; iv_hv_ratio: number | null; earnings_date: string | null }) => [d.ticker, d])),
     [ivData],
   )
 
@@ -105,16 +106,26 @@ export function usePortfolioGreeks(): {
         const livePrice = realtimePrices.get(pos.ticker)
 
         const currentPrice = livePrice ?? iv?.current_price ?? 0
-        const impliedVolatility = iv?.current_hv != null
-          ? Number(iv.current_hv) / 100
-          : iv?.hv_30 != null
-          ? Number(iv.hv_30) / 100
-          : estimateVolatility(pos.ticker)
+        const hv30Raw = iv?.current_hv ?? iv?.hv_30
+        let impliedVolatility: number
+        if (hv30Raw != null && Number(hv30Raw) > 0) {
+          const hv30 = Number(hv30Raw)
+          const earningsDTE = iv?.earnings_date
+            ? Math.ceil((new Date(iv.earnings_date + 'T00:00:00').getTime() - Date.now()) / 86_400_000)
+            : null
+          impliedVolatility = estimateIV(
+            hv30,
+            iv?.iv_hv_ratio != null ? Number(iv.iv_hv_ratio) : null,
+            iv?.iv_rank != null ? Number(iv.iv_rank) : null,
+            earningsDTE,
+          ) / 100
+        } else {
+          impliedVolatility = estimateVolatility(pos.ticker)
+        }
 
         // current_hv is 30-day historical vol from the nightly cron, not live Polygon IV
         const ivSource: PositionGreeks['ivSource'] =
-          iv?.current_hv ? 'supabase_cache'
-          : iv?.hv_30 ? 'supabase_cache'
+          hv30Raw ? 'supabase_cache'
           : 'estimated'
 
         return calculatePositionGreeks({

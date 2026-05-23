@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { calculateAssignmentProbabilitiesBatch, type AssignmentProbabilityResult } from '../lib/blackScholes';
+import { estimateIV } from '../lib/ivEstimate';
 
 interface OpenPosition {
   id: string;
@@ -35,7 +36,7 @@ export function useAssignmentProbabilities(
       const thirtyDaysAgo = new Date(Date.now() - 30 * 86_400_000).toISOString().split('T')[0];
       const { data } = await supabase
         .from('iv_snapshots')
-        .select('ticker, hv_30, snapshot_date')
+        .select('ticker, current_hv, hv_30, snapshot_date, iv_rank, iv_hv_ratio, earnings_date')
         .in('ticker', tickers)
         .eq('calculation_success', true)
         .gte('snapshot_date', thirtyDaysAgo)
@@ -51,8 +52,19 @@ export function useAssignmentProbabilities(
     const map = new Map<string, number>();
     const seen = new Set<string>();
     for (const row of ivRows ?? []) {
-      if (!seen.has(row.ticker) && row.hv_30) {
-        map.set(row.ticker, Number(row.hv_30) / 100);
+      const hv30Raw = row.current_hv ?? row.hv_30;
+      if (!seen.has(row.ticker) && hv30Raw) {
+        const hv30 = Number(hv30Raw);
+        const earningsDTE = row.earnings_date
+          ? Math.ceil((new Date(row.earnings_date + 'T00:00:00').getTime() - Date.now()) / 86_400_000)
+          : null;
+        const iv = estimateIV(
+          hv30,
+          row.iv_hv_ratio != null ? Number(row.iv_hv_ratio) : null,
+          row.iv_rank != null ? Number(row.iv_rank) : null,
+          earningsDTE,
+        );
+        map.set(row.ticker, iv / 100);
         seen.add(row.ticker);
       }
     }

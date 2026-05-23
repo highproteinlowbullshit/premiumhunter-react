@@ -192,6 +192,8 @@ export function usePortfolioEnhanced(timeRange: EnhancedTimeRange) {
       const premiumPct = totalRealizedPnL > 0
         ? Math.round((totalPremiumIncome / totalRealizedPnL) * 1000) / 10
         : 0;
+      // When there is no positive P&L, both percentages should be 0, not 0 and 100.
+      const capitalGainsPct = totalRealizedPnL > 0 ? Math.round((100 - premiumPct) * 10) / 10 : 0;
 
       const monthlyAttribution: MonthlyAttribution[] = Array.from(monthMap.entries())
         .sort(([a], [b]) => a.localeCompare(b))
@@ -211,7 +213,7 @@ export function usePortfolioEnhanced(timeRange: EnhancedTimeRange) {
         totalRealizedGains: Math.round(totalGains * 100) / 100,
         totalRealizedPnL: Math.round(totalRealizedPnL * 100) / 100,
         premiumAsPercentOfTotal: premiumPct,
-        capitalGainsAsPercentOfTotal: Math.round((100 - premiumPct) * 10) / 10,
+        capitalGainsAsPercentOfTotal: capitalGainsPct,
         monthlyAttribution,
       };
 

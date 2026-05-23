@@ -767,8 +767,8 @@ function ClosePositionModal({ position, onClose, onConfirm }: {
           <CloseRow label="Buyback cost" value={`−$${btcCost.toFixed(2)}`} valueColor="#ff8fa3" />
           {optionFees > 0 && <CloseRow label="Option fees" value={`−$${optionFees.toFixed(2)}`} valueColor="#ff8fa3" />}
           <CloseRow label="Net premium retained"
-            value={`${netRetained > 0 ? '+' : ''}$${netRetained.toFixed(2)}`}
-            valueColor={netRetained > 0 ? '#00d68f' : '#9ab4d4'} />
+            value={`${netRetained >= 0 ? `+$${netRetained.toFixed(2)}` : `-$${Math.abs(netRetained).toFixed(2)}`}`}
+            valueColor={netRetained > 0 ? '#00d68f' : netRetained < 0 ? '#ff4d6d' : '#9ab4d4'} />
           <div className="mt-3 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
             <CloseRow label="Current net cost basis"
               value={`$${currentNetCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} />

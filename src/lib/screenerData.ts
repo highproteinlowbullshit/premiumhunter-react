@@ -16,6 +16,7 @@ export interface ScreenerStock {
   iv52wkLow: number | null;
   volume: number | null;       // daily shares (from Polygon, null for cached rows)
   earningsDate: string | null;
+  estimatedIV: number | null;  // VRP-adjusted IV estimate: hv30 × VRP × momentum × earnings
   putCallSkew: number | null;     // (putIV − callIV) / atmIV; positive = puts pricier
   atmOpenInterest: number | null; // total ATM open interest (calls + puts)
   dataSource: 'live' | 'cached';

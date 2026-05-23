@@ -36,6 +36,7 @@ export interface TopPick {
     liquidityScore: number;
     momentumScore: number;
     skewScore: number;
+    sectorBonus: number;
     penalties: number;
   };
   strategy: 'CSP' | 'CC';
@@ -204,8 +205,22 @@ function calcLiquidityScore(stock: ScreenerStock, allStocks: ScreenerStock[], ma
   return Math.round(volumePts(stock, allStocks, maxPts * 0.7) + oiPts(stock, maxPts * 0.3));
 }
 
+/**
+ * Effective IV/HV ratio for scoring. Uses estimatedIV/hv30 when possible
+ * because stock.ivHvRatio is stored as currentIV/hv30 and currentIV in this
+ * database is HV30 (historical vol) — so the stored ratio is always ~1.0 and
+ * carries no signal. estimatedIV is the VRP-adjusted estimate, so
+ * estimatedIV/hv30 correctly reflects implied-over-realised premium.
+ */
+function effectiveIVHvRatio(stock: ScreenerStock): number | null {
+  if (stock.estimatedIV != null && stock.hv30 != null && stock.hv30 > 0) {
+    return stock.estimatedIV / stock.hv30;
+  }
+  return stock.ivHvRatio;
+}
+
 function calcIVHvScore(stock: ScreenerStock, maxPts: number): number {
-  const ratio = stock.ivHvRatio;
+  const ratio = effectiveIVHvRatio(stock);
   if (ratio == null) return Math.round(maxPts * 0.4);
   if (ratio >= 1.5) return maxPts;
   if (ratio >= 1.3) return Math.round(maxPts * 0.85);
@@ -314,7 +329,7 @@ export function computeCSPScore(
   if (ivRank < 50) penaltyPts += 10;
   if (dte !== null && dte <= 14) penaltyPts += 15;
   if ((stock.price ?? 0) > 200) penaltyPts += 5;
-  if ((stock.ivHvRatio ?? 1) < 0.9) penaltyPts += 8;
+  if ((effectiveIVHvRatio(stock) ?? 1) < 0.9) penaltyPts += 8;
 
   const raw = ivRankPts + ivHvPts + earnPts + liqPts + momPts + skewPts + sectorBonus;
   const total = Math.max(0, Math.min(100, raw - penaltyPts));
@@ -381,7 +396,7 @@ function computeCCScore(
   if (change > 5) penaltyPts += 10;
   if (dte !== null && dte <= 14) penaltyPts += 15;
   if (ivRank < 30) penaltyPts += 8;
-  if ((stock.ivHvRatio ?? 1) < 0.9) penaltyPts += 6;
+  if ((effectiveIVHvRatio(stock) ?? 1) < 0.9) penaltyPts += 6;
 
   const raw = ivRankPts + ivHvPts + trendPts + earnPts + liqPts + skewPts + sectorBonus;
   const total = Math.max(0, Math.min(100, raw - penaltyPts));
@@ -429,8 +444,9 @@ function buildReasoning(
     reasons.push(`IV rank ${ivRank} — elevated premium environment`);
   }
 
-  if (stock.ivHvRatio != null && stock.ivHvRatio >= 1.2) {
-    reasons.push(`IV/HV ratio ${stock.ivHvRatio.toFixed(2)}x — implied vol significantly above realised`);
+  const ivHvRatioForReason = effectiveIVHvRatio(stock);
+  if (ivHvRatioForReason != null && ivHvRatioForReason >= 1.2) {
+    reasons.push(`IV/HV ratio ${ivHvRatioForReason.toFixed(2)}x — implied vol significantly above realised`);
   }
 
   if (dte !== null && dte > 45) {
@@ -486,7 +502,8 @@ function buildWarnings(
   if (stock.putCallSkew != null && strategy === 'CSP' && stock.putCallSkew < -0.03) {
     warnings.push('Call skew elevated — put premium relatively cheap');
   }
-  if (stock.ivHvRatio != null && stock.ivHvRatio < 0.9) {
+  const ivHvRatioEffective = effectiveIVHvRatio(stock);
+  if (ivHvRatioEffective != null && ivHvRatioEffective < 0.9) {
     warnings.push('IV below realised vol — premium may be thin');
   }
 
@@ -506,10 +523,11 @@ export function getTopPicks(
 
   const eligible = screenerData.filter((s) => {
     const earningsDte = daysToEarnings(s);
+    const effectiveIV = s.estimatedIV ?? s.currentIV;
     return (
       s.ivRank != null && s.ivRank > 0 &&
       s.price != null && s.price > 0 &&
-      s.currentIV != null && s.currentIV > 0 &&
+      effectiveIV != null && effectiveIV > 0 &&
       (earningsDte === null || earningsDte > 7)
     );
   });
@@ -533,6 +551,8 @@ export function getTopPicks(
     const price = stock.price!;
     const ivRank = stock.ivRank!;
     const currentIV = stock.currentIV!;
+    // Use VRP-adjusted IV estimate for pricing if available; fall back to raw HV30
+    const ivForPricing = stock.estimatedIV ?? currentIV;
 
     const nearDte = nearExpiry?.dte ?? 30;
     const farDte = farExpiry?.dte ?? 45;
@@ -540,11 +560,11 @@ export function getTopPicks(
     const optionType = strategy === 'CSP' ? 'put' : 'call';
     const targetDelta = strategy === 'CSP' ? 0.30 : 0.20;
 
-    const suggestedStrike = findDeltaStrike(price, currentIV, nearDte, targetDelta, optionType);
-    const suggestedStrike2 = findDeltaStrike(price, currentIV, farDte, targetDelta, optionType);
+    const suggestedStrike = findDeltaStrike(price, ivForPricing, nearDte, targetDelta, optionType);
+    const suggestedStrike2 = findDeltaStrike(price, ivForPricing, farDte, targetDelta, optionType);
 
-    const estimatedPremium = calcPremium(price, suggestedStrike, currentIV, nearDte, strategy);
-    const estimatedPremium2 = calcPremium(price, suggestedStrike2, currentIV, farDte, strategy);
+    const estimatedPremium = calcPremium(price, suggestedStrike, ivForPricing, nearDte, strategy);
+    const estimatedPremium2 = calcPremium(price, suggestedStrike2, ivForPricing, farDte, strategy);
 
     const maxRisk = strategy === 'CSP' ? suggestedStrike * 100 : price * 100;
 
@@ -574,6 +594,7 @@ export function getTopPicks(
         liquidityScore: components.liquidityScore,
         momentumScore: components.momentumScore,
         skewScore: components.skewScore,
+        sectorBonus: components.sectorBonus,
         penalties: components.penalties,
       },
       strategy,
