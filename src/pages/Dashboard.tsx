@@ -18,6 +18,8 @@ import { PullToRefresh } from '../components/ui/PullToRefresh';
 import type { StockTicker, IVDataPoint } from '../types';
 import { FeatureGate } from '../components/FeatureGate';
 import { useSubscription } from '../hooks/useSubscription';
+import { useMarketPulse } from '../hooks/useMarketPulse';
+import { MarketPulseCard } from '../components/MarketPulseCard';
 
 export function Dashboard() {
   usePageTitle('Dashboard');
@@ -104,6 +106,7 @@ function RealDashboard() {
   const { data: liveData, isLoading } = useWatchlistData(tickers);
   const { data: intelligence, isLoading: intelligenceLoading } = useDashboardIntelligence();
   const { greeks, isLoading: greeksLoading } = usePortfolioGreeks();
+  const { pulse, allArticles, watchlistArticles, isLoading: pulseLoading, isWeekend } = useMarketPulse(tickers);
 
   const handleRefresh = useCallback(async () => {
     await Promise.all([
@@ -111,6 +114,8 @@ function RealDashboard() {
       queryClient.refetchQueries({ queryKey: ['dashboard-intelligence'] }),
       queryClient.refetchQueries({ queryKey: ['open-positions-for-greeks'] }),
       queryClient.refetchQueries({ queryKey: ['portfolio-greeks'] }),
+      queryClient.refetchQueries({ queryKey: ['market-pulse'] }),
+      queryClient.refetchQueries({ queryKey: ['market-news'] }),
     ]);
   }, [queryClient]);
 
@@ -153,6 +158,17 @@ function RealDashboard() {
         {/* Portfolio Greeks */}
         <FeatureGate feature="dashboard_greeks" blurHeight={220}>
           <PortfolioGreeksDashboard greeks={greeks} isLoading={greeksLoading} />
+        </FeatureGate>
+
+        {/* AI Market Pulse */}
+        <FeatureGate feature="market_pulse" blurHeight={180}>
+          <MarketPulseCard
+            pulse={pulse}
+            allArticles={allArticles}
+            watchlistArticles={watchlistArticles}
+            isLoading={pulseLoading}
+            isWeekend={isWeekend}
+          />
         </FeatureGate>
 
         {/* Monthly Premium Income Chart */}
