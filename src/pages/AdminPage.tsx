@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
-import { Check, X, AlertTriangle, CheckCircle, XCircle } from 'lucide-react'
+import { useQuery, useMutation } from '@tanstack/react-query'
+import { Check, X, AlertTriangle, CheckCircle, XCircle, TrendingUp, TrendingDown, Minus } from 'lucide-react'
 import { useSubscription } from '../hooks/useSubscription'
 import { useAdminData, type AdminUser, type AuditLogEntry } from '../hooks/useAdminData'
 import { useHeartbeatLog, type HeartbeatEntry, type HeartbeatResult } from '../hooks/useHeartbeatLog'
 import { PageLoader } from '../components/PageLoader'
 import { CURRENT_DISCLAIMER_VERSION } from '../lib/disclaimer'
 import { useToast } from '../context/ToastContext'
+import { supabase } from '../lib/supabase'
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -331,6 +333,188 @@ function HealthTab() {
             </table>
           </div>
         )}
+      </div>
+    </div>
+  )
+}
+
+// ── PulseTab ──────────────────────────────────────────────────────────────────
+
+interface PulseAdminResult {
+  pulse_date:       string
+  market_sentiment: string
+  headline:         string
+  articles_fetched: number
+  articles_stored:  number
+  duration_ms:      number
+}
+
+interface LastPulseRow {
+  pulse_date:             string
+  market_sentiment:       string
+  headline:               string
+  generation_duration_ms: number | null
+  news_articles_used:     number | null
+  generated_at:           string | null
+}
+
+const PULSE_SENTIMENT_COLOR: Record<string, string> = {
+  bullish:          '#22c55e',
+  slightly_bullish: '#14b8a6',
+  neutral:          'var(--ph-text-3)',
+  slightly_bearish: '#f59e0b',
+  bearish:          '#ef4444',
+}
+
+function PulseSentimentIcon({ sentiment }: { sentiment: string }) {
+  if (sentiment === 'bullish' || sentiment === 'slightly_bullish') return <TrendingUp size={12} />
+  if (sentiment === 'bearish' || sentiment === 'slightly_bearish') return <TrendingDown size={12} />
+  return <Minus size={12} />
+}
+
+function PulseTab() {
+  const [triggerResult, setTriggerResult] = useState<PulseAdminResult | null>(null)
+  const [triggerError,  setTriggerError]  = useState<string | null>(null)
+
+  const lastPulseQuery = useQuery({
+    queryKey: ['admin-market-pulse'],
+    queryFn:  async (): Promise<LastPulseRow | null> => {
+      const { data, error } = await supabase
+        .from('market_pulse')
+        .select('pulse_date, market_sentiment, headline, generation_duration_ms, news_articles_used, generated_at')
+        .order('pulse_date', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (error) throw error
+      return data
+    },
+    staleTime: 30 * 1000,
+  })
+
+  const trigger = useMutation({
+    mutationFn: async (force: boolean): Promise<PulseAdminResult> => {
+      const { data, error } = await supabase.functions.invoke('generate-market-pulse', {
+        body: { force },
+      })
+      if (error) throw error
+      return data as PulseAdminResult
+    },
+    onSuccess: (data) => {
+      setTriggerError(null)
+      setTriggerResult(data)
+    },
+    onError: (err: Error) => {
+      setTriggerError(err.message)
+    },
+  })
+
+  const latest = lastPulseQuery.data
+  const sentimentColor = PULSE_SENTIMENT_COLOR[latest?.market_sentiment ?? 'neutral'] ?? 'var(--ph-text-3)'
+
+  return (
+    <div>
+      {/* Last generated pulse */}
+      <div style={{
+        padding: 20, marginBottom: 16,
+        background: 'rgba(13,27,53,0.4)',
+        border: '1px solid rgba(0,229,196,0.08)', borderRadius: 12,
+      }}>
+        <div style={{ fontSize: 11, color: 'var(--ph-text-3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>
+          Last generated pulse
+        </div>
+        {lastPulseQuery.error ? (
+          <p style={{ margin: 0, fontSize: 12, color: '#ef4444' }}>
+            Query error: {(lastPulseQuery.error as Error).message}
+          </p>
+        ) : latest ? (
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: sentimentColor, display: 'flex', alignItems: 'center', gap: 4, textTransform: 'capitalize' }}>
+                <PulseSentimentIcon sentiment={latest.market_sentiment} />
+                {latest.market_sentiment.replace(/_/g, ' ')}
+              </span>
+              <span style={{ fontSize: 12, color: 'var(--ph-text-3)' }}>
+                {latest.pulse_date}
+                {latest.generated_at ? ` · ${timeAgo(latest.generated_at)}` : ''}
+              </span>
+            </div>
+            <p style={{ margin: '0 0 12px', fontSize: 13, color: 'var(--ph-text-2)', lineHeight: 1.5 }}>
+              {latest.headline}
+            </p>
+            <div style={{ display: 'flex', gap: 20 }}>
+              {([
+                { label: 'Articles used',  value: String(latest.news_articles_used ?? '—') },
+                { label: 'Duration',       value: latest.generation_duration_ms != null ? `${(latest.generation_duration_ms / 1000).toFixed(1)}s` : '—' },
+              ] as const).map(stat => (
+                <div key={stat.label}>
+                  <div style={{ fontSize: 10, color: 'var(--ph-text-3)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 2 }}>{stat.label}</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ph-text-1)', fontFamily: 'JetBrains Mono, monospace' }}>{stat.value}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <p style={{ margin: 0, fontSize: 13, color: 'var(--ph-text-3)' }}>
+            {lastPulseQuery.isLoading ? 'Loading…' : 'No pulse generated yet.'}
+          </p>
+        )}
+      </div>
+
+      {/* Inline result from last trigger */}
+      {triggerResult && (
+        <div style={{
+          padding: '12px 16px', marginBottom: 16, borderRadius: 8,
+          background: 'rgba(0,229,196,0.05)', border: '1px solid rgba(0,229,196,0.15)',
+          fontSize: 13, color: 'var(--ph-text-2)',
+        }}>
+          <span style={{ fontWeight: 600, color: '#00e5c4', marginRight: 8 }}>
+            {triggerResult.market_sentiment?.replace(/_/g, ' ')}
+          </span>
+          {triggerResult.headline}
+          <div style={{ marginTop: 6, fontSize: 11, color: 'var(--ph-text-3)' }}>
+            {triggerResult.articles_stored} articles · {(triggerResult.duration_ms / 1000).toFixed(1)}s
+          </div>
+        </div>
+      )}
+
+      {trigger.isError && (
+        <div style={{
+          padding: '10px 14px', marginBottom: 16, borderRadius: 8,
+          background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.2)',
+          fontSize: 13, color: '#ef4444',
+        }}>
+          {triggerError ?? 'Trigger failed. Ensure the edge function is deployed and secrets are set.'}
+        </div>
+      )}
+
+      {/* Action buttons */}
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <button
+          onClick={() => trigger.mutate(false)}
+          disabled={trigger.isPending}
+          style={{
+            padding: '9px 20px', borderRadius: 8, cursor: 'pointer',
+            background: '#00e5c4', color: '#0f1923',
+            border: 'none', fontSize: 13, fontWeight: 600,
+            opacity: trigger.isPending ? 0.6 : 1,
+          }}
+        >
+          {trigger.isPending ? 'Generating…' : "Generate today's pulse"}
+        </button>
+        <button
+          onClick={() => trigger.mutate(true)}
+          disabled={trigger.isPending}
+          style={{
+            padding: '9px 20px', borderRadius: 8, cursor: 'pointer',
+            background: 'transparent',
+            border: '1px solid rgba(0,229,196,0.25)',
+            color: 'var(--ph-text-1)',
+            fontSize: 13, fontWeight: 500,
+            opacity: trigger.isPending ? 0.6 : 1,
+          }}
+        >
+          Force regenerate
+        </button>
       </div>
     </div>
   )
@@ -886,7 +1070,7 @@ export function AdminPage() {
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [tierFilter, setTierFilter] = useState('all')
-  const [activeTab, setActiveTab] = useState<'users' | 'audit' | 'health'>('users')
+  const [activeTab, setActiveTab] = useState<'users' | 'audit' | 'health' | 'pulse'>('users')
 
   if (subLoading) return <PageLoader />
   if (!isSuperuser) return <Navigate to="/dashboard" replace />
@@ -931,7 +1115,7 @@ export function AdminPage() {
 
       {/* Tabs */}
       <div style={{ display: 'flex', borderBottom: '1px solid rgba(0,229,196,0.1)', marginBottom: 20 }}>
-        {(['users', 'audit', 'health'] as const).map(tab => (
+        {(['users', 'audit', 'health', 'pulse'] as const).map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -943,7 +1127,7 @@ export function AdminPage() {
               fontWeight: activeTab === tab ? 600 : 400,
             }}
           >
-            {tab === 'audit' ? 'Audit log' : tab === 'health' ? 'Health' : `Users (${allUsers.length})`}
+            {tab === 'audit' ? 'Audit log' : tab === 'health' ? 'Health' : tab === 'pulse' ? 'Pulse' : `Users (${allUsers.length})`}
           </button>
         ))}
       </div>
@@ -1071,6 +1255,9 @@ export function AdminPage() {
 
       {/* Health tab */}
       {activeTab === 'health' && <HealthTab />}
+
+      {/* Pulse tab */}
+      {activeTab === 'pulse' && <PulseTab />}
 
       {/* Detail panel */}
       {selectedUser && (
