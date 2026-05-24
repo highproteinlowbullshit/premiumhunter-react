@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
-import { useQuery, useMutation } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Check, X, AlertTriangle, CheckCircle, XCircle, TrendingUp, TrendingDown, Minus } from 'lucide-react'
 import { useSubscription } from '../hooks/useSubscription'
 import { useAdminData, type AdminUser, type AuditLogEntry } from '../hooks/useAdminData'
@@ -373,6 +373,7 @@ function PulseSentimentIcon({ sentiment }: { sentiment: string }) {
 }
 
 function PulseTab() {
+  const queryClient = useQueryClient()
   const [triggerResult, setTriggerResult] = useState<PulseAdminResult | null>(null)
   const [triggerError,  setTriggerError]  = useState<string | null>(null)
 
@@ -402,6 +403,7 @@ function PulseTab() {
     onSuccess: (data) => {
       setTriggerError(null)
       setTriggerResult(data)
+      void queryClient.invalidateQueries({ queryKey: ['admin-market-pulse'] })
     },
     onError: (err: Error) => {
       setTriggerError(err.message)
