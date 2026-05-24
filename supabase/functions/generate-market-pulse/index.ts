@@ -15,7 +15,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const POLYGON_TICKERS = ['SPY', 'VIX', 'MARA', 'COIN', 'GME']
+const POLYGON_TICKERS = ['SPY', 'VIXY', 'MARA', 'COIN', 'GME']
 const WHEEL_KEYWORDS  = ['options', 'volatility', ' iv ', 'earnings', 'wheel', 'premium', 'puts', 'calls', 'expir']
 const WHEEL_TICKERS   = ['mara', 'riot', 'coin', 'tsla', 'gme', 'amc', 'pltr', 'sofi', 'spy', 'vix']
 
@@ -200,7 +200,17 @@ Return exactly this JSON structure:
     const content = (json.choices?.[0]?.message?.content ?? '') as string
     // Strip markdown code fences if model wraps in ```json ... ```
     const cleaned = content.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim()
-    return JSON.parse(cleaned) as AIPulse
+    const parsed = JSON.parse(cleaned) as Partial<AIPulse>
+    return {
+      market_sentiment:       parsed.market_sentiment       ?? fallback.market_sentiment,
+      sentiment_score:        typeof parsed.sentiment_score === 'number' ? parsed.sentiment_score : fallback.sentiment_score,
+      headline:               parsed.headline               ?? fallback.headline,
+      summary:                parsed.summary                ?? fallback.summary,
+      options_context:        parsed.options_context        ?? fallback.options_context,
+      key_themes:             Array.isArray(parsed.key_themes) ? parsed.key_themes : fallback.key_themes,
+      wheel_relevant_context: parsed.wheel_relevant_context ?? fallback.wheel_relevant_context,
+      vix_context:            parsed.vix_context            ?? fallback.vix_context,
+    }
   } catch {
     return fallback
   }
@@ -276,7 +286,7 @@ serve(async (req) => {
     summary:                 aiResult.summary,
     options_context:         aiResult.options_context,
     key_themes:              aiResult.key_themes,
-    source_articles:         top15.slice(0, 20).map(a => ({
+    source_articles:         top15.map(a => ({
       title: a.headline, source: a.source, url: a.url,
       datetime: a.datetime, tickers: a.related_tickers,
     })),
