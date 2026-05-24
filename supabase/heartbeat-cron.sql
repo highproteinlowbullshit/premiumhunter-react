@@ -17,10 +17,10 @@ SELECT cron.schedule(
   '0 8 * * *',                            -- every day at 08:00 UTC
   $$
   SELECT net.http_post(
-    url     := 'https://<PROJECT_REF>.supabase.co/functions/v1/heartbeat-monitor',
+    url     := 'https://jzxdxcchmuyqbaccfpok.supabase.co/functions/v1/heartbeat-monitor',
     headers := jsonb_build_object(
       'Content-Type',  'application/json',
-      'Authorization', 'Bearer <CRON_SECRET>'
+      'Authorization', 'Bearer 4e599f7a90441160c23e7e6f85e6a70f78b063941f335a25869c848b11430525'
     ),
     body    := '{}'::jsonb
   ) AS request_id;

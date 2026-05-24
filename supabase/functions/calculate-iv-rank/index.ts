@@ -12,7 +12,7 @@ const STOCK_TICKERS = [
   'GME','MARA','SOFI','RIVN','COIN','HOOD','AMC','PLTR','RBLX','SNAP',
   'UBER','LYFT','IONQ','SMCI','NVAX','TLRY','RIOT','CLSK','MSTR','WULF',
   // Growth tech (batches 4–7)
-  'TSLA','NVDA','AMD','META','NFLX','SHOP','SQ','ROKU','NET','DDOG',
+  'TSLA','NVDA','AMD','META','NFLX','SHOP','XYZ','ROKU','NET','DDOG',
   'CRWD','SNOW','ZM','DOCN','MDB','BILL','AFRM','UPST','OPEN','ABNB',
   // Large-cap blue chip (batches 8–10)
   'AAPL','MSFT','GOOGL','AMZN','JPM','BAC','GS','XOM','CVX','DIS',
@@ -20,7 +20,7 @@ const STOCK_TICKERS = [
   // Core ETFs (batches 11–12)
   'SPY','QQQ','IWM','GLD','SLV','TLT','XLE','XLF','ARKK','SOXL',
   // Speculative / AI / quantum (batches 13–14)
-  'LCID','NKLA','CLOV','BBAI','SOUN','AISP','RGTI','QBTS','KULR','HIMS',
+  'LCID','ACHR','CLOV','BBAI','SOUN','AISP','RGTI','QBTS','KULR','HIMS',
   // Additional ETFs (batches 15–25)
   'TQQQ','SQQQ','SPXL','SPXS','UVXY','VXX','SMH','SOXX','XLK','XLV',
   'XLI','XLB','XLU','XLRE','XLC','XLY','XLP','GDX','GDXJ','USO',
@@ -33,11 +33,11 @@ const STOCK_TICKERS = [
   'ARM','MRVL','ON','KLAC','LRCX','AMAT','ASML','TSM','NOW','WDAY',
   'PANW','ZS','FTNT','OKTA','TEAM','HUBS','VEEV','GTLB','CFLT','MNDY',
   'APP','DUOL','TTD','ACN','IBM','DELL','HPQ','HPE','CDNS','SNPS',
-  'ANSS','MANH','EPAM','CELH','RBRK','CWAN','MGNI','MQ','SMAR','ESTC',
+  'ANET','MANH','EPAM','CELH','RBRK','CWAN','MGNI','MQ','ASAN','ESTC',
   'SWKS','QRVO','MPWR','ONTO','FORM','ENTG','WOLF','AXON','KTOS','PSTG',
-  'STX','KEYS','AEHR','ACMR','NOVA',
+  'STX','KEYS','AEHR','ACMR','PATH',
   // Financials (batches 38–48)
-  'V','MA','AXP','COF','SYF','DFS','MS','C','WFC','SCHW',
+  'V','MA','AXP','COF','SYF','TOST','MS','C','WFC','SCHW',
   'BLK','AIG','MET','PRU','AFL','ALL','PGR','TRV','CB','MMC',
   'AON','USB','PNC','TFC','KEY','RF','CFG','HBAN','FITB','ALLY',
   'ICE','CME','CBOE','SPGI','MCO','LC','RJF','LNC','VOYA','EQH',
@@ -55,8 +55,8 @@ const STOCK_TICKERS = [
   'DRI','TXRH','SHAK','BROS','CAVA','PTON','BYND','DKNG','PENN','CZR',
   'STZ','MNST','TAP','SE',
   // Energy (batches 67–72)
-  'COP','EOG','SLB','HAL','MPC','VLO','PSX','OXY','DVN','HES',
-  'MRO','BKR','FANG','CTRA','SM','MTDR','ENPH','SEDG','RUN','PLUG',
+  'COP','EOG','SLB','HAL','MPC','VLO','PSX','OXY','DVN','APA',
+  'CHRD','BKR','FANG','CTRA','SM','MTDR','ENPH','SEDG','RUN','PLUG',
   'FCEL','CHPT','BLNK','FSLR','BE','WMB','KMI','OKE','LNG','VALE',
   // Utilities (batches 73–74)
   'NEE','DUK','SO','D','EXC','AEP','PCG','ED','ETR','PEG',
@@ -66,12 +66,12 @@ const STOCK_TICKERS = [
   'LMT','NOC','GD','RTX','LDOS','BAH','UPS','FDX','CHRW','XPO',
   'SAIA','ODFL','JBHT','WM','RSG',
   // Materials (batches 82–84)
-  'FCX','NEM','GOLD','AA','MP','X','CLF','STLD','NUE','CE',
+  'FCX','NEM','GOLD','AA','MP','RS','CLF','STLD','NUE','CE',
   'DOW','LYB','PPG','SHW','ALB',
   // Real Estate (batches 85–86)
   'AMT','PLD','EQIX','SPG','O','VICI','WPC','CBRE','WELL','IRM',
   // Telecom & Media (batches 87–89)
-  'TMUS','VZ','T','CMCSA','WBD','SPOT','TTWO','EA','PARA','FOXA',
+  'TMUS','VZ','T','CMCSA','WBD','SPOT','TTWO','EA','NWSA','FOXA',
   'NYT','IAC','RDDT','PINS','SIRI',
   // Telecom/Media, Automotive, International ADRs (batches 90–95)
   'LYV','BILI','TME','TM','STLA','LEA','BWA','APTV','BABA','JD',

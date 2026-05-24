@@ -3,7 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const SUPABASE_URL        = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY    = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-const CRON_SECRET         = Deno.env.get('CRON_SECRET') ?? ''
+const CRON_SECRET         = Deno.env.get('HEALTH_CRON_SECRET') ?? ''
 const RESEND_API_KEY      = Deno.env.get('RESEND_API_KEY') ?? ''
 const ALERT_EMAIL_TO      = Deno.env.get('ALERT_EMAIL_TO') ?? 'branyzp@gmail.com'
 const ALERT_EMAIL_FROM    = Deno.env.get('ALERT_EMAIL_FROM') ?? 'PremiumHunter Alerts <alerts@premiumhunter.app>'
