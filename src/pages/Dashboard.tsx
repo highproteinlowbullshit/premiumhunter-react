@@ -106,7 +106,11 @@ function RealDashboard() {
   const { data: liveData, isLoading } = useWatchlistData(tickers);
   const { data: intelligence, isLoading: intelligenceLoading } = useDashboardIntelligence();
   const { greeks, isLoading: greeksLoading } = usePortfolioGreeks();
-  const { pulse, allArticles, watchlistArticles, isLoading: pulseLoading, isWeekend } = useMarketPulse(tickers);
+  const {
+    pulse, allArticles, watchlistArticles,
+    sentimentHistory, matchPositionsToNews,
+    isLoading: pulseLoading, isWeekend,
+  } = useMarketPulse(tickers);
 
   const handleRefresh = useCallback(async () => {
     await Promise.all([
@@ -166,6 +170,12 @@ function RealDashboard() {
             pulse={pulse}
             allArticles={allArticles}
             watchlistArticles={watchlistArticles}
+            sentimentHistory={sentimentHistory}
+            openPositions={(intelligence?.positions ?? []).map(p => ({
+              ticker:   p.ticker,
+              strategy: p.strategy,
+              strike:   p.strike,
+            }))}
             isLoading={pulseLoading}
             isWeekend={isWeekend}
           />
