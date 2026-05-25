@@ -253,12 +253,14 @@ function PulseTab({
           </div>
           <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
             <p style={{ margin: 0, fontSize: 11, color: 'var(--ph-text-2)' }}>
-              {oldScore !== null ? `${oldScore > 0 ? '+' : ''}${oldScore} → ` : ''}
+              {oldScore !== null ? `${oldScore > 0 ? '+' : ''}${oldScore}  ` : ''}
               {pulse.sentiment_score > 0 ? '+' : ''}{pulse.sentiment_score}
             </p>
             {oldScore !== null && (
-              <p style={{ margin: '2px 0 0', fontSize: 10, color: improving ? '#22c55e' : '#ef4444' }}>
-                {improving ? '↗ Improving' : '↘ Deteriorating'}
+              <p style={{ margin: '2px 0 0', fontSize: 10, color: improving ? '#22c55e' : '#ef4444', display: 'flex', alignItems: 'center', gap: 3, justifyContent: 'flex-end' }}>
+                {improving
+                  ? <><TrendingUp size={10} /> Improving</>
+                  : <><TrendingDown size={10} /> Deteriorating</>}
               </p>
             )}
           </div>
@@ -444,8 +446,13 @@ function SectorsTab({ pulse }: { pulse: MarketPulse }) {
     )
   }
 
-  const SECTOR_ARROW: Record<string, string> = { bullish: '↑', bearish: '↓', neutral: '→' }
   const SECTOR_COLOR: Record<string, string> = { bullish: '#22c55e', bearish: '#ef4444', neutral: 'var(--ph-text-3)' }
+
+  function SectorIcon({ sentiment }: { sentiment: string }) {
+    if (sentiment === 'bullish')  return <TrendingUp   size={12} />
+    if (sentiment === 'bearish')  return <TrendingDown size={12} />
+    return <Minus size={12} />
+  }
 
   return (
     <div>
@@ -457,8 +464,8 @@ function SectorsTab({ pulse }: { pulse: MarketPulse }) {
             padding: '10px 0',
             borderBottom: i < pulse.sector_pulse.length - 1 ? '0.5px solid rgba(255,255,255,0.05)' : 'none',
           }}>
-            <span style={{ fontSize: 14, color, width: 12, flexShrink: 0, lineHeight: 1 }}>
-              {SECTOR_ARROW[s.sentiment] ?? '→'}
+            <span style={{ color, flexShrink: 0, display: 'flex' }}>
+              <SectorIcon sentiment={s.sentiment} />
             </span>
             <div style={{ flex: 1 }}>
               <p style={{ margin: '0 0 2px', fontSize: 13, fontWeight: 600, color: 'var(--ph-text-1)' }}>

@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { usePageTitle } from '../hooks/usePageTitle';
@@ -381,13 +382,9 @@ function StockCard({ stock, ivHistory, delay, onClick, isLoading }: StockCardPro
 // Trend Arrow
 // ——————————————————————————————————
 function TrendArrow({ trend }: { trend: 'up' | 'down' | 'flat' }) {
-  if (trend === 'up') return (
-    <span className="text-sm" style={{ color: '#00d68f' }}>↑</span>
-  );
-  if (trend === 'down') return (
-    <span className="text-sm" style={{ color: '#ff4d6d' }}>↓</span>
-  );
-  return <span className="text-sm" style={{ color: '#4a6a8a' }}>→</span>;
+  if (trend === 'up')   return <TrendingUp   size={14} color="#00d68f" />;
+  if (trend === 'down') return <TrendingDown size={14} color="#ff4d6d" />;
+  return <Minus size={14} color="#4a6a8a" />;
 }
 
 // ——————————————————————————————————
