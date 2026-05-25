@@ -8,7 +8,7 @@ export interface MarketState {
 }
 
 // NYSE/NASDAQ observed holidays 2025–2027
-const HOLIDAYS = new Set([
+export const HOLIDAYS = new Set([
   '2025-01-01', '2025-01-20', '2025-02-17', '2025-04-18',
   '2025-05-26', '2025-06-19', '2025-07-04', '2025-09-01',
   '2025-11-27', '2025-12-25',
@@ -20,7 +20,7 @@ const HOLIDAYS = new Set([
   '2027-11-25', '2027-12-24',
 ])
 
-function getET(date: Date) {
+export function getET(date: Date) {
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: 'America/New_York',
     year: 'numeric', month: '2-digit', day: '2-digit',
@@ -40,7 +40,7 @@ function getET(date: Date) {
   }
 }
 
-function isTradingDay(et: ReturnType<typeof getET>) {
+export function isTradingDay(et: ReturnType<typeof getET>) {
   return et.dow !== 'Sat' && et.dow !== 'Sun' && !HOLIDAYS.has(et.dateStr)
 }
 

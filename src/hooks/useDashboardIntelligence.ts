@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { usePaperMode } from '../context/PaperModeContext';
 import { blackScholes, estimateVolatility } from '../lib/blackScholes';
 import { getQuote, getNextEarnings } from '../lib/finnhub';
+import { getET, isTradingDay } from './useMarketCountdown';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -218,18 +219,17 @@ function getMarketInfo(): {
   closesIn: string | null;
 } {
   const now = new Date();
-  const et = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
-  const day = et.getDay();
-  const timeInMinutes = et.getHours() * 60 + et.getMinutes();
+  const et = getET(now);
+  const timeInMinutes = et.hour * 60 + et.minute;
 
-  const isWeekday = day >= 1 && day <= 5;
   const OPEN = 9 * 60 + 30;
   const CLOSE = 16 * 60;
   const PRE = 4 * 60;
   const AFTER = 20 * 60;
 
-  if (!isWeekday) {
-    return { isOpen: false, status: 'Closed for weekend', opensIn: null, closesIn: null };
+  if (!isTradingDay(et)) {
+    const isWeekend = et.dow === 'Sat' || et.dow === 'Sun';
+    return { isOpen: false, status: isWeekend ? 'Closed for weekend' : 'Market holiday', opensIn: null, closesIn: null };
   }
   if (timeInMinutes >= OPEN && timeInMinutes < CLOSE) {
     return {
