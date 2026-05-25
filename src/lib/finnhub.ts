@@ -39,9 +39,9 @@ export function getQuote(ticker: string): Promise<FhQuote> {
   return get<FhQuote>(`/quote?symbol=${ticker}`);
 }
 
-// Uses Frankfurter (ECB-backed, free, no API key) — Finnhub free plan returns 0 for all forex
+// Uses Frankfurter (ECB-backed, free, no API key) — api.frankfurter.app permanently moved to api.frankfurter.dev/v1
 export async function getForexRate(from: string, to: string): Promise<number> {
-  const res = await fetch(`https://api.frankfurter.app/latest?from=${from}&to=${to}`);
+  const res = await fetch(`https://api.frankfurter.dev/v1/latest?from=${from}&to=${to}`);
   if (!res.ok) throw new Error(`Frankfurter ${from}/${to}: ${res.status}`);
   const data = await res.json() as { rates: Record<string, number> };
   const rate = data.rates[to];
