@@ -85,6 +85,7 @@ export function useMarketPulse(watchlistTickers: string[]) {
   const allArticles = newsQuery.data ?? []
   const watchlistArticles = watchlistTickers.length > 0
     ? allArticles.filter(a =>
+        Array.isArray(a.related_tickers) &&
         a.related_tickers.some(t => watchlistTickers.includes(t))
       )
     : []

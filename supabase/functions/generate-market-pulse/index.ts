@@ -1,13 +1,12 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const SUPABASE_URL      = Deno.env.get('SUPABASE_URL')!
-const SERVICE_ROLE_KEY  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-const CRON_SECRET       = Deno.env.get('MARKET_PULSE_CRON_SECRET') ?? ''
-const OPENROUTER_KEY    = Deno.env.get('OPENROUTER_API_KEY') ?? ''
-const OPENROUTER_MODEL  = Deno.env.get('OPENROUTER_MODEL') ?? 'mistralai/mistral-7b-instruct:free'
-const FINNHUB_KEY       = Deno.env.get('FINNHUB_API_KEY') ?? ''
-const POLYGON_KEY       = Deno.env.get('POLYGON_API_KEY') ?? ''
+const SUPABASE_URL     = Deno.env.get('SUPABASE_URL')!
+const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+const CRON_SECRET      = Deno.env.get('MARKET_PULSE_CRON_SECRET') ?? ''
+const OPENROUTER_KEY   = Deno.env.get('OPENROUTER_API_KEY') ?? ''
+const OPENROUTER_MODEL = Deno.env.get('OPENROUTER_MODEL') ?? 'mistralai/mistral-7b-instruct:free'
+const FINNHUB_KEY      = Deno.env.get('FINNHUB_API_KEY') ?? ''
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -15,9 +14,28 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const POLYGON_TICKERS = ['SPY', 'VIXY', 'MARA', 'COIN', 'GME']
-const WHEEL_KEYWORDS  = ['options', 'volatility', ' iv ', 'earnings', 'wheel', 'premium', 'puts', 'calls', 'expir']
-const WHEEL_TICKERS   = ['mara', 'riot', 'coin', 'tsla', 'gme', 'amc', 'pltr', 'sofi', 'spy', 'vix']
+// Categories fetched with equal weight — 100 articles each, no crypto
+const CATEGORY_FEEDS = ['general', 'forex', 'merger'] as const
+
+// Wheel-strategy tickers used for company news + relevance scoring
+const COMPANY_NEWS_TICKERS = [
+  'TSLA', 'AAPL', 'NVDA', 'META', 'MSFT',
+  'AMZN', 'GOOGL', 'AMD',  'PLTR', 'SOFI',
+  'MARA', 'GME',  'DIS',  'INTC', 'SHOP',
+]
+
+const MARKET_KEYWORDS = [
+  'options', 'volatility', ' iv ', 'earnings', 'wheel', 'premium',
+  'puts', 'calls', 'expir', 'dividend', 'guidance', 'revenue',
+  'fed ', 'interest rate', 'inflation', 'recession', 'rally',
+  'selloff', 'acquisition', 'merger', 'buyback',
+]
+
+const EQUITY_TICKERS = [
+  'tsla', 'aapl', 'nvda', 'meta', 'msft', 'amzn', 'googl', 'amd',
+  'pltr', 'sofi', 'mara', 'gme',  'dis',  'intc', 'shop',
+  'spy',  'qqq',  'vix',
+]
 
 interface RawArticle {
   headline:        string
@@ -27,7 +45,7 @@ interface RawArticle {
   datetime:        number   // unix seconds
   related_tickers: string[]
   category:        string
-  source_api:      'finnhub' | 'polygon'
+  source_api:      'finnhub'
   relevance_score: number
 }
 
@@ -42,12 +60,13 @@ interface AIPulse {
   vix_context:            string
 }
 
-// ── Finnhub ───────────────────────────────────────────────────────────────────
+// ── Finnhub category news ─────────────────────────────────────────────────────
 
-async function fetchFinnhubNews(): Promise<RawArticle[]> {
+async function fetchCategoryNews(): Promise<RawArticle[]> {
   const cutoff = Math.floor(Date.now() / 1000) - 24 * 3600
   const results: RawArticle[] = []
-  for (const cat of ['general', 'forex', 'crypto']) {
+
+  for (const cat of CATEGORY_FEEDS) {
     try {
       const res = await fetch(
         `https://finnhub.io/api/v1/news?category=${cat}&token=${FINNHUB_KEY}`
@@ -55,19 +74,19 @@ async function fetchFinnhubNews(): Promise<RawArticle[]> {
       if (!res.ok) continue
       const items = await res.json() as Array<{
         headline: string; summary: string; source: string; url: string;
-        datetime: number; related: string[]; category: string;
+        datetime: number; related: unknown; category: string;
       }>
       results.push(
         ...items
           .filter(a => a.datetime >= cutoff)
-          .slice(0, 15)
+          .slice(0, 100)
           .map(a => ({
             headline:        a.headline ?? '',
-            summary:         a.summary ?? '',
-            source:          a.source ?? '',
-            url:             a.url ?? '',
+            summary:         a.summary  ?? '',
+            source:          a.source   ?? '',
+            url:             a.url      ?? '',
             datetime:        a.datetime,
-            related_tickers: a.related ?? [],
+            related_tickers: Array.isArray(a.related) ? a.related : [],
             category:        cat,
             source_api:      'finnhub' as const,
             relevance_score: 0,
@@ -75,42 +94,42 @@ async function fetchFinnhubNews(): Promise<RawArticle[]> {
       )
     } catch { /* skip failed category */ }
   }
+
   return results
 }
 
-// ── Polygon ───────────────────────────────────────────────────────────────────
+// ── Finnhub company news ──────────────────────────────────────────────────────
 
-async function fetchPolygonNews(): Promise<RawArticle[]> {
-  const cutoff = new Date(Date.now() - 24 * 3600 * 1000).toISOString()
+async function fetchCompanyNews(): Promise<RawArticle[]> {
+  const from = new Date(Date.now() - 24 * 3600 * 1000).toISOString().split('T')[0]
+  const to   = new Date().toISOString().split('T')[0]
   const results: RawArticle[] = []
-  for (const ticker of POLYGON_TICKERS) {
+
+  for (const ticker of COMPANY_NEWS_TICKERS) {
     try {
       const res = await fetch(
-        `https://api.polygon.io/v2/reference/news?ticker=${ticker}&limit=5&published_utc.gte=${cutoff}&apiKey=${POLYGON_KEY}`
+        `https://finnhub.io/api/v1/company-news?symbol=${ticker}&from=${from}&to=${to}&token=${FINNHUB_KEY}`
       )
       if (!res.ok) continue
-      const json = await res.json() as {
-        results?: Array<{
-          title: string; description: string;
-          publisher: { name: string }; article_url: string;
-          published_utc: string; tickers: string[];
-        }>
-      }
+      const items = await res.json() as Array<{
+        headline: string; summary: string; source: string; url: string; datetime: number;
+      }>
       results.push(
-        ...(json.results ?? []).map(a => ({
-          headline:        a.title ?? '',
-          summary:         a.description ?? '',
-          source:          a.publisher?.name ?? '',
-          url:             a.article_url ?? '',
-          datetime:        Math.floor(new Date(a.published_utc).getTime() / 1000),
-          related_tickers: a.tickers ?? [ticker],
-          category:        'stock',
-          source_api:      'polygon' as const,
+        ...items.slice(0, 10).map(a => ({
+          headline:        a.headline ?? '',
+          summary:         a.summary  ?? '',
+          source:          a.source   ?? '',
+          url:             a.url      ?? '',
+          datetime:        a.datetime,
+          related_tickers: [ticker],
+          category:        'company',
+          source_api:      'finnhub' as const,
           relevance_score: 0,
         }))
       )
     } catch { /* skip failed ticker */ }
   }
+
   return results
 }
 
@@ -132,11 +151,12 @@ function scoreArticles(articles: RawArticle[]): RawArticle[] {
     .map(a => {
       let score = 50
       const text = (a.headline + ' ' + a.summary).toLowerCase()
-      for (const kw of WHEEL_KEYWORDS)  { if (text.includes(kw)) score += 10 }
-      for (const kw of WHEEL_TICKERS)   { if (text.includes(kw)) score += 15 }
+      for (const kw of MARKET_KEYWORDS) { if (text.includes(kw)) score += 8  }
+      for (const kw of EQUITY_TICKERS)  { if (text.includes(kw)) score += 12 }
       if (a.related_tickers.length > 0)  score += 5
+      if (a.category === 'company')       score += 10  // company news always ticker-relevant
       const ageHours = (nowSec - a.datetime) / 3600
-      if (ageHours < 6)  score += 15
+      if (ageHours < 6)       score += 15
       else if (ageHours < 12) score += 5
       return { ...a, relevance_score: Math.min(100, score) }
     })
@@ -163,7 +183,7 @@ async function generatePulse(articles: RawArticle[]): Promise<AIPulse> {
     .join('\n')
 
   const prompt = `You are a concise market analyst for options premium sellers (wheel strategy).
-Analyze these news articles and return ONLY a JSON object with no extra text or markdown:
+Analyze these ${articles.length} news articles and return ONLY a JSON object with no extra text or markdown:
 
 ${articleText}
 
@@ -172,10 +192,10 @@ Return exactly this JSON structure:
   "market_sentiment": "bullish|slightly_bullish|neutral|slightly_bearish|bearish",
   "sentiment_score": <integer -100 to 100>,
   "headline": "<punchy market headline, max 15 words>",
-  "summary": "<2-3 sentence market summary>",
+  "summary": "<2-3 sentence market summary covering macro, equities, and volatility>",
   "options_context": "<1-2 sentences on what this means for premium sellers>",
   "key_themes": ["<theme1>", "<theme2>", "<theme3>"],
-  "wheel_relevant_context": "<1-2 sentences on MARA/RIOT/COIN/TSLA/GME/PLTR relevance>",
+  "wheel_relevant_context": "<1-2 sentences on TSLA/AAPL/NVDA/PLTR/GME/SOFI wheel relevance>",
   "vix_context": "<one sentence on volatility environment>"
 }`
 
@@ -189,18 +209,17 @@ Return exactly this JSON structure:
         'X-Title':       'PremiumHunter Market Pulse',
       },
       body: JSON.stringify({
-        model:      OPENROUTER_MODEL,
-        messages:   [{ role: 'user', content: prompt }],
-        max_tokens: 600,
+        model:       OPENROUTER_MODEL,
+        messages:    [{ role: 'user', content: prompt }],
+        max_tokens:  600,
         temperature: 0.3,
       }),
     })
     if (!res.ok) return fallback
     const json    = await res.json()
     const content = (json.choices?.[0]?.message?.content ?? '') as string
-    // Strip markdown code fences if model wraps in ```json ... ```
     const cleaned = content.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim()
-    const parsed = JSON.parse(cleaned) as Partial<AIPulse>
+    const parsed  = JSON.parse(cleaned) as Partial<AIPulse>
     return {
       market_sentiment:       parsed.market_sentiment       ?? fallback.market_sentiment,
       sentiment_score:        typeof parsed.sentiment_score === 'number' ? parsed.sentiment_score : fallback.sentiment_score,
@@ -221,10 +240,10 @@ Return exactly this JSON structure:
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
-  const supabase    = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
-  const authHeader  = req.headers.get('Authorization') ?? ''
-  const isCron      = CRON_SECRET !== '' && authHeader === `Bearer ${CRON_SECRET}`
-  let   force       = false
+  const supabase   = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
+  const authHeader = req.headers.get('Authorization') ?? ''
+  const isCron     = CRON_SECRET !== '' && authHeader === `Bearer ${CRON_SECRET}`
+  let   force      = false
 
   if (!isCron) {
     const token = authHeader.replace('Bearer ', '')
@@ -249,7 +268,6 @@ serve(async (req) => {
 
   const today = new Date().toISOString().split('T')[0]
 
-  // Early return if pulse already exists for today (skip on force)
   if (!force) {
     const { data: existing } = await supabase
       .from('market_pulse').select('id').eq('pulse_date', today).maybeSingle()
@@ -263,41 +281,42 @@ serve(async (req) => {
 
   const startMs = Date.now()
 
-  const [finnhubNews, polygonNews] = await Promise.all([
-    fetchFinnhubNews(),
-    fetchPolygonNews(),
+  // Fetch category news and company news in parallel
+  const [categoryNews, companyNews] = await Promise.all([
+    fetchCategoryNews(),
+    fetchCompanyNews(),
   ])
 
-  const raw    = [...finnhubNews, ...polygonNews]
+  const raw    = [...categoryNews, ...companyNews]
   const deduped = deduplicateArticles(raw)
   const scored  = scoreArticles(deduped)
-  const top50   = scored.slice(0, 50)
-  const top15   = scored.slice(0, 15)
+  const top200  = scored.slice(0, 200)  // stored in market_news for watchlist filtering
+  const top20   = scored.slice(0, 20)   // sent to AI for summary generation
 
-  const aiResult = await generatePulse(top15)
+  const aiResult = await generatePulse(top20)
 
   const durationMs = Date.now() - startMs
 
   const { error: upsertError } = await supabase.from('market_pulse').upsert({
-    pulse_date:              today,
-    market_sentiment:        aiResult.market_sentiment,
-    sentiment_score:         aiResult.sentiment_score,
-    headline:                aiResult.headline,
-    summary:                 aiResult.summary,
-    options_context:         aiResult.options_context,
-    key_themes:              aiResult.key_themes,
-    source_articles:         top15.map(a => ({
+    pulse_date:             today,
+    market_sentiment:       aiResult.market_sentiment,
+    sentiment_score:        aiResult.sentiment_score,
+    headline:               aiResult.headline,
+    summary:                aiResult.summary,
+    options_context:        aiResult.options_context,
+    key_themes:             aiResult.key_themes,
+    source_articles:        top20.map(a => ({
       title: a.headline, source: a.source, url: a.url,
       datetime: a.datetime, tickers: a.related_tickers,
     })),
-    mentioned_tickers:       [...new Set(top50.flatMap(a => a.related_tickers))],
-    wheel_relevant_context:  aiResult.wheel_relevant_context,
-    vix_context:             aiResult.vix_context,
-    model_used:              OPENROUTER_MODEL,
-    generated_at:            new Date().toISOString(),
-    generation_duration_ms:  durationMs,
-    news_articles_fetched:   raw.length,
-    news_articles_used:      top15.length,
+    mentioned_tickers:      [...new Set(top200.flatMap(a => a.related_tickers))].filter(Boolean),
+    wheel_relevant_context: aiResult.wheel_relevant_context,
+    vix_context:            aiResult.vix_context,
+    model_used:             OPENROUTER_MODEL,
+    generated_at:           new Date().toISOString(),
+    generation_duration_ms: durationMs,
+    news_articles_fetched:  raw.length,
+    news_articles_used:     top20.length,
   }, { onConflict: 'pulse_date' })
 
   if (upsertError) {
@@ -307,14 +326,13 @@ serve(async (req) => {
     })
   }
 
-  // On force-regenerate, delete previous news rows for today first
   if (force) {
     await supabase.from('market_news').delete().eq('pulse_date', today)
   }
 
-  if (top50.length > 0) {
+  if (top200.length > 0) {
     const { error: newsError } = await supabase.from('market_news').insert(
-      top50.map(a => ({
+      top200.map(a => ({
         pulse_date:      today,
         headline:        a.headline,
         summary:         a.summary.slice(0, 500),
@@ -335,7 +353,7 @@ serve(async (req) => {
     market_sentiment: aiResult.market_sentiment,
     headline:         aiResult.headline,
     articles_fetched: raw.length,
-    articles_stored:  top50.length,
+    articles_stored:  top200.length,
     duration_ms:      durationMs,
   }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 })
