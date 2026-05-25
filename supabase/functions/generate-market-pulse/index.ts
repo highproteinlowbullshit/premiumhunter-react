@@ -319,21 +319,28 @@ async function calculateIVEnvironment(supabase: any): Promise<IVEnvironment> {
     .in('ticker', WHEEL_TICKERS)
     .eq('snapshot_date', today)
 
-  // Fall back to yesterday if today has too few data points (e.g. market holiday)
+  // If today has too few points (holiday, weekend, app not yet loaded),
+  // walk backwards up to 7 days to find the most recent trading day with data
   const todayRanks = (data ?? [])
     .map((d: { iv_rank: number | null }) => Number(d.iv_rank))
     .filter((r: number) => !isNaN(r) && r >= 0)
 
   if (todayRanks.length < MIN_TICKERS) {
-    const yesterday = new Date(Date.now() - 86_400_000).toISOString().split('T')[0]
-    const { data: prevData } = await supabase
-      .from('iv_snapshots')
-      .select('ticker, iv_rank')
-      .in('ticker', WHEEL_TICKERS)
-      .eq('snapshot_date', yesterday)
-    if (prevData && prevData.length >= MIN_TICKERS) {
-      data = prevData
-      snapshotDate = yesterday
+    for (let daysBack = 1; daysBack <= 7; daysBack++) {
+      const pastDate = new Date(Date.now() - daysBack * 86_400_000).toISOString().split('T')[0]
+      const { data: pastData } = await supabase
+        .from('iv_snapshots')
+        .select('ticker, iv_rank')
+        .in('ticker', WHEEL_TICKERS)
+        .eq('snapshot_date', pastDate)
+      const pastRanks = (pastData ?? [])
+        .map((d: { iv_rank: number | null }) => Number(d.iv_rank))
+        .filter((r: number) => !isNaN(r) && r >= 0)
+      if (pastRanks.length >= MIN_TICKERS) {
+        data = pastData
+        snapshotDate = pastDate
+        break
+      }
     }
   }
 
