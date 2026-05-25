@@ -1013,10 +1013,10 @@ function DashboardMock() {
         padding: '12px 14px',
       }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: '#e8f0fe', fontFamily: 'DM Sans, sans-serif', marginBottom: 4 }}>
-          MARA at 74 IV rank — elevated premium
+          Market Pulse: Slightly Bullish · 68/100 · IV elevated
         </div>
         <div style={{ fontSize: 12, color: '#9ab4d4', fontFamily: 'DM Sans, sans-serif', lineHeight: 1.5, marginBottom: 8 }}>
-          Estimated 28% annualised at 30-delta. IV trend is rising — conditions improving.
+          Good conditions for premium selling. MARA and SOFI flagged in morning news.
         </div>
         <button style={{
           fontSize: 11, color: '#14b8a6', background: 'none', border: 'none',
@@ -1050,7 +1050,19 @@ function DashboardMock() {
   )
 }
 
-function AIBriefingMock() {
+function MarketPulseMock() {
+  const sectors = [
+    { name: 'Technology', sentiment: 'bullish', color: '#14b8a6' },
+    { name: 'Energy',     sentiment: 'neutral',  color: '#9ab4d4' },
+    { name: 'Financials', sentiment: 'bearish',  color: '#f87171' },
+  ]
+  const sparkValues = [48, 52, 55, 51, 58, 62, 60, 65, 61, 68]
+  const w = 80, h = 22
+  const min = Math.min(...sparkValues), max = Math.max(...sparkValues)
+  const pts = sparkValues.map((v, i) =>
+    `${(i / (sparkValues.length - 1)) * w},${h - ((v - min) / (max - min)) * h}`
+  ).join(' ')
+
   return (
     <div style={{
       background: 'rgba(5,13,26,0.9)',
@@ -1059,70 +1071,91 @@ function AIBriefingMock() {
     }}>
       {/* Header */}
       <div style={{
-        padding: '12px 16px',
+        padding: '10px 16px',
         background: 'rgba(0,0,0,0.25)',
         borderBottom: '1px solid rgba(255,255,255,0.06)',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       }}>
         <div style={{ fontSize: 12, fontWeight: 600, color: '#e8f0fe', fontFamily: 'DM Sans, sans-serif' }}>
-          AI Morning Briefing · Tuesday Jan 21
+          Market Pulse · Pre-Market
         </div>
         <div style={{
           fontSize: 9, padding: '2px 8px', borderRadius: 10,
-          background: 'rgba(245,158,11,0.15)', color: '#f59e0b',
-          border: '1px solid rgba(245,158,11,0.25)',
+          background: 'rgba(20,184,166,0.12)', color: '#14b8a6',
+          border: '1px solid rgba(20,184,166,0.2)',
           fontFamily: 'DM Sans, sans-serif', fontWeight: 600,
         }}>
           AI-generated
         </div>
       </div>
 
-      {[
-        {
-          title: 'Top opportunity today',
-          color: '#14b8a6',
-          content: (
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#e8f0fe', fontFamily: 'DM Sans, sans-serif', marginBottom: 4 }}>SOFI — CSP $10 Feb 21</div>
-              <div style={{ fontSize: 12, color: '#9ab4d4', fontFamily: 'DM Sans, sans-serif', lineHeight: 1.6 }}>
-                IV rank 74 (surging) · earnings safe (38 days) · est. $0.85 premium, 22% ann.<br/>
-                Liquidity: high · Recommended contracts: 2
-              </div>
-            </div>
-          ),
-        },
-        {
-          title: 'Watchlist alert',
-          color: '#f59e0b',
-          content: (
-            <div style={{ fontSize: 12, color: '#9ab4d4', fontFamily: 'DM Sans, sans-serif', lineHeight: 1.6 }}>
-              <span style={{ color: '#e8f0fe', fontWeight: 600 }}>GME</span> IV rank spiked 62 → 82 overnight. Premium has expanded significantly — elevated conditions for new positions.
-            </div>
-          ),
-        },
-        {
-          title: 'Position update',
-          color: '#9ab4d4',
-          content: (
-            <div style={{ fontSize: 12, color: '#9ab4d4', fontFamily: 'DM Sans, sans-serif', lineHeight: 1.6 }}>
-              <span style={{ color: '#e8f0fe', fontWeight: 600 }}>MARA CSP $16</span> at 61% max profit with 14 DTE. Theta is accelerating — time decay working in your favour.
-            </div>
-          ),
-        },
-      ].map(({ title, color, content }, i, arr) => (
-        <div key={title} style={{
-          padding: '14px 16px',
-          borderBottom: i < arr.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none',
-        }}>
-          <div style={{
-            fontSize: 10, fontWeight: 700, color, fontFamily: 'DM Sans, sans-serif',
-            textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8,
+      {/* Live context strip */}
+      <div style={{
+        display: 'flex', gap: 0,
+        borderBottom: '1px solid rgba(255,255,255,0.06)',
+      }}>
+        {[
+          { label: 'SPY', value: '+0.8%', color: '#14b8a6' },
+          { label: 'VIX', value: '18.2',  color: '#9ab4d4' },
+          { label: 'BTC', value: '+2.1%', color: '#f59e0b' },
+        ].map((m, i, arr) => (
+          <div key={m.label} style={{
+            flex: 1, textAlign: 'center', padding: '8px 0',
+            borderRight: i < arr.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none',
           }}>
-            {title}
+            <div style={{ fontSize: 9, color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', marginBottom: 2 }}>{m.label}</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: m.color, fontFamily: 'JetBrains Mono, monospace' }}>{m.value}</div>
           </div>
-          {content}
+        ))}
+      </div>
+
+      {/* Sentiment row */}
+      <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+          <div>
+            <div style={{ fontSize: 10, color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', marginBottom: 3 }}>Sentiment</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#14b8a6', fontFamily: 'Syne, sans-serif' }}>Slightly Bullish · 68/100</div>
+          </div>
+          <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ overflow: 'visible' }}>
+            <polyline points={pts} fill="none" stroke="#14b8a6" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+            <circle cx={(w / (sparkValues.length - 1)) * (sparkValues.length - 1)} cy={h - ((sparkValues[sparkValues.length - 1] - min) / (max - min)) * h} r="2.5" fill="#14b8a6" />
+          </svg>
         </div>
-      ))}
+        <div style={{ fontSize: 11, color: '#6a8fb0', fontFamily: 'DM Sans, sans-serif', lineHeight: 1.55 }}>
+          Broad market bias is positive ahead of Fed minutes. Tech leading, energy lagging.
+        </div>
+      </div>
+
+      {/* IV environment */}
+      <div style={{ padding: '10px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+          <div style={{ fontSize: 10, color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>IV for sellers</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#14b8a6', fontFamily: 'DM Sans, sans-serif' }}>Elevated · 72/100</div>
+        </div>
+        <div style={{ height: 5, background: 'rgba(255,255,255,0.07)', borderRadius: 3, overflow: 'hidden' }}>
+          <div style={{ width: '72%', height: '100%', background: 'linear-gradient(90deg, #14b8a6, #00d68f)', borderRadius: 3 }} />
+        </div>
+      </div>
+
+      {/* Sector pulse */}
+      <div style={{ padding: '10px 16px' }}>
+        <div style={{ fontSize: 10, color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', marginBottom: 8 }}>Sector pulse</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+          {sectors.map(s => (
+            <div key={s.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 11, color: '#9ab4d4', fontFamily: 'DM Sans, sans-serif' }}>{s.name}</span>
+              <span style={{
+                fontSize: 9, padding: '1px 7px', borderRadius: 8,
+                background: `${s.color}15`, color: s.color,
+                border: `1px solid ${s.color}25`,
+                fontFamily: 'DM Sans, sans-serif', fontWeight: 600,
+              }}>
+                {s.sentiment}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }
@@ -1277,16 +1310,18 @@ function FeaturesSection() {
     },
     {
       id: 'feature-ai',
-      pillLabel: 'AI', pillBg: 'rgba(239,68,68,0.1)', pillBorder: 'rgba(239,68,68,0.25)', pillColor: '#f87171',
-      heading: 'Daily AI picks built on your strategy',
-      description: 'Every morning, an AI analyses your watchlist, current market conditions, and your trading history to surface the most relevant opportunities for your account.',
+      pillLabel: 'AI Market Pulse', pillBg: 'rgba(239,68,68,0.1)', pillBorder: 'rgba(239,68,68,0.25)', pillColor: '#f87171',
+      heading: 'Know the market before it opens',
+      description: 'A twice-daily AI briefing — pre-market and post-market — that tells you the market sentiment, IV environment, sector rotation, and what news is moving the stocks you trade.',
       bullets: [
-        'Personalised to your watchlist and account size',
-        'Explains the reasoning behind every pick',
-        'Morning briefing email delivered before market open',
+        'Sentiment score (0–100) with bullish/bearish label each session',
+        'IV environment score — know if conditions favour premium sellers today',
+        'Sector rotation signal: which sectors are bullish, neutral, or bearish',
+        'Earnings this week flagged so you never sell premium into an announcement',
+        'Position impact: your open positions matched against what\'s in the news',
       ],
       badge: 'Pro feature', badgeBg: 'rgba(239,68,68,0.1)', badgeColor: '#f87171', badgeBorder: 'rgba(239,68,68,0.2)',
-      mock: <AIBriefingMock />, textRight: false, bg: '#050d1a',
+      mock: <MarketPulseMock />, textRight: false, bg: '#050d1a',
     },
   ]
 
