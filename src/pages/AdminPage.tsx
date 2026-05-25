@@ -398,6 +398,7 @@ function PulseTab() {
         body: { force },
       })
       if (error) throw error
+      if (data?.message) throw new Error(data.message)
       return data as PulseAdminResult
     },
     onSuccess: (data) => {
