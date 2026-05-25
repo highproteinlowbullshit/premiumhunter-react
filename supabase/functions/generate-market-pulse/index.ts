@@ -310,11 +310,32 @@ async function fetchLiveMarketContext(pulseType: 'pre_market' | 'post_market'): 
 async function calculateIVEnvironment(supabase: any): Promise<IVEnvironment> {
   const today = new Date().toISOString().split('T')[0]
 
-  const { data } = await supabase
+  const MIN_TICKERS = 5  // require at least 5 tickers to avoid single-outlier distortion
+
+  let snapshotDate = today
+  let { data } = await supabase
     .from('iv_snapshots')
     .select('ticker, iv_rank')
     .in('ticker', WHEEL_TICKERS)
     .eq('snapshot_date', today)
+
+  // Fall back to yesterday if today has too few data points (e.g. market holiday)
+  const todayRanks = (data ?? [])
+    .map((d: { iv_rank: number | null }) => Number(d.iv_rank))
+    .filter((r: number) => !isNaN(r) && r >= 0)
+
+  if (todayRanks.length < MIN_TICKERS) {
+    const yesterday = new Date(Date.now() - 86_400_000).toISOString().split('T')[0]
+    const { data: prevData } = await supabase
+      .from('iv_snapshots')
+      .select('ticker, iv_rank')
+      .in('ticker', WHEEL_TICKERS)
+      .eq('snapshot_date', yesterday)
+    if (prevData && prevData.length >= MIN_TICKERS) {
+      data = prevData
+      snapshotDate = yesterday
+    }
+  }
 
   if (!data || data.length === 0) {
     return { score: 50, label: 'Neutral', avg_iv_rank: 50, high_iv_count: 0, note: 'IV data not yet available for today' }
@@ -324,9 +345,11 @@ async function calculateIVEnvironment(supabase: any): Promise<IVEnvironment> {
     .map((d: { iv_rank: number | null }) => Number(d.iv_rank))
     .filter((r: number) => !isNaN(r) && r >= 0)
 
-  if (ranks.length === 0) {
+  if (ranks.length < MIN_TICKERS) {
     return { score: 50, label: 'Neutral', avg_iv_rank: 50, high_iv_count: 0, note: 'IV ranks not yet computed for today' }
   }
+
+  console.log(`IV environment: using ${ranks.length} tickers from ${snapshotDate}`)
 
   const avg_iv_rank   = Math.round(ranks.reduce((a, b) => a + b, 0) / ranks.length)
   const high_iv_count = ranks.filter(r => r >= 60).length
