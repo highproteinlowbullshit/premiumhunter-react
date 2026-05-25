@@ -108,7 +108,7 @@ function RealDashboard() {
   const { greeks, isLoading: greeksLoading } = usePortfolioGreeks();
   const {
     pulse, allArticles, watchlistArticles,
-    sentimentHistory, matchPositionsToNews,
+    sentimentHistory,
     isLoading: pulseLoading, isWeekend,
   } = useMarketPulse(tickers);
 
