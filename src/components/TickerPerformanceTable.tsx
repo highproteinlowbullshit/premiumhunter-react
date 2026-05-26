@@ -48,14 +48,14 @@ function fmtShortDate(dateStr: string): string {
 }
 
 function annReturnColor(v: number): string {
-  if (v >= 25) return '#00e5c4'
-  if (v >= 15) return '#00d68f'
-  if (v >= 8) return '#f59e0b'
-  return '#ff4d6d'
+  if (v >= 20) return '#00e5c4'   // strong
+  if (v >= 10) return '#f59e0b'   // decent
+  if (v >= 0)  return '#9ab4d4'   // positive but low
+  return '#ff4d6d'                 // loss
 }
 
 function annReturnWeight(v: number): number {
-  return v >= 25 ? 700 : 400
+  return v >= 20 ? 700 : 400
 }
 
 // ── Monthly mini chart tooltip ─────────────────────────────────────────────────
