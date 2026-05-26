@@ -25,7 +25,8 @@ export interface TickerPerformanceData {
   maxDrawdown: number
   sharpeProxy: number
   consistencyScore: number
-  premiumPerDTE: number
+  premiumCaptureRate: number
+  capitalUtilisation: number
   recentTrend: 'improving' | 'stable' | 'declining'
   monthlyBreakdown: Array<{ month: string; pnl: number }>
 }
@@ -151,6 +152,7 @@ export function useTickerPerformance() {
         const monthlyReturns = new Map<string, number>()
         const dteList: number[] = []
         const pnlList: number[] = []
+        const captureRates: number[] = []
 
         // Sort by resolution date so pnlList is in chronological closed order (correct for drawdown)
         const sortedPositions = [...tickerPositions].sort((a, b) =>
@@ -175,6 +177,14 @@ export function useTickerPerformance() {
             }
           } else {
             pnl = 0
+          }
+
+          if (pos.status === 'expired' || pos.status === 'assigned') {
+            captureRates.push(100)
+          } else if (pos.closing_price !== null && Number(pos.premium_collected) > 0) {
+            captureRates.push(
+              ((Number(pos.premium_collected) - Number(pos.closing_price)) / Number(pos.premium_collected)) * 100
+            )
           }
 
           if (pos.strategy === 'CC') {
@@ -223,10 +233,20 @@ export function useTickerPerformance() {
         const averageDTE = dteList.length > 0
           ? dteList.reduce((a, b) => a + b, 0) / dteList.length
           : 0
-        // Net premium earned per day of risk exposure, normalised for both cycle count and DTE
-        const premiumPerDTE = averageDTE > 0 && totalTrades > 0
-          ? totalPnL / (totalTrades * averageDTE)
+
+        const premiumCaptureRate = captureRates.length > 0
+          ? captureRates.reduce((a, b) => a + b, 0) / captureRates.length
           : 0
+
+        // Actual holding days per position (closed_at ?? expiry − opened_at), not DTE at entry.
+        // Capital is freed when you close early, so this correctly reflects idle periods.
+        const totalHoldingDays = tickerPositions.reduce((sum, pos) => {
+          const closeDate = pos.closed_at ?? pos.expiry
+          return sum + Math.max(0, Math.ceil(
+            (new Date(closeDate).getTime() - new Date(pos.opened_at).getTime()) / 86400000
+          ))
+        }, 0)
+        const capitalUtilisation = totalDays > 0 ? (totalHoldingDays / totalDays) * 100 : 0
 
         // Consistency / Sharpe — expressed as monthly return % (normalised by avgCapital)
         // so the Sharpe is comparable across tickers with different capital levels
@@ -299,7 +319,8 @@ export function useTickerPerformance() {
           maxDrawdown: Math.round(maxDrawdown * 100) / 100,
           sharpeProxy: Math.round(sharpeProxy * 100) / 100,
           consistencyScore: Math.round(consistencyScore * 10) / 10,
-          premiumPerDTE: Math.round(premiumPerDTE * 100) / 100,
+          premiumCaptureRate: Math.round(premiumCaptureRate * 10) / 10,
+          capitalUtilisation: Math.round(capitalUtilisation * 10) / 10,
           recentTrend,
           monthlyBreakdown: Array.from(monthlyReturns.entries())
             .sort(([a], [b]) => a.localeCompare(b))

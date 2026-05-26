@@ -58,30 +58,6 @@ function annReturnWeight(v: number): number {
   return v >= 25 ? 700 : 400
 }
 
-// ── Inline sparkline (SVG, no Recharts — rendered per row) ────────────────────
-
-function TinySparkline({ data }: { data: Array<{ month: string; pnl: number }> }) {
-  if (data.length < 2) return <span style={{ color: '#2e4a6a', fontFamily: 'DM Sans, sans-serif', fontSize: 10 }}>—</span>
-  const W = 72, H = 26, pad = 2
-  const values = data.map(d => d.pnl)
-  const min = Math.min(...values)
-  const max = Math.max(...values)
-  const range = max - min || 1
-  const pts = values
-    .map((v, i) => {
-      const x = pad + (i / (values.length - 1)) * (W - pad * 2)
-      const y = H - pad - ((v - min) / range) * (H - pad * 2)
-      return `${x.toFixed(1)},${y.toFixed(1)}`
-    })
-    .join(' ')
-  const rising = values[values.length - 1] >= values[0]
-  return (
-    <svg width={W} height={H} style={{ display: 'block', overflow: 'visible' }}>
-      <polyline points={pts} fill="none" stroke={rising ? '#00e5c4' : '#ff4d6d'} strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" />
-    </svg>
-  )
-}
-
 // ── Monthly mini chart tooltip ─────────────────────────────────────────────────
 
 function MiniTooltip({ active, payload, label }: any) {
@@ -163,7 +139,7 @@ function ExpandedPanel({ ticker }: { ticker: TickerPerformanceData }) {
   return (
     <tr>
       <td
-        colSpan={9}
+        colSpan={8}
         style={{
           background: 'rgba(5,13,26,0.5)',
           borderBottom: '1px solid rgba(0,229,196,0.06)',
@@ -193,10 +169,23 @@ function ExpandedPanel({ ticker }: { ticker: TickerPerformanceData }) {
               { label: 'First open', value: fmtShortDate(ticker.firstTradeDate) },
               { label: 'Last close', value: fmtShortDate(ticker.lastTradeDate) },
               { label: 'Max drawdown', value: fmt$(ticker.maxDrawdown), color: '#f59e0b' },
-            ].map(({ label, value, color }) => (
+              {
+                label: 'Premium capture',
+                value: `${ticker.premiumCaptureRate.toFixed(1)}%`,
+                color: ticker.premiumCaptureRate >= 80 ? '#00e5c4' : ticker.premiumCaptureRate >= 50 ? '#f59e0b' : '#ff4d6d',
+                sub: ticker.premiumCaptureRate >= 80 ? 'holding to expiry / full capture' : ticker.premiumCaptureRate >= 50 ? 'taking profits early' : 'closing under pressure',
+              },
+              {
+                label: 'Capital utilisation',
+                value: `${ticker.capitalUtilisation.toFixed(1)}%`,
+                color: ticker.capitalUtilisation >= 75 ? '#00e5c4' : ticker.capitalUtilisation >= 45 ? '#f59e0b' : '#9ab4d4',
+                sub: ticker.capitalUtilisation >= 75 ? 'capital always working' : ticker.capitalUtilisation >= 45 ? 'some idle periods' : 'long gaps between cycles',
+              },
+            ].map(({ label, value, color, sub }: { label: string; value: string; color?: string; sub?: string }) => (
               <div key={label}>
                 <div style={{ color: '#2e4a6a', fontFamily: 'DM Sans, sans-serif', fontSize: 10, marginBottom: 3 }}>{label}</div>
                 <div style={{ color: color ?? '#9ab4d4', fontFamily: 'JetBrains Mono, monospace', fontSize: 13 }}>{value}</div>
+                {sub && <div style={{ color: '#2e4a6a', fontFamily: 'DM Sans, sans-serif', fontSize: 10, marginTop: 2, fontStyle: 'italic' }}>{sub}</div>}
               </div>
             ))}
           </div>
@@ -421,7 +410,6 @@ export function TickerPerformanceTable({ summary, isLoading }: Props) {
               <th style={colHeaderStyle}>Avg Capital</th>
               <th style={colHeaderStyle}>Cycles</th>
               <th style={colHeaderStyle}>Consistency</th>
-              <th style={colHeaderStyle}>Monthly P&amp;L</th>
             </tr>
           </thead>
           <tbody>
@@ -493,7 +481,7 @@ export function TickerPerformanceTable({ summary, isLoading }: Props) {
                       <div style={{ width: `${Math.min(100, t.winRate)}%`, height: '100%', background: '#00e5c4', borderRadius: 2 }} />
                     </div>
                     <div style={{ color: '#2e4a6a', fontFamily: 'DM Sans, sans-serif', fontSize: 10 }}>
-                      {t.expiredWorthless}/{t.totalCycles}
+                      {t.expiredWorthless}/{t.totalCycles} · {t.premiumCaptureRate.toFixed(0)}% captured
                     </div>
                   </td>
 
@@ -535,11 +523,9 @@ export function TickerPerformanceTable({ summary, isLoading }: Props) {
                         {t.coveredCallCycles} CC
                       </div>
                     )}
-                    {t.premiumPerDTE !== 0 && (
-                      <div style={{ color: t.premiumPerDTE >= 0 ? '#00d68f' : '#ff4d6d', fontFamily: 'JetBrains Mono, monospace', fontSize: 10, marginTop: 3 }}>
-                        {t.premiumPerDTE >= 0 ? '+' : '-'}${Math.abs(t.premiumPerDTE).toFixed(2)}/d
-                      </div>
-                    )}
+                    <div style={{ color: '#2e4a6a', fontFamily: 'DM Sans, sans-serif', fontSize: 10, marginTop: 3 }}>
+                      {t.capitalUtilisation.toFixed(0)}% deployed
+                    </div>
                   </td>
 
                   {/* Consistency */}
@@ -550,10 +536,6 @@ export function TickerPerformanceTable({ summary, isLoading }: Props) {
                     </div>
                   </td>
 
-                  {/* Monthly P&L sparkline */}
-                  <td style={{ ...cellStyle, verticalAlign: 'middle' }}>
-                    <TinySparkline data={t.monthlyBreakdown} />
-                  </td>
                 </tr>,
 
                 isExpanded ? <ExpandedPanel key={`${t.ticker}-exp`} ticker={t} /> : null,
