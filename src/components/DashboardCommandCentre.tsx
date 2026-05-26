@@ -341,9 +341,9 @@ function QuickStatsRow({ d, isPaper }: { d: DashboardIntelligence; isPaper: bool
       {/* ROC this month */}
       {d.thisMonth.positionsClosed > 0 && (
         <StatPill
-          label="ROC"
+          label="ROC this month"
           value={roc !== 0 ? `${roc.toFixed(2)}%` : '—'}
-          sub="return on closed capital"
+          sub={d.thisMonth.premiumCollected !== 0 ? `${fmt$(d.thisMonth.premiumCollected, true)} on closed capital` : 'return on closed capital'}
           color={rocColor}
           isPaper={isPaper}
         />
