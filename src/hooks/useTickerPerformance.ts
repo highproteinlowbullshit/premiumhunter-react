@@ -222,10 +222,13 @@ export function useTickerPerformance() {
           ? Math.max(1, Math.ceil((new Date(lastDate).getTime() - new Date(firstDate).getTime()) / 86400000))
           : 1
 
-        const returnOnCapital = avgCapital > 0 ? (combinedPnL / totalCapital) * 100 : 0
+        // Denominator is avgCapital (capital per trade), not totalCapital (sum across all trades).
+        // Sequential wheel trades recycle the same capital — summing it would divide by n×capital
+        // and understate returns by the number of trades.
+        const returnOnCapital = avgCapital > 0 ? (combinedPnL / avgCapital) * 100 : 0
         const annualisedReturn =
           totalDays > 0 && avgCapital > 0
-            ? ((combinedPnL / totalCapital) * (365 / totalDays)) * 100
+            ? ((combinedPnL / avgCapital) * (365 / totalDays)) * 100
             : 0
 
         const totalTrades = tickerPositions.length
@@ -344,9 +347,10 @@ export function useTickerPerformance() {
         ? Math.max(1, Math.ceil((new Date(dataToDate).getTime() - new Date(dataFromDate).getTime()) / 86400000))
         : 1
 
+      const portAvgCapital = portTotalTrades > 0 ? portTotalCapital / portTotalTrades : 0
       const portfolioAnnualisedReturn =
-        portTotalCapital > 0
-          ? ((portTotalPnL / portTotalCapital) * (365 / totalPortDays)) * 100
+        portAvgCapital > 0
+          ? ((portTotalPnL / portAvgCapital) * (365 / totalPortDays)) * 100
           : 0
       const portfolioWinRate = portTotalTrades > 0 ? (portTotalWins / portTotalTrades) * 100 : 0
 
