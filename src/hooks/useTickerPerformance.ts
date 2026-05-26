@@ -25,6 +25,7 @@ export interface TickerPerformanceData {
   maxDrawdown: number
   sharpeProxy: number
   consistencyScore: number
+  premiumPerDTE: number
   recentTrend: 'improving' | 'stable' | 'declining'
   monthlyBreakdown: Array<{ month: string; pnl: number }>
 }
@@ -151,7 +152,11 @@ export function useTickerPerformance() {
         const dteList: number[] = []
         const pnlList: number[] = []
 
-        for (const pos of tickerPositions) {
+        // Sort by resolution date so pnlList is in chronological closed order (correct for drawdown)
+        const sortedPositions = [...tickerPositions].sort((a, b) =>
+          (a.closed_at ?? a.expiry).localeCompare(b.closed_at ?? b.expiry)
+        )
+        for (const pos of sortedPositions) {
           const capital = pos.strike * pos.contracts * 100
 
           let pnl: number
@@ -198,9 +203,11 @@ export function useTickerPerformance() {
         const n = tickerPositions.length
         const avgCapital = n > 0 ? totalCapital / n : 0
 
-        const sortedDates = tickerPositions.map(p => p.opened_at).sort()
-        const firstDate = sortedDates[0] ?? ''
-        const lastDate = sortedDates[sortedDates.length - 1] ?? ''
+        // Period = first opened_at → last (closed_at ?? expiry), i.e. full capital-commitment window
+        const openDates = tickerPositions.map(p => p.opened_at).sort()
+        const closeDates = tickerPositions.map(p => p.closed_at ?? p.expiry).sort()
+        const firstDate = openDates[0] ?? ''
+        const lastDate = closeDates[closeDates.length - 1] ?? ''
         const totalDays = firstDate && lastDate
           ? Math.max(1, Math.ceil((new Date(lastDate).getTime() - new Date(firstDate).getTime()) / 86400000))
           : 1
@@ -216,23 +223,30 @@ export function useTickerPerformance() {
         const averageDTE = dteList.length > 0
           ? dteList.reduce((a, b) => a + b, 0) / dteList.length
           : 0
+        // Net premium earned per day of risk exposure, normalised for both cycle count and DTE
+        const premiumPerDTE = averageDTE > 0 && totalTrades > 0
+          ? totalPnL / (totalTrades * averageDTE)
+          : 0
 
-        // Consistency / Sharpe
+        // Consistency / Sharpe — expressed as monthly return % (normalised by avgCapital)
+        // so the Sharpe is comparable across tickers with different capital levels
         const monthValues = Array.from(monthlyReturns.values())
-        const avgMonthly = monthValues.length > 0
-          ? monthValues.reduce((a, b) => a + b, 0) / monthValues.length
+        const avgCap = avgCapital > 0 ? avgCapital : 1
+        const monthReturnPcts = monthValues.map(v => (v / avgCap) * 100)
+        const avgMonthlyPct = monthReturnPcts.length > 0
+          ? monthReturnPcts.reduce((a, b) => a + b, 0) / monthReturnPcts.length
           : 0
-        const variance = monthValues.length > 1
-          ? monthValues.reduce((sum, v) => sum + Math.pow(v - avgMonthly, 2), 0) / (monthValues.length - 1)
+        const variancePct = monthReturnPcts.length > 1
+          ? monthReturnPcts.reduce((sum, v) => sum + Math.pow(v - avgMonthlyPct, 2), 0) / (monthReturnPcts.length - 1)
           : 0
-        const stdDev = Math.sqrt(variance)
+        const stdDevPct = Math.sqrt(variancePct)
         const consistencyScore =
-          stdDev > 0 && avgMonthly > 0
-            ? Math.min(100, Math.max(0, 100 - (stdDev / avgMonthly) * 50))
-            : avgMonthly > 0
+          stdDevPct > 0 && avgMonthlyPct > 0
+            ? Math.min(100, Math.max(0, 100 - (stdDevPct / avgMonthlyPct) * 50))
+            : avgMonthlyPct > 0
             ? 100
             : 0
-        const sharpeProxy = stdDev > 0 ? avgMonthly / stdDev : 0
+        const sharpeProxy = stdDevPct > 0 ? avgMonthlyPct / stdDevPct : 0
 
         // Max drawdown
         let maxDrawdown = 0
@@ -285,6 +299,7 @@ export function useTickerPerformance() {
           maxDrawdown: Math.round(maxDrawdown * 100) / 100,
           sharpeProxy: Math.round(sharpeProxy * 100) / 100,
           consistencyScore: Math.round(consistencyScore * 10) / 10,
+          premiumPerDTE: Math.round(premiumPerDTE * 100) / 100,
           recentTrend,
           monthlyBreakdown: Array.from(monthlyReturns.entries())
             .sort(([a], [b]) => a.localeCompare(b))
@@ -300,9 +315,10 @@ export function useTickerPerformance() {
       // Sort by annualised return descending
       tickerData.sort((a, b) => b.annualisedReturn - a.annualisedReturn)
 
-      const allDates = positions.map(p => p.opened_at).sort()
-      const dataFromDate = allDates[0] ?? ''
-      const dataToDate = allDates[allDates.length - 1] ?? ''
+      const allOpenDates = positions.map(p => p.opened_at).sort()
+      const allCloseDates = positions.map(p => p.closed_at ?? p.expiry).sort()
+      const dataFromDate = allOpenDates[0] ?? ''
+      const dataToDate = allCloseDates[allCloseDates.length - 1] ?? ''
       const totalPortDays = dataFromDate && dataToDate
         ? Math.max(1, Math.ceil((new Date(dataToDate).getTime() - new Date(dataFromDate).getTime()) / 86400000))
         : 1

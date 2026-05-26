@@ -58,6 +58,30 @@ function annReturnWeight(v: number): number {
   return v >= 25 ? 700 : 400
 }
 
+// ── Inline sparkline (SVG, no Recharts — rendered per row) ────────────────────
+
+function TinySparkline({ data }: { data: Array<{ month: string; pnl: number }> }) {
+  if (data.length < 2) return <span style={{ color: '#2e4a6a', fontFamily: 'DM Sans, sans-serif', fontSize: 10 }}>—</span>
+  const W = 72, H = 26, pad = 2
+  const values = data.map(d => d.pnl)
+  const min = Math.min(...values)
+  const max = Math.max(...values)
+  const range = max - min || 1
+  const pts = values
+    .map((v, i) => {
+      const x = pad + (i / (values.length - 1)) * (W - pad * 2)
+      const y = H - pad - ((v - min) / range) * (H - pad * 2)
+      return `${x.toFixed(1)},${y.toFixed(1)}`
+    })
+    .join(' ')
+  const rising = values[values.length - 1] >= values[0]
+  return (
+    <svg width={W} height={H} style={{ display: 'block', overflow: 'visible' }}>
+      <polyline points={pts} fill="none" stroke={rising ? '#00e5c4' : '#ff4d6d'} strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 // ── Monthly mini chart tooltip ─────────────────────────────────────────────────
 
 function MiniTooltip({ active, payload, label }: any) {
@@ -139,7 +163,7 @@ function ExpandedPanel({ ticker }: { ticker: TickerPerformanceData }) {
   return (
     <tr>
       <td
-        colSpan={8}
+        colSpan={9}
         style={{
           background: 'rgba(5,13,26,0.5)',
           borderBottom: '1px solid rgba(0,229,196,0.06)',
@@ -161,9 +185,13 @@ function ExpandedPanel({ ticker }: { ticker: TickerPerformanceData }) {
               { label: 'Avg DTE at entry', value: `${ticker.averageDTE}d` },
               { label: 'Largest win', value: fmt$(ticker.largestWin), color: '#00e5c4' },
               { label: 'Largest loss', value: fmt$(ticker.largestLoss), color: ticker.largestLoss < 0 ? '#ff4d6d' : '#4a6a8a' },
-              { label: 'Sharpe proxy', value: ticker.sharpeProxy.toFixed(2) },
-              { label: 'First trade', value: fmtShortDate(ticker.firstTradeDate) },
-              { label: 'Total days tracked', value: `${ticker.totalDaysTraded}d` },
+              {
+                label: 'Sharpe proxy',
+                value: ticker.totalCycles < 3 ? 'n/a' : ticker.sharpeProxy.toFixed(2),
+                color: ticker.totalCycles < 3 ? '#2e4a6a' : undefined,
+              },
+              { label: 'First open', value: fmtShortDate(ticker.firstTradeDate) },
+              { label: 'Last close', value: fmtShortDate(ticker.lastTradeDate) },
               { label: 'Max drawdown', value: fmt$(ticker.maxDrawdown), color: '#f59e0b' },
             ].map(({ label, value, color }) => (
               <div key={label}>
@@ -393,6 +421,7 @@ export function TickerPerformanceTable({ summary, isLoading }: Props) {
               <th style={colHeaderStyle}>Avg Capital</th>
               <th style={colHeaderStyle}>Cycles</th>
               <th style={colHeaderStyle}>Consistency</th>
+              <th style={colHeaderStyle}>Monthly P&amp;L</th>
             </tr>
           </thead>
           <tbody>
@@ -448,10 +477,10 @@ export function TickerPerformanceTable({ summary, isLoading }: Props) {
                       color: annReturnColor(t.annualisedReturn),
                       fontWeight: annReturnWeight(t.annualisedReturn),
                     }}>
-                      {t.annualisedReturn.toFixed(1)}%
+                      {t.totalCycles < 5 ? '~' : ''}{t.annualisedReturn.toFixed(1)}%
                     </div>
                     <div style={{ color: '#2e4a6a', fontFamily: 'DM Sans, sans-serif', fontSize: 10, marginTop: 2 }}>
-                      on deployed capital
+                      {t.totalCycles < 5 ? `est. · ${t.totalCycles} trade${t.totalCycles === 1 ? '' : 's'}` : 'on deployed capital'}
                     </div>
                   </td>
 
@@ -506,6 +535,11 @@ export function TickerPerformanceTable({ summary, isLoading }: Props) {
                         {t.coveredCallCycles} CC
                       </div>
                     )}
+                    {t.premiumPerDTE !== 0 && (
+                      <div style={{ color: t.premiumPerDTE >= 0 ? '#00d68f' : '#ff4d6d', fontFamily: 'JetBrains Mono, monospace', fontSize: 10, marginTop: 3 }}>
+                        {t.premiumPerDTE >= 0 ? '+' : '-'}${Math.abs(t.premiumPerDTE).toFixed(2)}/d
+                      </div>
+                    )}
                   </td>
 
                   {/* Consistency */}
@@ -514,6 +548,11 @@ export function TickerPerformanceTable({ summary, isLoading }: Props) {
                     <div style={{ color: '#2e4a6a', fontFamily: 'JetBrains Mono, monospace', fontSize: 10, marginTop: 4 }}>
                       {t.consistencyScore.toFixed(0)}/100
                     </div>
+                  </td>
+
+                  {/* Monthly P&L sparkline */}
+                  <td style={{ ...cellStyle, verticalAlign: 'middle' }}>
+                    <TinySparkline data={t.monthlyBreakdown} />
                   </td>
                 </tr>,
 
@@ -542,7 +581,7 @@ export function TickerPerformanceTable({ summary, isLoading }: Props) {
           fontStyle: 'italic',
           paddingBottom: 16,
         }}>
-          Annualised return = (total P&amp;L / capital deployed) × (365 / days traded). Accuracy improves after 5+ completed cycles per ticker.
+          Ann. return = (total P&amp;L / capital deployed) × (365 / days). Period = first open → last close/expiry. ~ prefix = estimate based on fewer than 5 trades.
         </div>
       </div>
     </div>
