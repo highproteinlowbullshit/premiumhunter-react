@@ -104,6 +104,7 @@ export interface DashboardIntelligence {
     positionsClosed: number;
     positionsWon: number;
     winRate: number;
+    rocThisMonth: number;
     targetAmount: number;
     targetProgress: number;
     openPotential: number;
@@ -925,12 +926,14 @@ export function useDashboardIntelligence() {
       }));
 
       // ── This month ─────────────────────────────────────────────────────────
-      let tmPremium = 0, tmWins = 0;
+      let tmPremium = 0, tmWins = 0, tmCapital = 0;
       for (const p of thisMonthClosed) {
         const pnl = calcPnl(p as any);
         tmPremium += pnl;
+        tmCapital += Number((p as any).strike) * Number(p.contracts) * 100;
         if (pnl > 0) tmWins++;
       }
+      const rocThisMonth = tmCapital > 0 ? (tmPremium / tmCapital) * 100 : 0;
 
       const openPotential = open
         .filter(p => (p.expiry as string).slice(0, 7) === currentMonthKey)
@@ -1138,6 +1141,7 @@ export function useDashboardIntelligence() {
           positionsClosed: thisMonthClosed.length,
           positionsWon: tmWins,
           winRate: thisMonthClosed.length > 0 ? Math.round((tmWins / thisMonthClosed.length) * 1000) / 10 : 0,
+          rocThisMonth: Math.round(rocThisMonth * 100) / 100,
           targetAmount,
           targetProgress,
           openPotential: Math.round(openPotential * 100) / 100,

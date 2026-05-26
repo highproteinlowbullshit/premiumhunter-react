@@ -305,6 +305,9 @@ function QuickStatsRow({ d, isPaper }: { d: DashboardIntelligence; isPaper: bool
     : d.capitalEfficiencyPercent < 30 ? '#f5c842'
     : '#9ab4d4';
 
+  const roc = d.thisMonth.rocThisMonth;
+  const rocColor = roc >= 2 ? '#00e5c4' : roc >= 1 ? '#f5c842' : roc > 0 ? '#9ab4d4' : '#ff4d6d';
+
   return (
     <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4, marginBottom: 12 }}>
       {/* This month */}
@@ -334,6 +337,17 @@ function QuickStatsRow({ d, isPaper }: { d: DashboardIntelligence; isPaper: bool
         color={wrColor}
         isPaper={isPaper}
       />
+
+      {/* ROC this month */}
+      {d.thisMonth.positionsClosed > 0 && (
+        <StatPill
+          label="ROC"
+          value={roc !== 0 ? `${roc.toFixed(2)}%` : '—'}
+          sub="return on closed capital"
+          color={rocColor}
+          isPaper={isPaper}
+        />
+      )}
 
       {/* Open positions */}
       <StatPill
