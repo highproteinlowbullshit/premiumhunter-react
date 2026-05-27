@@ -1933,7 +1933,7 @@ function RealPortfolio() {
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid rgba(0,229,196,0.06)' }}>
-                      {['Ticker', 'Strategy', 'Strike', 'Expiry', 'Premium', 'DTE'].map((col) => (
+                      {['Position', 'Expiry', 'Premium', 'DTE'].map((col) => (
                         <th
                           key={col}
                           style={{
@@ -1956,27 +1956,17 @@ function RealPortfolio() {
                   <tbody>
                     {openPositions.map((p) => (
                       <tr key={p.id} className="stock-row-hover" style={{ borderBottom: '1px solid rgba(0,229,196,0.04)' }}>
-                        <td style={{ padding: '12px 14px', color: '#e8f0fe', fontFamily: 'Syne, sans-serif', fontSize: 14, fontWeight: 700 }}>
-                          {p.ticker}
-                        </td>
                         <td style={{ padding: '12px 14px' }}>
-                          <span
-                            style={{
-                              background: p.strategy === 'CSP' ? 'rgba(0,229,196,0.1)' : 'rgba(0,198,245,0.1)',
-                              border: `1px solid ${p.strategy === 'CSP' ? 'rgba(0,229,196,0.2)' : 'rgba(0,198,245,0.2)'}`,
-                              color: p.strategy === 'CSP' ? '#00e5c4' : '#00c6f5',
-                              borderRadius: 4,
-                              padding: '2px 7px',
-                              fontSize: 11,
-                              fontFamily: 'DM Sans, sans-serif',
-                              fontWeight: 600,
-                            }}
-                          >
-                            {p.strategy}
-                          </span>
-                        </td>
-                        <td style={{ padding: '12px 14px', color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace', fontSize: 13 }}>
-                          ${p.strike.toFixed(2)}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            <span style={{ fontSize: 17, fontWeight: 700, letterSpacing: '-0.2px' }}>
+                              <span style={{ color: '#a0b4cc', fontWeight: 500 }}>${p.strike} </span>
+                              <span style={{ color: '#e8f0fe', fontFamily: 'Syne, sans-serif' }}>{p.ticker} </span>
+                              <span style={{ color: p.strategy === 'CSP' ? '#00c6f5' : '#00e5c4' }}>{p.strategy}</span>
+                            </span>
+                            <span style={{ color: '#4a6a8a', fontSize: 11, fontFamily: 'DM Sans, sans-serif' }}>
+                              {p.contracts} contract{p.contracts !== 1 ? 's' : ''}
+                            </span>
+                          </div>
                         </td>
                         <td style={{ padding: '12px 14px', color: '#9ab4d4', fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}>
                           {new Date(p.expiry + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })}
