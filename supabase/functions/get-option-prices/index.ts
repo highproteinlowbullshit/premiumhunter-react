@@ -215,13 +215,19 @@ serve(async (req) => {
       continue
     }
 
+    const chainDate = new Date(chain.expirationDate * 1000).toISOString().split('T')[0]
+    if (chainDate !== group.expiry) {
+      console.warn(`  ${group.ticker}: requested ${group.expiry} but Yahoo returned ${chainDate}`)
+    }
+
     const groupSnapshots: SnapshotRow[] = []
     for (const { strike, contract_type } of group.contracts) {
       const side: OptionContract[] = contract_type === 'call' ? chain.calls : chain.puts
       const contract = side.find(c => Math.abs(c.strike - strike) < 0.50)
 
       if (!contract) {
-        console.warn(`  No contract: ${group.ticker} ${contract_type} $${strike} exp ${group.expiry}`)
+        const available = side.map(c => c.strike).sort((a, b) => Number(a) - Number(b))
+        console.warn(`  No contract: ${group.ticker} ${contract_type} $${strike} exp ${group.expiry} — available strikes: ${available.join(', ')}`)
         continue
       }
 
