@@ -70,6 +70,9 @@ type SnapshotRow = {
   open_interest: number | null
 }
 
+type PosRow = { ticker: string; strategy: string; strike: number; expiry: string }
+type ContractNeed = { strike: number; contract_type: 'call' | 'put' }
+
 serve(async (req) => {
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -97,7 +100,19 @@ serve(async (req) => {
   let singleContract: { ticker: string; strike: number; expiry: string; strategy: string } | null = null
   try {
     const body = await req.json()
-    if (body?.ticker) singleContract = body
+    if (body?.ticker) {
+      singleContract = body
+      if (
+        typeof singleContract.strike !== 'number' ||
+        typeof singleContract.expiry !== 'string' ||
+        typeof singleContract.strategy !== 'string'
+      ) {
+        return new Response(JSON.stringify({ error: 'Invalid body: strike must be number, expiry and strategy must be strings' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+    }
   } catch {
     // no body — fetch all open positions
   }
@@ -105,7 +120,6 @@ serve(async (req) => {
   const db = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
   const today = new Date().toISOString().split('T')[0]
 
-  type PosRow = { ticker: string; strategy: string; strike: number; expiry: string }
   let positions: PosRow[] = []
 
   if (singleContract) {
@@ -139,7 +153,6 @@ serve(async (req) => {
     )
   }
 
-  type ContractNeed = { strike: number; contract_type: 'call' | 'put' }
   const groups = new Map<string, { ticker: string; expiry: string; expiryUnix: number; contracts: ContractNeed[] }>()
 
   for (const pos of positions) {
@@ -168,6 +181,7 @@ serve(async (req) => {
       continue
     }
 
+    const groupSnapshots: SnapshotRow[] = []
     for (const { strike, contract_type } of group.contracts) {
       const side: OptionContract[] = contract_type === 'call' ? chain.calls : chain.puts
       const contract = side.find(c => Math.abs(c.strike - strike) < 0.50)
@@ -187,7 +201,7 @@ serve(async (req) => {
         : null
       const ivClean = iv != null && iv >= 5 && iv <= 500 ? iv : null
 
-      snapshots.push({
+      groupSnapshots.push({
         ticker:             group.ticker,
         strike,
         expiry:             group.expiry,
@@ -204,21 +218,20 @@ serve(async (req) => {
       })
     }
 
-    await delay(200)
-  }
+    if (groupSnapshots.length > 0) {
+      const { error: upsertError } = await db
+        .from('option_price_snapshots')
+        .upsert(groupSnapshots, { onConflict: 'ticker,strike,expiry,contract_type,snapshot_date', ignoreDuplicates: false })
 
-  if (snapshots.length > 0) {
-    const { error: upsertError } = await db
-      .from('option_price_snapshots')
-      .upsert(snapshots, { onConflict: 'ticker,strike,expiry,contract_type,snapshot_date', ignoreDuplicates: false })
-
-    if (upsertError) {
-      console.error('Upsert failed:', upsertError)
-      return new Response(JSON.stringify({ error: 'DB upsert failed', details: upsertError }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
+      if (upsertError) {
+        console.error('Upsert failed for group:', group.ticker, group.expiry, upsertError)
+        groups_failed++
+      } else {
+        snapshots.push(...groupSnapshots)
+      }
     }
+
+    await delay(200)
   }
 
   // Return the compact shape the client needs
