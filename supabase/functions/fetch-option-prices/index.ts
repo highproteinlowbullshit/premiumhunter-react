@@ -83,6 +83,10 @@ serve(async (req) => {
     console.error('wheel_positions query failed:', realResult.error)
     return new Response(JSON.stringify({ error: 'DB query failed' }), { status: 500 })
   }
+  if (paperResult.error) {
+    console.error('paper_positions query failed:', paperResult.error)
+    return new Response(JSON.stringify({ error: 'DB query failed' }), { status: 500 })
+  }
 
   type PosRow = { ticker: string; strategy: string; strike: number; expiry: string }
   const allPositions: PosRow[] = [
@@ -116,7 +120,22 @@ serve(async (req) => {
     }
   }
 
-  const snapshots: object[] = []
+  type OptionSnapshot = {
+    ticker: string
+    strike: number
+    expiry: string
+    contract_type: 'call' | 'put'
+    snapshot_date: string
+    snapshot_time: string
+    bid: number | null
+    ask: number | null
+    mid: number | null
+    last_price: number | null
+    implied_volatility: number | null
+    volume: number | null
+    open_interest: number | null
+  }
+  const snapshots: OptionSnapshot[] = []
   let fetched = 0
   let failed = 0
 
