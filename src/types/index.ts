@@ -31,6 +31,7 @@ export interface WheelPosition {
   currentPrice: number; // current option price (or closing price when closed)
   optionBid?: number | null;
   optionAsk?: number | null;
+  optionMid?: number | null;
   daysToExpiry: number;
   status: PositionStatus;
   openedAt: string;

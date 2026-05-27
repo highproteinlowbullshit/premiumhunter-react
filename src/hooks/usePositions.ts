@@ -100,6 +100,7 @@ export function usePositions() {
           currentPrice: snap.mid != null ? snap.mid : pos.currentPrice,
           optionBid: snap.bid ?? null,
           optionAsk: snap.ask ?? null,
+          optionMid: snap.mid ?? null,
         };
       })
     );
@@ -165,6 +166,7 @@ export function usePositions() {
             if (snap.mid != null) pos.currentPrice = snap.mid;
             pos.optionBid = snap.bid ?? null;
             pos.optionAsk = snap.ask ?? null;
+            pos.optionMid = snap.mid ?? null;
           }
         }
       }
@@ -183,7 +185,7 @@ export function usePositions() {
     if (hasAutoFetched.current) return;
     const open = positions.filter(p => p.status === 'open');
     if (open.length === 0) return;
-    const needsFresh = open.some(p => p.optionBid == null);
+    const needsFresh = open.some(p => p.optionBid == null && p.optionMid == null);
     if (!needsFresh) return;
     hasAutoFetched.current = true;
     void fetchAndApplyPrices(undefined, true);
