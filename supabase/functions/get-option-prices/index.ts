@@ -50,6 +50,61 @@ type YahooOptionSet = {
   puts: OptionContract[]
 }
 
+function buildOccSymbol(ticker: string, expiry: string, contract_type: 'call' | 'put', strike: number): string {
+  const d = new Date(expiry + 'T00:00:00Z')
+  const yy = String(d.getUTCFullYear()).slice(2)
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0')
+  const dd = String(d.getUTCDate()).padStart(2, '0')
+  const cp = contract_type === 'call' ? 'C' : 'P'
+  const strikePadded = String(Math.round(strike * 1000)).padStart(8, '0')
+  return `${ticker}${yy}${mm}${dd}${cp}${strikePadded}`
+}
+
+async function fetchContractQuotes(
+  symbols: string[],
+  auth: YahooCrumb | null,
+  dbg: string[],
+): Promise<Map<string, OptionContract>> {
+  const result = new Map<string, OptionContract>()
+  if (symbols.length === 0) return result
+  try {
+    const crumbPart = auth ? `&crumb=${encodeURIComponent(auth.crumb)}` : ''
+    const url = `https://query2.finance.yahoo.com/v7/finance/quote?symbols=${symbols.join(',')}&fields=bid,ask,regularMarketPrice,impliedVolatility,regularMarketVolume,openInterest${crumbPart}`
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 10000)
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': UA,
+        'Accept': 'application/json',
+        ...(auth ? { 'Cookie': auth.cookie } : {}),
+      },
+    })
+    clearTimeout(timer)
+    if (!res.ok) {
+      dbg.push(`  quote API HTTP ${res.status}`)
+      return result
+    }
+    const json = await res.json()
+    const quotes: any[] = json?.quoteResponse?.result ?? []
+    dbg.push(`  quote API returned ${quotes.length} quotes`)
+    for (const q of quotes) {
+      result.set(q.symbol, {
+        strike: 0,
+        bid:              q.bid ?? undefined,
+        ask:              q.ask ?? undefined,
+        lastPrice:        q.regularMarketPrice ?? undefined,
+        impliedVolatility: q.impliedVolatility ?? undefined,
+        volume:           q.regularMarketVolume ?? undefined,
+        openInterest:     q.openInterest ?? undefined,
+      })
+    }
+  } catch (err) {
+    dbg.push(`  quote API error: ${err instanceof Error ? err.message : String(err)}`)
+  }
+  return result
+}
+
 async function yahooFetch(
   ticker: string,
   dateParam: number | null,
@@ -85,32 +140,35 @@ async function fetchYahooChain(
   ticker: string,
   expiryUnix: number,
   auth: YahooCrumb | null,
+  dbg: string[],
 ): Promise<YahooOptionSet | null> {
   const targetDate = new Date(expiryUnix * 1000).toISOString().split('T')[0]
 
   const data = await yahooFetch(ticker, expiryUnix, auth)
-  if (!data) return null
+  if (!data) { dbg.push(`  yahoo fetch1 returned null`); return null }
 
   const result = data?.optionChain?.result?.[0]
   const options: YahooOptionSet[] = result?.options ?? []
   const chain = options[0] ?? null
 
-  if (!chain) return null
+  if (!chain) { dbg.push(`  no options array in result`); return null }
 
   // If Yahoo returned the correct expiry, we're done
   const returnedDate = new Date(chain.expirationDate * 1000).toISOString().split('T')[0]
   if (returnedDate === targetDate) return chain
 
   // Yahoo returned a different expiry — find the correct timestamp from expirationDates
-  console.warn(`  ${ticker}: requested ${targetDate} but got ${returnedDate}, searching expirationDates`)
   const allDates: number[] = result?.expirationDates ?? []
+  const allDateStrs = allDates.map(ts => new Date(ts * 1000).toISOString().split('T')[0])
+  dbg.push(`  mismatch: got ${returnedDate}, want ${targetDate}; available: [${allDateStrs.join(',')}]`)
   const correctTs = allDates.find(ts => new Date(ts * 1000).toISOString().split('T')[0] === targetDate)
 
   if (!correctTs) {
-    console.warn(`  ${ticker}: ${targetDate} not found in expirationDates ${allDates.map(ts => new Date(ts * 1000).toISOString().split('T')[0]).join(', ')}`)
+    dbg.push(`  target date not in expirationDates`)
     return null
   }
 
+  dbg.push(`  retrying with correctTs=${correctTs}`)
   const data2 = await yahooFetch(ticker, correctTs, auth)
   return data2?.optionChain?.result?.[0]?.options?.[0] ?? null
 }
@@ -230,31 +288,62 @@ serve(async (req) => {
     if (!alreadyHave) group.contracts.push({ strike: pos.strike, contract_type })
   }
 
+  const dbg: string[] = []
   const auth = await getYahooCrumb()
-  if (!auth) console.warn('Could not obtain Yahoo crumb — requests may 401')
+  if (!auth) dbg.push('WARN: crumb failed — proceeding without auth')
+  else dbg.push(`OK: crumb obtained (len=${auth.crumb.length})`)
 
   const snapshots: SnapshotRow[] = []
   let groups_failed = 0
 
   for (const [, group] of groups) {
-    const chain = await fetchYahooChain(group.ticker, group.expiryUnix, auth)
+    dbg.push(`Fetching ${group.ticker} exp=${group.expiry} unix=${group.expiryUnix}`)
+    const chain = await fetchYahooChain(group.ticker, group.expiryUnix, auth, dbg)
 
     if (!chain) {
+      dbg.push(`  FAIL: no chain returned for ${group.ticker}`)
       groups_failed++
       await delay(200)
       continue
     }
 
+    dbg.push(`  chain expiry=${new Date(chain.expirationDate * 1000).toISOString().split('T')[0]} calls=${chain.calls.length} puts=${chain.puts.length}`)
+
+    // If chain came back empty (after-hours), fall back to individual contract quote API
+    const chainEmpty = chain.calls.length === 0 && chain.puts.length === 0
+    let quoteMap = new Map<string, OptionContract>()
+    if (chainEmpty) {
+      dbg.push(`  chain empty — falling back to quote API`)
+      const occSymbols = group.contracts.map(c =>
+        buildOccSymbol(group.ticker, group.expiry, c.contract_type, c.strike)
+      )
+      quoteMap = await fetchContractQuotes(occSymbols, auth, dbg)
+    }
+
     const groupSnapshots: SnapshotRow[] = []
     for (const { strike, contract_type } of group.contracts) {
-      const side: OptionContract[] = contract_type === 'call' ? chain.calls : chain.puts
-      const contract = side.find(c => Math.abs(c.strike - strike) < 0.50)
+      let contract: OptionContract | undefined
+
+      if (chainEmpty) {
+        const sym = buildOccSymbol(group.ticker, group.expiry, contract_type, strike)
+        contract = quoteMap.get(sym)
+        if (contract) contract = { ...contract, strike }
+      } else {
+        const side: OptionContract[] = contract_type === 'call' ? chain.calls : chain.puts
+        contract = side.find(c => Math.abs(c.strike - strike) < 0.50)
+        if (!contract) {
+          const available = side.map(c => c.strike).sort((a, b) => Number(a) - Number(b))
+          dbg.push(`  NO MATCH: ${group.ticker} ${contract_type} $${strike} — avail: [${available.join(',')}]`)
+          continue
+        }
+      }
 
       if (!contract) {
-        const available = side.map(c => c.strike).sort((a, b) => Number(a) - Number(b))
-        console.warn(`  No contract: ${group.ticker} ${contract_type} $${strike} exp ${group.expiry} — available strikes: ${available.join(', ')}`)
+        dbg.push(`  NO MATCH: ${group.ticker} ${contract_type} $${strike} (quote API returned nothing)`)
         continue
       }
+
+      dbg.push(`  MATCH: ${group.ticker} ${contract_type} $${strike} bid=${contract.bid} ask=${contract.ask} last=${contract.lastPrice}`)
 
       const bid = contract.bid ?? null
       const ask = contract.ask ?? null
@@ -289,11 +378,14 @@ serve(async (req) => {
         .upsert(groupSnapshots, { onConflict: 'ticker,strike,expiry,contract_type,snapshot_date', ignoreDuplicates: false })
 
       if (upsertError) {
-        console.error('Upsert failed for group:', group.ticker, group.expiry, upsertError)
+        dbg.push(`  UPSERT ERROR: ${JSON.stringify(upsertError)}`)
         groups_failed++
       } else {
+        dbg.push(`  UPSERTED ${groupSnapshots.length} rows`)
         snapshots.push(...groupSnapshots)
       }
+    } else {
+      dbg.push(`  no snapshots to upsert for ${group.ticker}`)
     }
 
     await delay(200)
@@ -311,7 +403,7 @@ serve(async (req) => {
   }))
 
   return new Response(
-    JSON.stringify({ success: true, snapshots: responseSnapshots, groups_failed }),
+    JSON.stringify({ success: true, snapshots: responseSnapshots, groups_failed, debug: dbg }),
     { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
   )
 })

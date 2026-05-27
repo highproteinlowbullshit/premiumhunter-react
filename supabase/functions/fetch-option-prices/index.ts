@@ -50,6 +50,57 @@ type YahooOptionSet = {
   puts: OptionContract[]
 }
 
+function buildOccSymbol(ticker: string, expiry: string, contract_type: 'call' | 'put', strike: number): string {
+  const d = new Date(expiry + 'T00:00:00Z')
+  const yy = String(d.getUTCFullYear()).slice(2)
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0')
+  const dd = String(d.getUTCDate()).padStart(2, '0')
+  const cp = contract_type === 'call' ? 'C' : 'P'
+  const strikePadded = String(Math.round(strike * 1000)).padStart(8, '0')
+  return `${ticker}${yy}${mm}${dd}${cp}${strikePadded}`
+}
+
+async function fetchContractQuotes(
+  symbols: string[],
+  auth: { crumb: string; cookie: string } | null,
+): Promise<Map<string, OptionContract>> {
+  const result = new Map<string, OptionContract>()
+  if (symbols.length === 0) return result
+  try {
+    const crumbPart = auth ? `&crumb=${encodeURIComponent(auth.crumb)}` : ''
+    const url = `https://query2.finance.yahoo.com/v7/finance/quote?symbols=${symbols.join(',')}&fields=bid,ask,regularMarketPrice,impliedVolatility,regularMarketVolume,openInterest${crumbPart}`
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 10000)
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': UA,
+        'Accept': 'application/json',
+        ...(auth ? { 'Cookie': auth.cookie } : {}),
+      },
+    })
+    clearTimeout(timer)
+    if (!res.ok) { console.warn(`  quote API HTTP ${res.status}`); return result }
+    const json = await res.json()
+    const quotes: any[] = json?.quoteResponse?.result ?? []
+    for (const q of quotes) {
+      result.set(q.symbol, {
+        strike: 0,
+        bid:               q.bid ?? undefined,
+        ask:               q.ask ?? undefined,
+        lastPrice:         q.regularMarketPrice ?? undefined,
+        impliedVolatility: q.impliedVolatility ?? undefined,
+        volume:            q.regularMarketVolume ?? undefined,
+        openInterest:      q.openInterest ?? undefined,
+      })
+    }
+    console.log(`  quote API: ${quotes.length} quotes for [${symbols.join(',')}]`)
+  } catch (err) {
+    console.warn(`  quote API error: ${err instanceof Error ? err.message : String(err)}`)
+  }
+  return result
+}
+
 async function yahooFetch(
   ticker: string,
   dateParam: number | null,
@@ -211,9 +262,27 @@ serve(async (req) => {
       continue
     }
 
+    const chainEmpty = chain.calls.length === 0 && chain.puts.length === 0
+    let quoteMap = new Map<string, OptionContract>()
+    if (chainEmpty) {
+      console.log(`  chain empty for ${group.ticker} ${group.expiry} — falling back to quote API`)
+      const occSymbols = group.contracts.map(c =>
+        buildOccSymbol(group.ticker, group.expiry, c.contract_type, c.strike)
+      )
+      quoteMap = await fetchContractQuotes(occSymbols, auth)
+    }
+
     for (const { strike, contract_type } of group.contracts) {
-      const side: OptionContract[] = contract_type === 'call' ? chain.calls : chain.puts
-      const contract = side.find(c => Math.abs(c.strike - strike) < 0.50)
+      let contract: OptionContract | undefined
+
+      if (chainEmpty) {
+        const sym = buildOccSymbol(group.ticker, group.expiry, contract_type, strike)
+        contract = quoteMap.get(sym)
+        if (contract) contract = { ...contract, strike }
+      } else {
+        const side: OptionContract[] = contract_type === 'call' ? chain.calls : chain.puts
+        contract = side.find(c => Math.abs(c.strike - strike) < 0.50)
+      }
 
       if (!contract) {
         console.warn(`  No contract found: ${group.ticker} ${contract_type} $${strike} exp ${group.expiry}`)
