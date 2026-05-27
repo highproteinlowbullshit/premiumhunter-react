@@ -543,8 +543,11 @@ function ClosePositionModal({ position, onClose, onConfirm }: {
   onConfirm: (closingPrice: number, contractsToClose: number, optionFees: number) => void;
 }) {
   const { user } = useAuth();
+  const snapshotMid = position.optionBid != null && position.optionAsk != null
+    ? ((position.optionBid + position.optionAsk) / 2).toFixed(2)
+    : null
   const [step, setStep] = useState(0);
-  const [closingPrice, setClosingPrice] = useState('');
+  const [closingPrice, setClosingPrice] = useState(snapshotMid ?? '');
   const [contractsToClose, setContractsToClose] = useState(String(position.contracts));
   const [optionFeeRate, setOptionFeeRate] = useState('0.65');
   const [error, setError] = useState('');
@@ -677,6 +680,30 @@ function ClosePositionModal({ position, onClose, onConfirm }: {
         <label className="block text-xs mb-1.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
           Closing Price <span style={{ color: '#6a8fb0' }}>(buy-back price per share)</span>
         </label>
+        {position.optionBid != null && position.optionAsk != null && (
+          <p className="text-xs mb-2" style={{ color: '#6a8fb0', fontFamily: 'DM Sans, sans-serif' }}>
+            Market (end of day):{' '}
+            <span style={{ color: '#ff8fa3', fontFamily: 'JetBrains Mono, monospace' }}>
+              Bid ${position.optionBid.toFixed(2)}
+            </span>
+            {' / '}
+            <span style={{ color: '#ff8fa3', fontFamily: 'JetBrains Mono, monospace' }}>
+              Ask ${position.optionAsk.toFixed(2)}
+            </span>
+            {snapshotMid && (
+              <>
+                {' · '}
+                <button
+                  type="button"
+                  onClick={() => setClosingPrice(snapshotMid)}
+                  style={{ color: '#00e5c4', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'DM Sans, sans-serif' }}
+                >
+                  use mid ${snapshotMid}
+                </button>
+              </>
+            )}
+          </p>
+        )}
         <div className="relative">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: '#4a6a8a' }}>$</span>
           <input
