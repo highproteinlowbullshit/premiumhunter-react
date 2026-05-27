@@ -66,7 +66,7 @@ export function ClosedPositionTable({ positions, onEdit, onRemove }: ClosedPosit
               <div className="flex items-center gap-2 mb-3 flex-wrap">
                 <span style={{ fontSize: 17, fontWeight: 700, letterSpacing: '-0.2px' }}>
                   <span style={{ color: '#a0b4cc', fontWeight: 500 }}>${pos.strike} </span>
-                  <span style={{ color: '#e8f0fe' }}>{pos.ticker} </span>
+                  <span style={{ color: '#e8f0fe', fontFamily: 'Syne, sans-serif' }}>{pos.ticker} </span>
                   <span style={{ color: pos.strategy === 'CSP' ? '#00c6f5' : '#00e5c4' }}>{pos.strategy}</span>
                 </span>
                 <span className="text-xs" style={{ color: '#4a6a8a', fontFamily: 'JetBrains Mono, monospace' }}>
@@ -177,7 +177,7 @@ export function ClosedPositionTable({ positions, onEdit, onRemove }: ClosedPosit
                     <div className="flex flex-col gap-0.5">
                       <span style={{ fontSize: 17, fontWeight: 700, letterSpacing: '-0.2px' }}>
                         <span style={{ color: '#a0b4cc', fontWeight: 500 }}>${pos.strike} </span>
-                        <span style={{ color: '#e8f0fe' }}>{pos.ticker} </span>
+                        <span style={{ color: '#e8f0fe', fontFamily: 'Syne, sans-serif' }}>{pos.ticker} </span>
                         <span style={{ color: pos.strategy === 'CSP' ? '#00c6f5' : '#00e5c4' }}>{pos.strategy}</span>
                       </span>
                       <div className="flex items-center gap-1.5 mt-0.5">

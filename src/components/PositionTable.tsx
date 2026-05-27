@@ -462,7 +462,7 @@ export function PositionTable({
                     <div className="flex flex-col gap-0.5">
                       <span style={{ fontSize: 17, fontWeight: 700, letterSpacing: '-0.2px' }}>
                         <span style={{ color: '#a0b4cc', fontWeight: 500 }}>${pos.strike} </span>
-                        <span style={{ color: '#e8f0fe' }}>{pos.ticker} </span>
+                        <span style={{ color: '#e8f0fe', fontFamily: 'Syne, sans-serif' }}>{pos.ticker} </span>
                         <span style={{ color: pos.strategy === 'CSP' ? '#00c6f5' : '#00e5c4' }}>{pos.strategy}</span>
                       </span>
                       <span className="text-xs" style={{ color: '#4a6a8a' }}>

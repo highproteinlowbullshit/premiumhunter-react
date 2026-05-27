@@ -291,7 +291,7 @@ function PositionRow({ position, isLast, index }: {
         {/* $16 SOFI CSP */}
         <span style={{ fontSize: 17, fontWeight: 700, letterSpacing: '-0.2px' }}>
           <span style={{ color: C.text2, fontWeight: 500 }}>${position.strike} </span>
-          <span style={{ color: C.text1 }}>{position.ticker} </span>
+          <span style={{ color: C.text1, fontFamily: 'Syne, sans-serif' }}>{position.ticker} </span>
           <span style={{ color: position.strategy === 'CSP' ? '#00c6f5' : '#00e5c4' }}>{position.strategy}</span>
         </span>
 
