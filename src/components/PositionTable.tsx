@@ -323,79 +323,91 @@ export function PositionTable({
       {/* ── Mobile card layout (< sm) ── */}
       <div className="sm:hidden space-y-3">
         {sorted.map((pos) => {
-          const capitalAtRisk = pos.strike * pos.contracts * 100;
-          const returnPct = capitalAtRisk > 0 ? (pos.premiumCollected / capitalAtRisk) * 100 : 0;
           const prob = probabilities?.get(pos.id) ?? null;
           const sp = livePrices?.get(pos.ticker);
+          const livePnl = sp != null ? computeLivePnl(pos, sp) : null;
+          const pricePerShare = pos.premiumCollected / (pos.contracts * 100);
 
           return (
             <SwipePositionCard key={pos.id} pos={pos} onEdit={onEdit} onClose={onClose}>
             <div id={`position-${pos.id}`} className="rounded-xl p-4"
               style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(0,229,196,0.08)', ...rowBorderStyle(pos, probabilities) }}>
-              {/* Row 1: ticker + badges */}
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-base font-bold"
-                  style={{ fontFamily: 'Syne, sans-serif', color: '#e8f0fe' }}>
-                  {pos.ticker}
-                </span>
-                <span className="text-xs px-2 py-0.5 rounded font-semibold"
-                  style={{
-                    color: pos.strategy === 'CSP' ? '#00c6f5' : '#00e5c4',
-                    background: pos.strategy === 'CSP' ? 'rgba(0,198,245,0.1)' : 'rgba(0,229,196,0.1)',
-                    border: `1px solid ${pos.strategy === 'CSP' ? 'rgba(0,198,245,0.2)' : 'rgba(0,229,196,0.2)'}`,
-                    fontFamily: 'JetBrains Mono, monospace',
-                  }}>
-                  {pos.strategy}
-                </span>
-                <span className="text-xs font-semibold"
-                  style={{ color: '#c8daf0', fontFamily: 'JetBrains Mono, monospace' }}>
-                  {pos.contracts}×
-                </span>
-                {sp && (() => {
-                  const { isItm } = computeLivePnl(pos, sp);
-                  return (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold"
-                      style={{
-                        color: isItm ? '#ff4d6d' : '#00d68f',
-                        background: isItm ? 'rgba(255,77,109,0.1)' : 'rgba(0,214,143,0.1)',
-                        border: `1px solid ${isItm ? 'rgba(255,77,109,0.2)' : 'rgba(0,214,143,0.2)'}`,
-                        fontFamily: 'JetBrains Mono, monospace',
-                      }}>
-                      {isItm ? 'ITM' : 'OTM'}
+
+              {/* Row 1: $16 SOFI CSP + ITM/OTM + probability dot */}
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex flex-col gap-0.5">
+                  <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '-0.2px' }}>
+                    <span style={{ color: '#a0b4cc', fontWeight: 500 }}>${pos.strike} </span>
+                    <span style={{ color: '#e8f0fe', fontFamily: 'Syne, sans-serif' }}>{pos.ticker} </span>
+                    <span style={{ color: pos.strategy === 'CSP' ? '#00c6f5' : '#00e5c4' }}>{pos.strategy}</span>
+                  </span>
+                  <span style={{ color: '#4a6a8a', fontSize: 11, fontFamily: 'DM Sans, sans-serif' }}>
+                    {pos.contracts} contract{pos.contracts !== 1 ? 's' : ''}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 pt-0.5">
+                  {livePnl && (
+                    <span style={{
+                      fontSize: 10, fontFamily: 'JetBrains Mono, monospace', fontWeight: 600,
+                      padding: '2px 6px', borderRadius: 4,
+                      color: livePnl.isItm ? '#ff4d6d' : '#00d68f',
+                      background: livePnl.isItm ? 'rgba(255,77,109,0.1)' : 'rgba(0,214,143,0.1)',
+                      border: `1px solid ${livePnl.isItm ? 'rgba(255,77,109,0.2)' : 'rgba(0,214,143,0.2)'}`,
+                    }}>
+                      {livePnl.isItm ? 'ITM' : 'OTM'}
                     </span>
-                  );
-                })()}
-                {/* Mobile probability dot */}
-                <ProbabilityDot result={prob} />
+                  )}
+                  <ProbabilityDot result={prob} />
+                </div>
               </div>
 
-              {/* Row 2: metrics grid */}
+              {/* Row 2: Price Sold / Total / DTE / P&L */}
               <div className="grid grid-cols-4 gap-2">
                 <div>
-                  <p className="text-xs mb-0.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>Strike</p>
-                  <p className="text-sm font-medium" style={{ color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace' }}>
-                    ${pos.strike}
+                  <p style={{ color: '#4a6a8a', fontSize: 10, fontFamily: 'DM Sans, sans-serif', margin: '0 0 3px' }}>Price Sold</p>
+                  <p style={{ color: '#00e5c4', fontSize: 12, fontFamily: 'JetBrains Mono, monospace', fontWeight: 500, margin: 0 }}>
+                    ${pricePerShare.toFixed(2)}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs mb-0.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>Premium</p>
-                  <p className="text-sm font-medium" style={{ color: '#00e5c4', fontFamily: 'JetBrains Mono, monospace' }}>
-                    ${pos.premiumCollected.toFixed(0)}
+                  <p style={{ color: '#4a6a8a', fontSize: 10, fontFamily: 'DM Sans, sans-serif', margin: '0 0 3px' }}>Total</p>
+                  <p style={{ color: '#c8daf0', fontSize: 12, fontFamily: 'JetBrains Mono, monospace', fontWeight: 500, margin: 0 }}>
+                    +${pos.premiumCollected.toFixed(0)}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs mb-0.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>Return</p>
-                  <p className="text-sm font-semibold" style={{ color: '#00d68f', fontFamily: 'JetBrains Mono, monospace' }}>
-                    {returnPct.toFixed(1)}%
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs mb-0.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>DTE</p>
+                  <p style={{ color: '#4a6a8a', fontSize: 10, fontFamily: 'DM Sans, sans-serif', margin: '0 0 3px' }}>DTE</p>
                   <DTEIndicator expiry={pos.expiry} strategy={pos.strategy} compact />
+                </div>
+                <div>
+                  <p style={{ color: '#4a6a8a', fontSize: 10, fontFamily: 'DM Sans, sans-serif', margin: '0 0 3px' }}>P&L</p>
+                  {livePnl ? (
+                    <p style={{ color: livePnl.unrealizedPnl >= 0 ? '#00d68f' : '#ff4d6d', fontSize: 12, fontFamily: 'JetBrains Mono, monospace', fontWeight: 600, margin: 0 }}>
+                      {livePnl.unrealizedPnl >= 0 ? '+' : ''}${livePnl.unrealizedPnl.toFixed(0)}
+                    </p>
+                  ) : (
+                    <p style={{ color: '#4a6a8a', fontSize: 12, fontFamily: 'JetBrains Mono, monospace', margin: 0 }}>—</p>
+                  )}
                 </div>
               </div>
 
-              {/* Row 3: actions — Assign/Delete always visible; Edit/Close via swipe */}
+              {/* Row 3: Stock price + Market (option last price) */}
+              {(sp != null || pos.optionMid != null) && (
+                <div className="flex items-center gap-4 mt-3 pt-2" style={{ borderTop: '1px solid rgba(0,229,196,0.06)' }}>
+                  {sp != null && (
+                    <span style={{ fontSize: 11, fontFamily: 'JetBrains Mono, monospace', color: '#6a8fb0' }}>
+                      Stock <span style={{ color: '#e8f0fe' }}>${sp.toFixed(2)}</span>
+                    </span>
+                  )}
+                  {pos.optionMid != null && (
+                    <span style={{ fontSize: 11, fontFamily: 'JetBrains Mono, monospace', color: '#6a8fb0' }}>
+                      Market <span style={{ color: '#00e5c4', fontWeight: 600 }}>last ${pos.optionMid.toFixed(2)}</span>
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Actions — Assign/Delete always visible; Edit/Close via swipe */}
               {(onAssign || onRemove) && (
                 <div className="flex items-center gap-2 mt-3 pt-3" style={{ borderTop: '1px solid rgba(0,229,196,0.07)' }}>
                   {onAssign && <button onClick={() => onAssign(pos)} style={mobileBtn('#f5c842')}>Assign</button>}
