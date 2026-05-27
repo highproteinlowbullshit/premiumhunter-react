@@ -26,6 +26,7 @@ import { usePortfolioGreeks } from '../hooks/usePortfolioGreeks';
 import { useAssignmentProbabilities } from '../hooks/useAssignmentProbabilities';
 import type { ChecklistResult } from '../lib/tradeChecklist';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { RefreshCw } from 'lucide-react';
 
 export function WheelTracker() {
   usePageTitle('Wheel Tracker');
@@ -101,7 +102,7 @@ function RealWheelTracker() {
       queryClient.refetchQueries({ queryKey: ['monthly-target'] }),
     ]);
   }, [queryClient, user?.id]);
-  const { positions, openPositions, monthlyPnL, isLoading, addPosition, removePosition, closePosition, editPosition, assignPosition } = usePositions();
+  const { positions, openPositions, monthlyPnL, isLoading, addPosition, removePosition, closePosition, editPosition, assignPosition, refreshPrices, pricesLoading } = usePositions();
   const cycleGroups = useCycleGroups(positions);
   const { greeks, isLoading: greeksLoading } = usePortfolioGreeks();
 
@@ -281,7 +282,29 @@ function RealWheelTracker() {
             <h2 className="text-base font-semibold" style={{ fontFamily: 'Syne, sans-serif', color: '#e8f0fe' }}>
               Open Positions
             </h2>
-            <WebSocketStatus status={wsStatus} />
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => void refreshPrices()}
+                disabled={pricesLoading}
+                title="Refresh option prices"
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: pricesLoading ? 'default' : 'pointer',
+                  padding: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  color: pricesLoading ? '#4a6a8a' : '#6a8fb0',
+                  transition: 'color 0.2s',
+                }}
+              >
+                <RefreshCw
+                  size={14}
+                  className={pricesLoading ? 'animate-spin' : ''}
+                />
+              </button>
+              <WebSocketStatus status={wsStatus} />
+            </div>
           </div>
 
           {/* Urgency banner — hidden when everything is comfortable */}
