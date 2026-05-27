@@ -608,14 +608,9 @@ export function PositionTable({
                         </span>
                       </div>
                     ) : pos.optionMid != null ? (
-                      <div className="flex flex-col gap-0.5">
-                        <span style={{ color: '#6a8fb0', fontFamily: 'JetBrains Mono, monospace', fontSize: 11 }}>
-                          last
-                        </span>
-                        <span style={{ color: '#00e5c4', fontFamily: 'JetBrains Mono, monospace', fontSize: 12, fontWeight: 600 }}>
-                          mid ${pos.optionMid.toFixed(2)}
-                        </span>
-                      </div>
+                      <span style={{ color: '#00e5c4', fontFamily: 'JetBrains Mono, monospace', fontSize: 12, fontWeight: 600 }}>
+                        last ${pos.optionMid.toFixed(2)}
+                      </span>
                     ) : (
                       <span style={{ color: '#4a6a8a', fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}>—</span>
                     )}
