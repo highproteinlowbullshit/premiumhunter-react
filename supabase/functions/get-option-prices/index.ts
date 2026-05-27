@@ -347,9 +347,7 @@ serve(async (req) => {
 
       const bid = (contract.bid != null && contract.bid > 0) ? contract.bid : null
       const ask = (contract.ask != null && contract.ask > 0) ? contract.ask : null
-      const mid = bid != null && ask != null
-        ? Math.round(((bid + ask) / 2) * 100) / 100
-        : (contract.lastPrice != null && contract.lastPrice > 0) ? contract.lastPrice : null
+      const mid = (contract.lastPrice != null && contract.lastPrice > 0) ? contract.lastPrice : null
       const iv = contract.impliedVolatility != null
         ? Math.round(contract.impliedVolatility * 100)
         : null

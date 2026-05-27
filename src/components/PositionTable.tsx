@@ -39,13 +39,9 @@ function computeLivePnl(pos: WheelPosition, stockPrice: number): LivePnl {
       : Math.max(0, stockPrice - pos.strike);
   const isItm = intrinsicPerShare > 0;
 
-  let costToClose: number;
-  if (pos.optionBid != null && pos.optionAsk != null) {
-    const mid = Math.round(((pos.optionBid + pos.optionAsk) / 2) * 100) / 100;
-    costToClose = mid * 100 * pos.contracts;
-  } else {
-    costToClose = intrinsicPerShare * 100 * pos.contracts;
-  }
+  const costToClose = pos.optionMid != null
+    ? pos.optionMid * 100 * pos.contracts
+    : intrinsicPerShare * 100 * pos.contracts;
 
   const unrealizedPnl = pos.premiumCollected - costToClose;
   const pctMaxProfit =
@@ -596,15 +592,15 @@ export function PositionTable({
                     );
                   })()}
 
-                  {/* Market column — bid/ask + mid from live snapshot */}
+                  {/* Market column — last price from live snapshot */}
                   <td className="py-3.5 px-4">
-                    {pos.optionBid != null && pos.optionAsk != null ? (
+                    {pos.optionBid != null && pos.optionAsk != null && pos.optionMid != null ? (
                       <div className="flex flex-col gap-0.5">
                         <span style={{ color: '#6a8fb0', fontFamily: 'JetBrains Mono, monospace', fontSize: 11 }}>
                           ${pos.optionBid.toFixed(2)} / ${pos.optionAsk.toFixed(2)}
                         </span>
                         <span style={{ color: '#00e5c4', fontFamily: 'JetBrains Mono, monospace', fontSize: 12, fontWeight: 600 }}>
-                          mid ${(Math.round(((pos.optionBid + pos.optionAsk) / 2) * 100) / 100).toFixed(2)}
+                          last ${pos.optionMid.toFixed(2)}
                         </span>
                       </div>
                     ) : pos.optionMid != null ? (
