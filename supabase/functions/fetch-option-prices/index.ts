@@ -50,39 +50,67 @@ type YahooOptionSet = {
   puts: OptionContract[]
 }
 
+async function yahooFetch(
+  ticker: string,
+  dateParam: number | null,
+  auth: YahooCrumb | null,
+): Promise<any | null> {
+  try {
+    const qs = dateParam != null ? `date=${dateParam}` : ''
+    const crumbPart = auth ? `${qs ? '&' : ''}crumb=${encodeURIComponent(auth.crumb)}` : ''
+    const url = `https://query1.finance.yahoo.com/v7/finance/options/${ticker}${qs || crumbPart ? '?' : ''}${qs}${crumbPart}`
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 10000)
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': UA,
+        'Accept': 'application/json',
+        ...(auth ? { 'Cookie': auth.cookie } : {}),
+      },
+    })
+    clearTimeout(timer)
+    if (!res.ok) {
+      console.warn(`  Yahoo ${ticker} (${dateParam}): HTTP ${res.status}`)
+      return null
+    }
+    return await res.json()
+  } catch (err) {
+    console.warn(`  Yahoo ${ticker} fetch failed:`, err instanceof Error ? err.message : String(err))
+    return null
+  }
+}
+
 async function fetchYahooChain(
   ticker: string,
   expiryUnix: number,
   auth: YahooCrumb | null,
 ): Promise<YahooOptionSet | null> {
-  try {
-    const params = new URLSearchParams({ date: String(expiryUnix) })
-    if (auth) params.set('crumb', auth.crumb)
-    const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), 10000)
-    const res = await fetch(
-      `https://query1.finance.yahoo.com/v7/finance/options/${ticker}?${params}`,
-      {
-        signal: controller.signal,
-        headers: {
-          'User-Agent': UA,
-          'Accept': 'application/json',
-          ...(auth ? { 'Cookie': auth.cookie } : {}),
-        },
-      },
-    )
-    clearTimeout(timer)
-    if (!res.ok) {
-      console.warn(`  Yahoo ${ticker} (${expiryUnix}): HTTP ${res.status}`)
-      return null
-    }
-    const data = await res.json()
-    const options: YahooOptionSet[] = data?.optionChain?.result?.[0]?.options ?? []
-    return options[0] ?? null
-  } catch (err) {
-    console.warn(`  Yahoo ${ticker} fetch failed:`, err instanceof Error ? err.message : String(err))
+  const targetDate = new Date(expiryUnix * 1000).toISOString().split('T')[0]
+
+  const data = await yahooFetch(ticker, expiryUnix, auth)
+  if (!data) return null
+
+  const result = data?.optionChain?.result?.[0]
+  const options: YahooOptionSet[] = result?.options ?? []
+  const chain = options[0] ?? null
+
+  if (!chain) return null
+
+  const returnedDate = new Date(chain.expirationDate * 1000).toISOString().split('T')[0]
+  if (returnedDate === targetDate) return chain
+
+  console.warn(`  ${ticker}: requested ${targetDate} but got ${returnedDate}, searching expirationDates`)
+  const allDates: number[] = result?.expirationDates ?? []
+  const correctTs = allDates.find(ts => new Date(ts * 1000).toISOString().split('T')[0] === targetDate)
+
+  if (!correctTs) {
+    console.warn(`  ${ticker}: ${targetDate} not found in expirationDates`)
     return null
   }
+
+  const data2 = await yahooFetch(ticker, correctTs, auth)
+  return data2?.optionChain?.result?.[0]?.options?.[0] ?? null
 }
 
 serve(async (req) => {
