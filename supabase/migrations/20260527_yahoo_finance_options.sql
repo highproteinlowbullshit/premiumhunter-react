@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS option_price_snapshots (
 
 ALTER TABLE option_price_snapshots ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "authenticated_read_option_prices" ON option_price_snapshots;
 CREATE POLICY "authenticated_read_option_prices"
   ON option_price_snapshots FOR SELECT
   TO authenticated USING (true);
