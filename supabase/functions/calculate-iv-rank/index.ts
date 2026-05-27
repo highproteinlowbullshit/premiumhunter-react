@@ -107,6 +107,7 @@ interface IVSnapshot {
   earnings_date: string | null
   put_call_skew: number | null     // (putIV - callIV) / midIV at ATM; null if options API unavailable
   atm_open_interest: number | null // ATM call OI + put OI; null if options API unavailable
+  current_iv: number | null     // real ATM IV from Yahoo Finance in integer %; null if unavailable
   data_source: string
   calculation_success: boolean
   error_message: string | null
@@ -269,6 +270,72 @@ async function fetchATMOptionsData(
   }
 }
 
+// Returns integer % (e.g. 35 = 35%) or null on any failure.
+async function fetchYahooATMIV(
+  ticker: string,
+  currentPrice: number,
+): Promise<number | null> {
+  if (currentPrice <= 0) return null
+  try {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 8000)
+    const res = await fetch(
+      `https://query1.finance.yahoo.com/v7/finance/options/${ticker}`,
+      {
+        signal: controller.signal,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; PremiumHunter/1.0)',
+          'Accept': 'application/json',
+        },
+      },
+    )
+    clearTimeout(timer)
+    if (!res.ok) return null
+
+    const data = await res.json()
+    const result = data?.optionChain?.result?.[0]
+    if (!result) return null
+
+    const today = Date.now() / 1000
+    const expirationDates: number[] = result.expirationDates ?? []
+    const preferred = expirationDates.find(ts => {
+      const daysOut = (ts - today) / 86400
+      return daysOut >= 21 && daysOut <= 49
+    })
+    const targetExpiry = preferred ?? expirationDates[0]
+    if (!targetExpiry) return null
+
+    const optionSet = (result.options ?? []).find(
+      (o: { expirationDate: number }) => o.expirationDate === targetExpiry,
+    )
+    if (!optionSet) return null
+
+    type YContract = { strike: number; impliedVolatility?: number }
+    const calls: YContract[] = optionSet.calls ?? []
+    const puts:  YContract[] = optionSet.puts  ?? []
+
+    const allStrikes = [...new Set([...calls.map(c => c.strike), ...puts.map(p => p.strike)])]
+    if (allStrikes.length === 0) return null
+    const atmStrike = allStrikes.reduce((best, s) =>
+      Math.abs(s - currentPrice) < Math.abs(best - currentPrice) ? s : best,
+      allStrikes[0],
+    )
+
+    const callIV = calls.find(c => c.strike === atmStrike)?.impliedVolatility ?? null
+    const putIV  = puts.find(p  => p.strike === atmStrike)?.impliedVolatility  ?? null
+
+    if (callIV == null && putIV == null) return null
+    const iv = callIV != null && putIV != null
+      ? (callIV + putIV) / 2
+      : (callIV ?? putIV!)
+
+    if (iv < 0.05 || iv > 5.0) return null
+    return Math.round(iv * 100)
+  } catch {
+    return null
+  }
+}
+
 // ── Polygon: fetch 1yr + 35d of daily OHLCV ───────────────────────────────
 async function fetchOHLCV(
   ticker: string,
@@ -395,6 +462,7 @@ async function processTicker(
     price_change_pct: null, volume: null,
     earnings_date: null,
     put_call_skew: null, atm_open_interest: null,
+    current_iv: null,
     data_source: 'edge_function',
     calculation_success: false,
     error_message: null,
@@ -407,7 +475,13 @@ async function processTicker(
       finnhubKey ? fetchEarningsDate(ticker, finnhubKey) : Promise.resolve(null),
     ])
     const { closes, timestamps, lastClose, prevClose, lastVolume } = ohlcv
+
+    // Yahoo IV uses current price from OHLCV to identify ATM strike — run after OHLCV
+    const yahooIV = await fetchYahooATMIV(ticker, lastClose ?? 0)
     const ivData = computeIVRank(closes, timestamps)
+    const realIvHvRatio = yahooIV != null && ivData.current_hv != null && ivData.current_hv > 0
+      ? parseFloat((yahooIV / ivData.current_hv).toFixed(2))
+      : ivData.iv_hv_ratio
     const priceChangePct =
       prevClose && prevClose > 0 && lastClose
         ? parseFloat((((lastClose - prevClose) / prevClose) * 100).toFixed(4))
@@ -420,6 +494,8 @@ async function processTicker(
 
     return {
       ...base, ...ivData,
+      current_iv: yahooIV,
+      iv_hv_ratio: realIvHvRatio,
       current_price: lastClose,
       prev_close: prevClose,
       price_change_pct: priceChangePct,
@@ -502,7 +578,8 @@ serve(async (req) => {
         if (result.value.calculation_success) {
           const skewStr = result.value.put_call_skew != null ? `, skew ${result.value.put_call_skew}` : ''
           const oiStr   = result.value.atm_open_interest != null ? `, OI ${result.value.atm_open_interest}` : ''
-          console.log(`  ✓ ${ticker}: IV Rank ${result.value.iv_rank}, HV30 ${result.value.current_hv}%${skewStr}${oiStr}`)
+          const ivStr = result.value.current_iv != null ? ` IV ${result.value.current_iv}%` : ''
+          console.log(`  ✓ ${ticker}: IV Rank ${result.value.iv_rank}, HV30 ${result.value.current_hv}%${ivStr}${skewStr}${oiStr}`)
         } else {
           errors.push(`${ticker}: ${result.value.error_message}`)
         }
