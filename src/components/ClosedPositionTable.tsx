@@ -64,7 +64,7 @@ export function ClosedPositionTable({ positions, onEdit, onRemove }: ClosedPosit
               style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(0,229,196,0.08)' }}>
               {/* Row 1: $16 SOFI CSP + status badges */}
               <div className="flex items-center gap-2 mb-3 flex-wrap">
-                <span style={{ fontSize: 17, fontWeight: 700, letterSpacing: '-0.2px' }}>
+                <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '-0.2px' }}>
                   <span style={{ color: '#a0b4cc', fontWeight: 500 }}>${pos.strike} </span>
                   <span style={{ color: '#e8f0fe', fontFamily: 'Syne, sans-serif' }}>{pos.ticker} </span>
                   <span style={{ color: pos.strategy === 'CSP' ? '#00c6f5' : '#00e5c4' }}>{pos.strategy}</span>
@@ -175,7 +175,7 @@ export function ClosedPositionTable({ positions, onEdit, onRemove }: ClosedPosit
                   {/* Position: $16 SOFI CSP */}
                   <td className="py-3.5 pl-5 pr-4">
                     <div className="flex flex-col gap-0.5">
-                      <span style={{ fontSize: 17, fontWeight: 700, letterSpacing: '-0.2px' }}>
+                      <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '-0.2px' }}>
                         <span style={{ color: '#a0b4cc', fontWeight: 500 }}>${pos.strike} </span>
                         <span style={{ color: '#e8f0fe', fontFamily: 'Syne, sans-serif' }}>{pos.ticker} </span>
                         <span style={{ color: pos.strategy === 'CSP' ? '#00c6f5' : '#00e5c4' }}>{pos.strategy}</span>

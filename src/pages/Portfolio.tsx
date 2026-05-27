@@ -1958,7 +1958,7 @@ function RealPortfolio() {
                       <tr key={p.id} className="stock-row-hover" style={{ borderBottom: '1px solid rgba(0,229,196,0.04)' }}>
                         <td style={{ padding: '12px 14px' }}>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                            <span style={{ fontSize: 17, fontWeight: 700, letterSpacing: '-0.2px' }}>
+                            <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '-0.2px' }}>
                               <span style={{ color: '#a0b4cc', fontWeight: 500 }}>${p.strike} </span>
                               <span style={{ color: '#e8f0fe', fontFamily: 'Syne, sans-serif' }}>{p.ticker} </span>
                               <span style={{ color: p.strategy === 'CSP' ? '#00c6f5' : '#00e5c4' }}>{p.strategy}</span>
