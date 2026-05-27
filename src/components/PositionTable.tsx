@@ -460,8 +460,8 @@ export function PositionTable({
                   {/* Position: $16 SOFI CSP */}
                   <td className="py-3.5 pl-5 pr-4">
                     <div className="flex flex-col gap-0.5">
-                      <span style={{ fontFamily: 'Syne, sans-serif', fontSize: 15, fontWeight: 700, letterSpacing: '-0.2px' }}>
-                        <span style={{ color: '#9ab4d4', fontWeight: 500 }}>${pos.strike} </span>
+                      <span style={{ fontSize: 17, fontWeight: 700, letterSpacing: '-0.2px' }}>
+                        <span style={{ color: '#a0b4cc', fontWeight: 500 }}>${pos.strike} </span>
                         <span style={{ color: '#e8f0fe' }}>{pos.ticker} </span>
                         <span style={{ color: pos.strategy === 'CSP' ? '#00c6f5' : '#00e5c4' }}>{pos.strategy}</span>
                       </span>
