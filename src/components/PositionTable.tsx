@@ -289,7 +289,7 @@ function SwipePositionCard({
 }
 
 export function PositionTable({
-  positions, livePrices, probabilities, probabilitySummary, positionGreeks,
+  positions, livePrices, probabilities, probabilitySummary,
   onRemove, onClose, onEdit, onAssign, highlightTicker, onOpenAdd,
 }: PositionTableProps) {
   const [sortKey, setSortKey] = useState<SortKey>(() => {
