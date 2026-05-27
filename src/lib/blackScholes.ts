@@ -247,7 +247,7 @@ export interface PositionGreeks {
   moneynessLabel: 'Deep ITM' | 'ITM' | 'ATM' | 'OTM' | 'Deep OTM'
   distanceFromStrike: number
   distancePercent: number
-  ivSource: 'polygon_live' | 'supabase_cache' | 'estimated'
+  ivSource: 'polygon_live' | 'yahoo_snapshot' | 'supabase_cache' | 'estimated'
   calculatedAt: string
 }
 
