@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { WheelPosition, WheelStrategy, PositionStatus } from '../types';
 import { supabase } from '../lib/supabase';
@@ -69,6 +69,63 @@ export function usePositions() {
 
   const qKey = ['positions', user?.id] as const;
 
+  const [pricesLoading, setPricesLoading] = useState(false);
+  const hasAutoFetched = useRef(false);
+
+  type SnapshotPatch = {
+    ticker: string;
+    strike: number;
+    expiry: string;
+    contract_type: 'call' | 'put';
+    bid: number | null;
+    ask: number | null;
+    mid: number | null;
+  };
+
+  const applySnapshots = useCallback((snapshots: SnapshotPatch[]) => {
+    const snapMap = new Map<string, SnapshotPatch>();
+    for (const s of snapshots) {
+      const key = `${s.ticker}:${s.expiry}:${s.strike}:${s.contract_type}`;
+      if (!snapMap.has(key)) snapMap.set(key, s);
+    }
+    queryClient.setQueryData(qKey, (old: WheelPosition[] = []) =>
+      old.map(pos => {
+        if (pos.status !== 'open') return pos;
+        const contract_type = pos.strategy === 'CC' ? 'call' : 'put';
+        const key = `${pos.ticker}:${pos.expiry}:${pos.strike}:${contract_type}`;
+        const snap = snapMap.get(key);
+        if (!snap) return pos;
+        return {
+          ...pos,
+          currentPrice: snap.mid != null ? snap.mid : pos.currentPrice,
+          optionBid: snap.bid ?? null,
+          optionAsk: snap.ask ?? null,
+        };
+      })
+    );
+  }, [queryClient, qKey]);
+
+  const fetchAndApplyPrices = useCallback(async (
+    body?: { ticker: string; strike: number; expiry: string; strategy: string },
+    silent = true,
+  ) => {
+    if (!silent) setPricesLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('get-option-prices', {
+        ...(body ? { body } : {}),
+      });
+      if (error || !data?.success) {
+        if (!silent) showToast('Could not refresh prices — try again.', 'error');
+        return;
+      }
+      applySnapshots(data.snapshots ?? []);
+    } catch {
+      if (!silent) showToast('Could not refresh prices — try again.', 'error');
+    } finally {
+      if (!silent) setPricesLoading(false);
+    }
+  }, [applySnapshots, showToast]);
+
   const { data: positions = [], isLoading } = useQuery({
     queryKey: qKey,
     queryFn: async () => {
@@ -119,6 +176,22 @@ export function usePositions() {
     retry: 3,
     refetchOnWindowFocus: true,
   });
+
+  // Auto-fetch on load: if any open position lacks a snapshot from DB, call edge fn once
+  useEffect(() => {
+    if (isLoading) return;
+    if (hasAutoFetched.current) return;
+    const open = positions.filter(p => p.status === 'open');
+    if (open.length === 0) return;
+    const needsFresh = open.some(p => p.optionBid == null);
+    if (!needsFresh) return;
+    hasAutoFetched.current = true;
+    void fetchAndApplyPrices(undefined, true);
+  }, [positions, isLoading, fetchAndApplyPrices]);
+
+  const refreshPrices = useCallback(async () => {
+    await fetchAndApplyPrices(undefined, false);
+  }, [fetchAndApplyPrices]);
 
   // ── Add position ────────────────────────────────────────────────────────────
   const addPosition = useCallback(
@@ -172,6 +245,14 @@ export function usePositions() {
           old.map((p) => (p.id === tempId ? dbToPosition(inserted as DbPosition) : p))
         );
 
+        // Fetch fresh snapshot for the new position — silent, best-effort
+        void fetchAndApplyPrices({
+          ticker: data.ticker.toUpperCase(),
+          strike: data.strike,
+          expiry: data.expiry,
+          strategy: data.strategy,
+        }, true);
+
         // Credit premium received to cash holdings, minus any option fees
         const totalPremium = data.premiumCollected * data.contracts;
         const fees = data.optionFees ?? 0;
@@ -220,7 +301,7 @@ export function usePositions() {
         showToast('Position added', 'success');
       }
     },
-    [user, showToast, queryClient, qKey]
+    [user, showToast, queryClient, qKey, fetchAndApplyPrices]
   );
 
   // ── Remove (delete) position ────────────────────────────────────────────────
@@ -776,5 +857,5 @@ export function usePositions() {
     return totalRealized / Math.max(1, distinctMonths.size);
   })();
 
-  return { positions, openPositions, monthlyPnL, isLoading, addPosition, removePosition, closePosition, editPosition, assignPosition };
+  return { positions, openPositions, monthlyPnL, isLoading, addPosition, removePosition, closePosition, editPosition, assignPosition, refreshPrices, pricesLoading };
 }
