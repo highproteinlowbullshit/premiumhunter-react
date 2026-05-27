@@ -29,6 +29,8 @@ export interface WheelPosition {
   expiry: string;
   premiumCollected: number;
   currentPrice: number; // current option price (or closing price when closed)
+  optionBid?: number | null;
+  optionAsk?: number | null;
   daysToExpiry: number;
   status: PositionStatus;
   openedAt: string;

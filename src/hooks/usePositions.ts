@@ -78,7 +78,41 @@ export function usePositions() {
         .eq('user_id', user!.id)
         .order('opened_at', { ascending: false });
       if (error) throw error;
-      return (data as DbPosition[]).map(dbToPosition);
+      const positions = (data as DbPosition[]).map(dbToPosition);
+
+      // Enrich open positions with real bid/ask from option_price_snapshots
+      const openPositions = positions.filter(p => p.status === 'open');
+      if (openPositions.length > 0) {
+        const tickers = [...new Set(openPositions.map(p => p.ticker))];
+        const yesterday = new Date(Date.now() - 86_400_000).toISOString().split('T')[0];
+        const { data: snapshots } = await supabase
+          .from('option_price_snapshots')
+          .select('ticker, strike, expiry, contract_type, mid, bid, ask')
+          .in('ticker', tickers)
+          .gte('snapshot_date', yesterday)
+          .order('snapshot_time', { ascending: false });
+
+        // Build map keyed by "ticker:expiry:strike:contract_type" — take most recent per key
+        const snapMap = new Map<string, { mid: number | null; bid: number | null; ask: number | null }>();
+        for (const s of snapshots ?? []) {
+          const key = `${s.ticker}:${s.expiry}:${s.strike}:${s.contract_type}`;
+          if (!snapMap.has(key)) snapMap.set(key, { mid: s.mid, bid: s.bid, ask: s.ask });
+        }
+
+        for (const pos of positions) {
+          if (pos.status !== 'open') continue;
+          const contract_type = pos.strategy === 'CC' ? 'call' : 'put';
+          const key = `${pos.ticker}:${pos.expiry}:${pos.strike}:${contract_type}`;
+          const snap = snapMap.get(key);
+          if (snap) {
+            if (snap.mid != null) pos.currentPrice = snap.mid;
+            pos.optionBid = snap.bid ?? null;
+            pos.optionAsk = snap.ask ?? null;
+          }
+        }
+      }
+
+      return positions;
     },
     enabled: !!user,
     staleTime: 30_000,
