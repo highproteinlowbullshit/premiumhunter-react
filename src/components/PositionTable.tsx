@@ -418,35 +418,32 @@ export function PositionTable({
         <table className="w-full text-sm" style={{ fontFamily: 'DM Sans, sans-serif', borderCollapse: 'separate', borderSpacing: 0 }}>
           <thead>
             <tr>
-              <th className="text-left py-3 pl-5 pr-4" style={thStyle}>Ticker</th>
-              <th className="text-left py-3 px-4" style={thStyle}>Strategy</th>
-              <th className="text-left py-3 px-4" style={thStyle}>Strike</th>
-              <th className="text-left py-3 px-4" style={thStyle}>Premium</th>
-              <th className="text-left py-3 px-4" style={thStyle}>Return</th>
+              <th className="text-left py-3 pl-5 pr-4" style={thStyle}>Position</th>
+              {livePrices && <th className="text-left py-3 px-4" style={thStyle}>Stock $</th>}
+              <th className="text-left py-3 px-4" style={thStyle}>Price Sold</th>
+              <th className="text-left py-3 px-4" style={thStyle}>Market</th>
               <th className="text-left py-3 px-4" style={thStyle}>
-                <SortHeader label="Expires" current={sortKey} sortKey="expiry" onSort={setSortKey} />
+                <SortHeader label="DTE" current={sortKey} sortKey="expiry" onSort={setSortKey} />
               </th>
+              {livePrices && <th className="text-left py-3 px-4" style={thStyle}>Unreal P&L</th>}
               {probabilities && (
                 <th className="text-left py-3 px-4" style={thStyle}>
                   <SortHeader label="Assignment Risk" current={sortKey} sortKey="probability" onSort={setSortKey} />
                 </th>
               )}
-              {positionGreeks && <th className="text-left py-3 px-4" style={thStyle} title="Daily theta income / Delta exposure for this position">Θ / Δ</th>}
-              {livePrices && <th className="text-left py-3 px-4" style={thStyle}>Stock $</th>}
-              {livePrices && <th className="text-left py-3 px-4" style={thStyle}>Unreal P&L</th>}
-              <th className="text-left py-3 px-4" style={thStyle}>Market</th>
               {hasActions && <th className="text-left py-3 px-4 last:pr-0" style={thStyle}></th>}
             </tr>
           </thead>
           <tbody>
             {sorted.map((pos, i) => {
-              const capitalAtRisk = pos.strike * pos.contracts * 100;
-              const returnPct = capitalAtRisk > 0 ? (pos.premiumCollected / capitalAtRisk) * 100 : 0;
               const prob = probabilities?.get(pos.id) ?? null;
               const rowStyle = rowBorderStyle(pos, probabilities);
               const isLastRow = i === sorted.length - 1;
-
               const isHighlighted = highlightTicker === pos.ticker;
+              const stockPrice = livePrices?.get(pos.ticker);
+              const livePnl = stockPrice != null ? computeLivePnl(pos, stockPrice) : null;
+              const pricePerShare = pos.premiumCollected / (pos.contracts * 100);
+
               return (
                 <tr
                   key={pos.id}
@@ -459,140 +456,46 @@ export function PositionTable({
                     ...rowStyle,
                   }}
                 >
+                  {/* Position: $16 SOFI CSP */}
                   <td className="py-3.5 pl-5 pr-4">
                     <div className="flex flex-col gap-0.5">
-                      <span className="font-bold text-sm tracking-wide"
-                        style={{ color: '#e8f0fe', fontFamily: 'Syne, sans-serif' }}>
-                        {pos.ticker}
-                      </span>
-                      <span className="text-xs" style={{ color: '#4a6a8a' }}>{pos.contracts}×</span>
-                    </div>
-                  </td>
-
-                  <td className="py-3.5 px-4">
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold"
-                      style={{
-                        color: pos.strategy === 'CSP' ? '#00c6f5' : '#00e5c4',
-                        background: pos.strategy === 'CSP' ? 'rgba(0,198,245,0.1)' : 'rgba(0,229,196,0.1)',
-                        border: `1px solid ${pos.strategy === 'CSP' ? 'rgba(0,198,245,0.2)' : 'rgba(0,229,196,0.2)'}`,
-                        fontFamily: 'JetBrains Mono, monospace',
-                        letterSpacing: '0.04em',
-                      }}>
-                      {pos.strategy}
-                    </span>
-                  </td>
-
-                  <td className="py-3.5 px-4">
-                    <span style={{ color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace' }}>
-                      ${pos.strike}
-                    </span>
-                  </td>
-
-                  <td className="py-3.5 px-4">
-                    <span className="font-medium" style={{ color: '#00e5c4', fontFamily: 'JetBrains Mono, monospace' }}>
-                      ${pos.premiumCollected.toFixed(0)}
-                    </span>
-                  </td>
-
-                  <td className="py-3.5 px-4">
-                    <div className="flex flex-col gap-0.5">
-                      <span className="font-semibold" style={{ color: '#00d68f', fontFamily: 'JetBrains Mono, monospace' }}>
-                        {returnPct.toFixed(1)}%
+                      <span className="font-bold text-sm tracking-wide" style={{ fontFamily: 'Syne, sans-serif' }}>
+                        <span style={{ color: '#9ab4d4' }}>${pos.strike} </span>
+                        <span style={{ color: '#e8f0fe' }}>{pos.ticker} </span>
+                        <span style={{ color: pos.strategy === 'CSP' ? '#00c6f5' : '#00e5c4' }}>{pos.strategy}</span>
                       </span>
                       <span className="text-xs" style={{ color: '#4a6a8a' }}>
-                        on ${(capitalAtRisk / 1000).toFixed(0)}k
+                        {pos.contracts} contract{pos.contracts !== 1 ? 's' : ''}
                       </span>
                     </div>
                   </td>
 
-                  {/* Expires column (replaces Expiry + DTE) */}
-                  <td className="py-3.5 px-4">
-                    <DTEIndicator expiry={pos.expiry} strategy={pos.strategy} compact />
-                  </td>
-
-                  {/* Assignment Risk column */}
-                  {probabilities && (
-                    <td className="py-3.5 px-4" style={{ minWidth: 180 }}>
-                      <AssignmentProbabilityGauge
-                        result={prob}
-                        strategy={pos.strategy}
-                        strike={pos.strike}
-                        currentPrice={livePrices?.get(pos.ticker) ?? null}
-                        compact
-                      />
+                  {/* Stock $ + ITM/OTM */}
+                  {livePrices && (
+                    <td className="py-3.5 px-4">
+                      {stockPrice != null ? (
+                        <div className="flex flex-col gap-0.5">
+                          <span style={{ color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}>
+                            ${stockPrice.toFixed(2)}
+                          </span>
+                          <span className="text-[10px]" style={{ color: livePnl?.isItm ? '#ff4d6d' : '#00d68f', fontFamily: 'JetBrains Mono, monospace' }}>
+                            {livePnl?.isItm ? 'ITM' : 'OTM'}
+                          </span>
+                        </div>
+                      ) : (
+                        <span style={{ color: '#4a6a8a', fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}>—</span>
+                      )}
                     </td>
                   )}
 
-                  {/* Greeks: theta + delta */}
-                  {positionGreeks && (() => {
-                    const pg = positionGreeks.get(pos.id)
-                    if (!pg) return (
-                      <td className="py-3.5 px-4">
-                        <span style={{ color: '#4a6a8a', fontFamily: 'JetBrains Mono, monospace', fontSize: 11 }}>—</span>
-                      </td>
-                    )
-                    return (
-                      <td className="py-3.5 px-4" style={{ width: 100 }}
-                        title={`Daily theta: +$${pg.dollarThetaToday.toFixed(2)}/day · Delta: ${pg.sellerDelta.toFixed(1)}`}>
-                        <div className="flex flex-col gap-0.5">
-                          <span style={{ color: '#14b8a6', fontFamily: 'JetBrains Mono, monospace', fontSize: 11 }}>
-                            +${pg.dollarThetaToday.toFixed(2)}/d
-                          </span>
-                          <span style={{ color: '#6a8fb0', fontFamily: 'JetBrains Mono, monospace', fontSize: 10 }}>
-                            Δ {pg.sellerDelta >= 0 ? '+' : ''}{pg.sellerDelta.toFixed(1)}
-                          </span>
-                        </div>
-                      </td>
-                    )
-                  })()}
+                  {/* Price Sold — per-share premium collected */}
+                  <td className="py-3.5 px-4">
+                    <span className="font-medium" style={{ color: '#00e5c4', fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}>
+                      ${pricePerShare.toFixed(2)}
+                    </span>
+                  </td>
 
-                  {/* Stock price + unrealized P&L */}
-                  {livePrices && (() => {
-                    const stockPrice = livePrices.get(pos.ticker);
-                    if (stockPrice == null) {
-                      return (
-                        <>
-                          <td className="py-3.5 px-4"><span style={{ color: '#4a6a8a', fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}>—</span></td>
-                          <td className="py-3.5 px-4"><span style={{ color: '#4a6a8a', fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}>—</span></td>
-                        </>
-                      );
-                    }
-                    const { unrealizedPnl, pctMaxProfit, isItm } = computeLivePnl(pos, stockPrice);
-                    const pnlColor = unrealizedPnl >= 0 ? '#00d68f' : '#ff4d6d';
-                    return (
-                      <>
-                        <td className="py-3.5 px-4">
-                          <div className="flex flex-col gap-0.5">
-                            <span style={{ color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}>
-                              ${stockPrice.toFixed(2)}
-                            </span>
-                            <span className="text-[10px]" style={{ color: isItm ? '#ff4d6d' : '#00d68f', fontFamily: 'JetBrains Mono, monospace' }}>
-                              {isItm ? 'ITM' : 'OTM'}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="py-3.5 px-4">
-                          <div className="flex flex-col gap-1.5">
-                            <span className="font-medium tabular-nums" style={{ color: pnlColor, fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}>
-                              {unrealizedPnl >= 0 ? '+' : ''}${unrealizedPnl.toFixed(0)}
-                            </span>
-                            <div className="w-16 h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
-                              <div className="h-full rounded-full transition-all duration-500"
-                                style={{
-                                  width: `${pctMaxProfit}%`,
-                                  background: pctMaxProfit >= 75 ? '#00d68f' : pctMaxProfit >= 40 ? '#f5c842' : '#ff4d6d',
-                                }} />
-                            </div>
-                            <span className="text-[10px]" style={{ color: '#4a6a8a', fontFamily: 'JetBrains Mono, monospace' }}>
-                              {pctMaxProfit.toFixed(0)}% max
-                            </span>
-                          </div>
-                        </td>
-                      </>
-                    );
-                  })()}
-
-                  {/* Market column — last price from live snapshot */}
+                  {/* Market — last option price from snapshot */}
                   <td className="py-3.5 px-4">
                     {pos.optionBid != null && pos.optionAsk != null && pos.optionMid != null ? (
                       <div className="flex flex-col gap-0.5">
@@ -611,6 +514,49 @@ export function PositionTable({
                       <span style={{ color: '#4a6a8a', fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}>—</span>
                     )}
                   </td>
+
+                  {/* DTE */}
+                  <td className="py-3.5 px-4">
+                    <DTEIndicator expiry={pos.expiry} strategy={pos.strategy} compact />
+                  </td>
+
+                  {/* Unreal P&L */}
+                  {livePrices && (
+                    <td className="py-3.5 px-4">
+                      {livePnl != null ? (
+                        <div className="flex flex-col gap-1.5">
+                          <span className="font-medium tabular-nums" style={{ color: livePnl.unrealizedPnl >= 0 ? '#00d68f' : '#ff4d6d', fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}>
+                            {livePnl.unrealizedPnl >= 0 ? '+' : ''}${livePnl.unrealizedPnl.toFixed(0)}
+                          </span>
+                          <div className="w-16 h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                            <div className="h-full rounded-full transition-all duration-500"
+                              style={{
+                                width: `${livePnl.pctMaxProfit}%`,
+                                background: livePnl.pctMaxProfit >= 75 ? '#00d68f' : livePnl.pctMaxProfit >= 40 ? '#f5c842' : '#ff4d6d',
+                              }} />
+                          </div>
+                          <span className="text-[10px]" style={{ color: '#4a6a8a', fontFamily: 'JetBrains Mono, monospace' }}>
+                            {livePnl.pctMaxProfit.toFixed(0)}% max
+                          </span>
+                        </div>
+                      ) : (
+                        <span style={{ color: '#4a6a8a', fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}>—</span>
+                      )}
+                    </td>
+                  )}
+
+                  {/* Assignment Risk */}
+                  {probabilities && (
+                    <td className="py-3.5 px-4" style={{ minWidth: 180 }}>
+                      <AssignmentProbabilityGauge
+                        result={prob}
+                        strategy={pos.strategy}
+                        strike={pos.strike}
+                        currentPrice={stockPrice ?? null}
+                        compact
+                      />
+                    </td>
+                  )}
 
                   {hasActions && (
                     <td className="py-3.5 px-4 last:pr-0">
@@ -631,7 +577,7 @@ export function PositionTable({
           {probabilitySummary && positions.length > 1 && (
             <tfoot>
               <tr>
-                <td colSpan={7} style={{ padding: '10px 16px 4px 0', borderTop: '1px solid rgba(0,229,196,0.1)' }}>
+                <td colSpan={4} style={{ padding: '10px 16px 4px 0', borderTop: '1px solid rgba(0,229,196,0.1)' }}>
                   <span style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', fontSize: 11 }}>
                     Portfolio avg:
                   </span>
