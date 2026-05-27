@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { WheelPosition, WheelStrategy, PositionStatus } from '../types';
 import { supabase } from '../lib/supabase';
@@ -60,6 +60,16 @@ type AddPositionData = {
   optionFees?: number;       // total commission in dollars
 };
 
+type SnapshotPatch = {
+  ticker: string;
+  strike: number;
+  expiry: string;
+  contract_type: 'call' | 'put';
+  bid: number | null;
+  ask: number | null;
+  mid: number | null;
+};
+
 // ── Hook ──────────────────────────────────────────────────────────────────────
 
 export function usePositions() {
@@ -67,20 +77,10 @@ export function usePositions() {
   const { showToast } = useToast();
   const queryClient = useQueryClient();
 
-  const qKey = ['positions', user?.id] as const;
+  const qKey = useMemo(() => ['positions', user?.id] as const, [user?.id]);
 
   const [pricesLoading, setPricesLoading] = useState(false);
   const hasAutoFetched = useRef(false);
-
-  type SnapshotPatch = {
-    ticker: string;
-    strike: number;
-    expiry: string;
-    contract_type: 'call' | 'put';
-    bid: number | null;
-    ask: number | null;
-    mid: number | null;
-  };
 
   const applySnapshots = useCallback((snapshots: SnapshotPatch[]) => {
     const snapMap = new Map<string, SnapshotPatch>();
