@@ -57,27 +57,19 @@ export function ClosedPositionTable({ positions, onEdit, onRemove }: ClosedPosit
           const pnlColor = realPnl >= 0 ? '#00d68f' : '#ff4d6d';
           const isAssigned = pos.status === 'assigned';
           const isExpired = pos.status === 'expired';
+          const pricePerShare = pos.premiumCollected / (pos.contracts * 100);
 
           return (
             <div key={pos.id} className="rounded-xl p-4"
               style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(0,229,196,0.08)' }}>
-              {/* Row 1: ticker + strategy + status */}
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-base font-bold"
-                  style={{ fontFamily: 'Syne, sans-serif', color: '#e8f0fe' }}>
-                  {pos.ticker}
+              {/* Row 1: $16 SOFI CSP + status badges */}
+              <div className="flex items-center gap-2 mb-3 flex-wrap">
+                <span style={{ fontFamily: 'Syne, sans-serif', fontSize: 15, fontWeight: 700, letterSpacing: '-0.2px' }}>
+                  <span style={{ color: '#9ab4d4', fontWeight: 500 }}>${pos.strike} </span>
+                  <span style={{ color: '#e8f0fe' }}>{pos.ticker} </span>
+                  <span style={{ color: pos.strategy === 'CSP' ? '#00c6f5' : '#00e5c4' }}>{pos.strategy}</span>
                 </span>
-                <span className="text-xs px-2 py-0.5 rounded font-semibold"
-                  style={{
-                    color: pos.strategy === 'CSP' ? '#00c6f5' : '#00e5c4',
-                    background: pos.strategy === 'CSP' ? 'rgba(0,198,245,0.1)' : 'rgba(0,229,196,0.1)',
-                    border: `1px solid ${pos.strategy === 'CSP' ? 'rgba(0,198,245,0.2)' : 'rgba(0,229,196,0.2)'}`,
-                    fontFamily: 'JetBrains Mono, monospace',
-                  }}>
-                  {pos.strategy}
-                </span>
-                <span className="text-xs font-semibold"
-                  style={{ color: '#c8daf0', fontFamily: 'JetBrains Mono, monospace' }}>
+                <span className="text-xs" style={{ color: '#4a6a8a', fontFamily: 'JetBrains Mono, monospace' }}>
                   {pos.contracts}×
                 </span>
                 {isAssigned && (
@@ -97,15 +89,15 @@ export function ClosedPositionTable({ positions, onEdit, onRemove }: ClosedPosit
               {/* Row 2: metrics */}
               <div className="grid grid-cols-4 gap-2 mb-2">
                 <div>
-                  <p className="text-xs mb-0.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>Strike</p>
-                  <p className="text-sm font-medium" style={{ color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace' }}>
-                    ${pos.strike}
+                  <p className="text-xs mb-0.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>Price Sold</p>
+                  <p className="text-sm font-medium" style={{ color: '#00e5c4', fontFamily: 'JetBrains Mono, monospace' }}>
+                    ${pricePerShare.toFixed(2)}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs mb-0.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>Premium</p>
-                  <p className="text-sm font-medium" style={{ color: '#00e5c4', fontFamily: 'JetBrains Mono, monospace' }}>
-                    ${pos.premiumCollected.toFixed(0)}
+                  <p className="text-xs mb-0.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>Total Prem</p>
+                  <p className="text-sm font-medium" style={{ color: '#c8daf0', fontFamily: 'JetBrains Mono, monospace' }}>
+                    +${pos.premiumCollected.toFixed(0)}
                   </p>
                 </div>
                 <div>
@@ -153,7 +145,7 @@ export function ClosedPositionTable({ positions, onEdit, onRemove }: ClosedPosit
           <thead>
             <tr>
               {[
-                'Ticker', 'Strategy', 'Strike', 'Expiry', 'Premium', 'Close Cost', 'Real P&L', 'Return', 'Closed',
+                'Position', 'Expiry', 'Price Sold', 'Total Premium', 'Close Cost', 'Real P&L', 'Return', 'Closed',
                 ...(hasActions ? [''] : []),
               ].map((h, i) => (
                 <th
@@ -172,6 +164,7 @@ export function ClosedPositionTable({ positions, onEdit, onRemove }: ClosedPosit
               const pnlColor = realPnl >= 0 ? '#00d68f' : '#ff4d6d';
               const isAssigned = pos.status === 'assigned';
               const isExpired = pos.status === 'expired';
+              const pricePerShare = pos.premiumCollected / (pos.contracts * 100);
 
               return (
                 <tr
@@ -179,49 +172,32 @@ export function ClosedPositionTable({ positions, onEdit, onRemove }: ClosedPosit
                   className="stock-row-hover group"
                   style={{ borderBottom: i < paged.length - 1 ? '1px solid rgba(0, 229, 196, 0.06)' : 'none' }}
                 >
-                  {/* Ticker */}
+                  {/* Position: $16 SOFI CSP */}
                   <td className="py-3.5 pl-5 pr-4">
                     <div className="flex flex-col gap-0.5">
-                      <span className="font-bold text-sm tracking-wide"
-                        style={{ color: '#e8f0fe', fontFamily: 'Syne, sans-serif' }}>
-                        {pos.ticker}
+                      <span style={{ fontFamily: 'Syne, sans-serif', fontSize: 15, fontWeight: 700, letterSpacing: '-0.2px' }}>
+                        <span style={{ color: '#9ab4d4', fontWeight: 500 }}>${pos.strike} </span>
+                        <span style={{ color: '#e8f0fe' }}>{pos.ticker} </span>
+                        <span style={{ color: pos.strategy === 'CSP' ? '#00c6f5' : '#00e5c4' }}>{pos.strategy}</span>
                       </span>
-                      <span className="text-xs" style={{ color: '#4a6a8a' }}>{pos.contracts}×</span>
-                    </div>
-                  </td>
-
-                  {/* Strategy + assigned badge */}
-                  <td className="py-3.5 px-4">
-                    <div className="flex items-center gap-1.5">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold"
-                        style={{
-                          color: pos.strategy === 'CSP' ? '#00c6f5' : '#00e5c4',
-                          background: pos.strategy === 'CSP' ? 'rgba(0,198,245,0.1)' : 'rgba(0,229,196,0.1)',
-                          border: `1px solid ${pos.strategy === 'CSP' ? 'rgba(0,198,245,0.2)' : 'rgba(0,229,196,0.2)'}`,
-                          fontFamily: 'JetBrains Mono, monospace',
-                        }}>
-                        {pos.strategy}
-                      </span>
-                      {isAssigned && (
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold"
-                          style={{ color: '#f5c842', background: 'rgba(245,200,66,0.08)', border: '1px solid rgba(245,200,66,0.2)', fontFamily: 'JetBrains Mono, monospace' }}>
-                          ASSIGNED
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <span className="text-xs" style={{ color: '#4a6a8a' }}>
+                          {pos.contracts} contract{pos.contracts !== 1 ? 's' : ''}
                         </span>
-                      )}
-                      {isExpired && (
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold"
-                          style={{ color: '#00d68f', background: 'rgba(0,214,143,0.06)', border: '1px solid rgba(0,214,143,0.2)', fontFamily: 'JetBrains Mono, monospace' }}>
-                          EXPIRED
-                        </span>
-                      )}
+                        {isAssigned && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold"
+                            style={{ color: '#f5c842', background: 'rgba(245,200,66,0.08)', border: '1px solid rgba(245,200,66,0.2)', fontFamily: 'JetBrains Mono, monospace' }}>
+                            ASSIGNED
+                          </span>
+                        )}
+                        {isExpired && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold"
+                            style={{ color: '#00d68f', background: 'rgba(0,214,143,0.06)', border: '1px solid rgba(0,214,143,0.2)', fontFamily: 'JetBrains Mono, monospace' }}>
+                            EXPIRED
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </td>
-
-                  {/* Strike */}
-                  <td className="py-3.5 px-4">
-                    <span style={{ color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace' }}>
-                      ${pos.strike}
-                    </span>
                   </td>
 
                   {/* Expiry */}
@@ -231,9 +207,16 @@ export function ClosedPositionTable({ positions, onEdit, onRemove }: ClosedPosit
                     </span>
                   </td>
 
-                  {/* Premium collected */}
+                  {/* Price Sold — per-share */}
                   <td className="py-3.5 px-4">
-                    <span className="font-medium" style={{ color: '#00e5c4', fontFamily: 'JetBrains Mono, monospace' }}>
+                    <span className="font-medium" style={{ color: '#00e5c4', fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}>
+                      ${pricePerShare.toFixed(2)}
+                    </span>
+                  </td>
+
+                  {/* Total Premium */}
+                  <td className="py-3.5 px-4">
+                    <span className="font-medium" style={{ color: '#c8daf0', fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}>
                       +${pos.premiumCollected.toFixed(0)}
                     </span>
                   </td>

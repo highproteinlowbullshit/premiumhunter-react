@@ -286,23 +286,13 @@ function PositionRow({ position, isLast, index }: {
         animation: `pic-fadein 200ms ease-out ${index * 50}ms forwards`,
       }}
     >
-      {/* ── ROW 1: Badge + Ticker + Strike + Expiry + DTE ─── */}
+      {/* ── ROW 1: Position + Expiry + DTE ─── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-        {/* Strategy badge */}
-        <span style={{
-          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          padding: '3px 8px', borderRadius: 6,
-          fontSize: 11, fontWeight: 700, letterSpacing: '0.3px', flexShrink: 0,
-          background: position.strategy === 'CSP' ? 'rgba(20,184,166,0.18)' : 'rgba(245,158,11,0.18)',
-          color: position.strategy === 'CSP' ? C.teal : C.amber,
-        }}>
-          {position.strategy}
-        </span>
-
-        {/* Ticker + Strike */}
-        <span style={{ fontSize: 17, fontWeight: 700, color: C.text1, letterSpacing: '-0.2px' }}>
-          {position.ticker}{' '}
-          <span style={{ fontWeight: 500 }}>${position.strike}</span>
+        {/* $16 SOFI CSP */}
+        <span style={{ fontSize: 17, fontWeight: 700, letterSpacing: '-0.2px' }}>
+          <span style={{ color: C.text2, fontWeight: 500 }}>${position.strike} </span>
+          <span style={{ color: C.text1 }}>{position.ticker} </span>
+          <span style={{ color: position.strategy === 'CSP' ? '#00c6f5' : '#00e5c4' }}>{position.strategy}</span>
         </span>
 
         {/* Expiry + DTE */}

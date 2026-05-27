@@ -421,6 +421,7 @@ export function PositionTable({
               <th className="text-left py-3 pl-5 pr-4" style={thStyle}>Position</th>
               {livePrices && <th className="text-left py-3 px-4" style={thStyle}>Stock $</th>}
               <th className="text-left py-3 px-4" style={thStyle}>Price Sold</th>
+              <th className="text-left py-3 px-4" style={thStyle}>Total Premium</th>
               <th className="text-left py-3 px-4" style={thStyle}>Market</th>
               <th className="text-left py-3 px-4" style={thStyle}>
                 <SortHeader label="DTE" current={sortKey} sortKey="expiry" onSort={setSortKey} />
@@ -459,8 +460,8 @@ export function PositionTable({
                   {/* Position: $16 SOFI CSP */}
                   <td className="py-3.5 pl-5 pr-4">
                     <div className="flex flex-col gap-0.5">
-                      <span className="font-bold text-sm tracking-wide" style={{ fontFamily: 'Syne, sans-serif' }}>
-                        <span style={{ color: '#9ab4d4' }}>${pos.strike} </span>
+                      <span style={{ fontFamily: 'Syne, sans-serif', fontSize: 15, fontWeight: 700, letterSpacing: '-0.2px' }}>
+                        <span style={{ color: '#9ab4d4', fontWeight: 500 }}>${pos.strike} </span>
                         <span style={{ color: '#e8f0fe' }}>{pos.ticker} </span>
                         <span style={{ color: pos.strategy === 'CSP' ? '#00c6f5' : '#00e5c4' }}>{pos.strategy}</span>
                       </span>
@@ -492,6 +493,13 @@ export function PositionTable({
                   <td className="py-3.5 px-4">
                     <span className="font-medium" style={{ color: '#00e5c4', fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}>
                       ${pricePerShare.toFixed(2)}
+                    </span>
+                  </td>
+
+                  {/* Total Premium — gross dollar premium for all contracts */}
+                  <td className="py-3.5 px-4">
+                    <span className="font-medium" style={{ color: '#c8daf0', fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}>
+                      +${pos.premiumCollected.toFixed(0)}
                     </span>
                   </td>
 
