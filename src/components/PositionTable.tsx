@@ -631,7 +631,7 @@ export function PositionTable({
           {probabilitySummary && positions.length > 1 && (
             <tfoot>
               <tr>
-                <td colSpan={6} style={{ padding: '10px 16px 4px 0', borderTop: '1px solid rgba(0,229,196,0.1)' }}>
+                <td colSpan={7} style={{ padding: '10px 16px 4px 0', borderTop: '1px solid rgba(0,229,196,0.1)' }}>
                   <span style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', fontSize: 11 }}>
                     Portfolio avg:
                   </span>
