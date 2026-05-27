@@ -7,6 +7,33 @@ const SERVICE_ROLE_KEY  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
 const delay = (ms: number) => new Promise(r => setTimeout(r, ms))
 
+const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+
+type YahooCrumb = { crumb: string; cookie: string }
+
+async function getYahooCrumb(): Promise<YahooCrumb | null> {
+  try {
+    const initRes = await fetch('https://fc.yahoo.com/', {
+      headers: { 'User-Agent': UA, 'Accept': '*/*' },
+      redirect: 'follow',
+    })
+    const setCookies: string[] = (initRes.headers as any).getAll?.('set-cookie') ??
+      [initRes.headers.get('set-cookie')].filter(Boolean)
+    const cookieStr = setCookies.map((c: string) => c.split(';')[0]).join('; ')
+
+    const crumbRes = await fetch('https://query1.finance.yahoo.com/v1/test/getcrumb', {
+      headers: { 'User-Agent': UA, 'Cookie': cookieStr },
+    })
+    if (!crumbRes.ok) return null
+    const crumb = (await crumbRes.text()).trim()
+    if (!crumb || crumb.includes('<') || crumb.length > 30) return null
+    return { crumb, cookie: cookieStr }
+  } catch (err) {
+    console.warn('getYahooCrumb failed:', err instanceof Error ? err.message : String(err))
+    return null
+  }
+}
+
 type OptionContract = {
   strike: number
   impliedVolatility?: number
@@ -26,17 +53,21 @@ type YahooOptionSet = {
 async function fetchYahooChain(
   ticker: string,
   expiryUnix: number,
+  auth: YahooCrumb | null,
 ): Promise<YahooOptionSet | null> {
   try {
+    const params = new URLSearchParams({ date: String(expiryUnix) })
+    if (auth) params.set('crumb', auth.crumb)
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), 10000)
     const res = await fetch(
-      `https://query1.finance.yahoo.com/v7/finance/options/${ticker}?date=${expiryUnix}`,
+      `https://query1.finance.yahoo.com/v7/finance/options/${ticker}?${params}`,
       {
         signal: controller.signal,
         headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; PremiumHunter/1.0)',
+          'User-Agent': UA,
           'Accept': 'application/json',
+          ...(auth ? { 'Cookie': auth.cookie } : {}),
         },
       },
     )
@@ -169,11 +200,14 @@ serve(async (req) => {
     if (!alreadyHave) group.contracts.push({ strike: pos.strike, contract_type })
   }
 
+  const auth = await getYahooCrumb()
+  if (!auth) console.warn('Could not obtain Yahoo crumb — requests may 401')
+
   const snapshots: SnapshotRow[] = []
   let groups_failed = 0
 
   for (const [, group] of groups) {
-    const chain = await fetchYahooChain(group.ticker, group.expiryUnix)
+    const chain = await fetchYahooChain(group.ticker, group.expiryUnix, auth)
 
     if (!chain) {
       groups_failed++
