@@ -81,6 +81,32 @@ const STOCK_TICKERS = [
   'CINF','WRB','ERIE','RLI','ALGM','LSCC','MTSI','CRUS',
 ]
 
+const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+
+type YahooCrumb = { crumb: string; cookie: string }
+
+async function getYahooCrumb(): Promise<YahooCrumb | null> {
+  try {
+    const initRes = await fetch('https://fc.yahoo.com/', {
+      headers: { 'User-Agent': UA, 'Accept': '*/*' },
+      redirect: 'follow',
+    })
+    const setCookies: string[] = (initRes.headers as any).getAll?.('set-cookie') ??
+      [initRes.headers.get('set-cookie')].filter(Boolean)
+    const cookieStr = setCookies.map((c: string) => c.split(';')[0]).join('; ')
+    const crumbRes = await fetch('https://query1.finance.yahoo.com/v1/test/getcrumb', {
+      headers: { 'User-Agent': UA, 'Cookie': cookieStr },
+    })
+    if (!crumbRes.ok) return null
+    const crumb = (await crumbRes.text()).trim()
+    if (!crumb || crumb.includes('<') || crumb.length > 30) return null
+    return { crumb, cookie: cookieStr }
+  } catch (err) {
+    console.warn('getYahooCrumb failed:', err instanceof Error ? err.message : String(err))
+    return null
+  }
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────
 interface IVDataPoint {
   week: string
@@ -274,18 +300,21 @@ async function fetchATMOptionsData(
 async function fetchYahooATMIV(
   ticker: string,
   currentPrice: number,
+  auth: YahooCrumb | null,
 ): Promise<number | null> {
   if (currentPrice <= 0) return null
   try {
+    const crumbPart = auth ? `?crumb=${encodeURIComponent(auth.crumb)}` : ''
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), 8000)
     const res = await fetch(
-      `https://query1.finance.yahoo.com/v7/finance/options/${ticker}`,
+      `https://query1.finance.yahoo.com/v7/finance/options/${ticker}${crumbPart}`,
       {
         signal: controller.signal,
         headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; PremiumHunter/1.0)',
+          'User-Agent': UA,
           'Accept': 'application/json',
+          ...(auth ? { 'Cookie': auth.cookie } : {}),
         },
       },
     )
@@ -449,7 +478,8 @@ async function processTicker(
   ticker: string,
   polygonKey: string,
   finnhubKey: string | null,
-  today: string
+  today: string,
+  auth: YahooCrumb | null,
 ): Promise<IVSnapshot> {
   const base: IVSnapshot = {
     ticker,
@@ -477,7 +507,7 @@ async function processTicker(
     const { closes, timestamps, lastClose, prevClose, lastVolume } = ohlcv
 
     // Yahoo IV uses current price from OHLCV to identify ATM strike — run after OHLCV
-    const yahooIV = await fetchYahooATMIV(ticker, lastClose ?? 0)
+    const yahooIV = await fetchYahooATMIV(ticker, lastClose ?? 0, auth)
     const ivData = computeIVRank(closes, timestamps)
     const realIvHvRatio = yahooIV != null && ivData.current_hv != null && ivData.current_hv > 0
       ? parseFloat((yahooIV / ivData.current_hv).toFixed(2))
@@ -555,6 +585,10 @@ serve(async (req) => {
 
   console.log(`IV rank — batch ${batchIndex}/243 (${tickers.join(', ')}) — ${new Date().toISOString()}`)
 
+  // Fetch Yahoo crumb once per invocation — reused for all tickers' IV fetches
+  const yahooCrumb = await getYahooCrumb()
+  if (!yahooCrumb) console.warn('Yahoo crumb unavailable — current_iv will be null for this batch')
+
   const results: IVSnapshot[] = []
   const errors: string[] = []
   // 5 tickers per invocation = one Polygon burst, no delay needed
@@ -568,7 +602,7 @@ serve(async (req) => {
     console.log(`Batch ${batchNum}/${totalBatches}: ${batch.join(', ')}`)
 
     const settled = await Promise.allSettled(
-      batch.map(ticker => processTicker(ticker, polygonKey, finnhubKey, today))
+      batch.map(ticker => processTicker(ticker, polygonKey, finnhubKey, today, yahooCrumb))
     )
 
     settled.forEach((result, idx) => {

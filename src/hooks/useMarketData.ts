@@ -106,7 +106,9 @@ export function useScreenerStream(version = 0): ScreenerStreamState {
           const row = cachedMap.get(s.ticker)!;
           const hv30 = row.hv_30;
           const earningsDate = row.earnings_date ?? null;
-          const estimatedIVVal = hv30;
+          // Prefer real Yahoo ATM IV when available; fall back to HV30 for pricing
+          const realIV = row.current_iv ?? null;
+          const estimatedIVVal = realIV ?? hv30;
           return {
             ticker: s.ticker,
             name: s.name,
@@ -115,7 +117,7 @@ export function useScreenerStream(version = 0): ScreenerStreamState {
             priceChange: row.price_change_pct ?? null,
             ivRank: row.iv_rank,
             ivPercentile: row.iv_percentile,
-            currentIV: row.current_hv,
+            currentIV: realIV ?? row.current_hv,
             hv30,
             ivHvRatio: row.iv_hv_ratio,
             iv52wkHigh: row.hv_52wk_high,

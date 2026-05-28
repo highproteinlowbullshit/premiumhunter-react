@@ -37,7 +37,7 @@ function ScoreBar({ score, breakdown }: { score: number; breakdown: TopPick['sco
   const [hovered, setHovered] = useState(false);
 
   const rows = [
-    { label: 'IV Rank',        pts: breakdown.ivRankScore },
+    { label: 'HV Rank',        pts: breakdown.ivRankScore },
     { label: 'IV/HV Ratio',    pts: breakdown.ivHvScore },
     { label: 'Earnings Safety',pts: breakdown.earningsSafetyScore },
     { label: 'Liquidity',      pts: breakdown.liquidityScore },
@@ -121,8 +121,8 @@ function MethodologyModal({ onClose }: { onClose: () => void }) {
         <div className="space-y-4 text-sm" style={{ color: '#9ab4d4', fontFamily: 'DM Sans, sans-serif', lineHeight: '1.6' }}>
           {[
             {
-              title: 'IV Rank (primary signal)',
-              body: 'Higher IV rank means premium is historically expensive — you collect more for the same risk. We target stocks where IV is at elevated levels relative to the past year.',
+              title: 'HV Rank (primary signal)',
+              body: 'Higher HV rank means realized volatility is historically elevated — a proxy for rich premium environments. We target stocks where HV is near its 52-week highs.',
             },
             {
               title: 'IV/HV Ratio (new)',
@@ -250,7 +250,7 @@ function PickCard({ pick, rank, strategy }: { pick: TopPick; rank: number; strat
               fontFamily: 'JetBrains Mono, monospace',
             }}
           >
-            IV {pick.ivRank}
+            HV {pick.ivRank}
           </div>
           {pick.ivHvRatio != null && (
             <div

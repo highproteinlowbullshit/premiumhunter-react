@@ -147,7 +147,7 @@ function WheelScoreBadge({ score, breakdown }: { score: number | null; breakdown
         <div style={{ minWidth: 190 }}>
           <div style={{ marginBottom: 6, fontWeight: 700, color: '#e8f0fe', fontSize: 12 }}>Wheel Score</div>
           {[
-            { label: 'IV Rank',       pts: breakdown.ivRankScore,         max: 30 },
+            { label: 'HV Rank',       pts: breakdown.ivRankScore,         max: 30 },
             { label: 'HV30/HV60',     pts: breakdown.ivHvScore,           max: 12 },
             { label: 'Earnings Safe', pts: breakdown.earningsSafetyScore, max: 20 },
             { label: 'Liquidity',     pts: breakdown.liquidityScore,      max: 15 },
@@ -391,11 +391,11 @@ export function Screener() {
             </div>
             <h1 className="text-3xl sm:text-4xl font-bold"
               style={{ fontFamily: 'Syne, sans-serif', color: '#e8f0fe', letterSpacing: '-0.02em' }}>
-              IV Rank Screener
+              HV Rank Screener
             </h1>
             <div className="flex items-center gap-3 mt-0.5">
               <p className="text-sm" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
-                Find premium-selling opportunities by implied volatility rank
+                Find premium-selling opportunities by historical volatility rank
               </p>
               <IVFreshnessBadge lastRun={lastRun} />
             </div>
@@ -612,7 +612,7 @@ function StatsBar({ stats, mounted }: { stats: { total: number; avgIV: number; h
       style={{ opacity: mounted ? 1 : 0, transition: 'opacity 0.4s ease 0.1s' }}>
       {[
         { label: 'Matching Stocks', value: stats.total, color: '#00e5c4', suffix: '' },
-        { label: 'Avg IV Rank',     value: stats.avgIV, color: stats.avgIV >= 60 ? '#f97316' : stats.avgIV >= 30 ? '#f5c842' : '#00d68f', suffix: '' },
+        { label: 'Avg HV Rank',     value: stats.avgIV, color: stats.avgIV >= 60 ? '#f97316' : stats.avgIV >= 30 ? '#f5c842' : '#00d68f', suffix: '' },
         { label: 'High IV Alerts',  value: stats.highIV, color: '#ff4d6d', suffix: '' },
       ].map(({ label, value, color, suffix }) => (
         <div key={label} className="rounded-xl px-4 py-3 flex items-center justify-between"
@@ -762,7 +762,7 @@ function FilterControls({
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-medium" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
-              IV Rank Range
+              HV Rank Range
             </span>
             <span className="text-xs font-semibold"
               style={{ color: '#00e5c4', fontFamily: 'JetBrains Mono, monospace' }}>
@@ -891,8 +891,8 @@ function StickyHeader({ filters, set, earningsUrgentCount }: {
     { key: null,           label: 'Sector'    },
     { key: 'price',        label: 'Price'     },
     { key: 'wheelScore',   label: 'Wheel'     },
-    { key: 'ivRank',       label: 'IV Rank'   },
-    { key: 'ivPercentile', label: 'IV%ile'    },
+    { key: 'ivRank',       label: 'HV Rank'   },
+    { key: 'ivPercentile', label: 'HV%ile'    },
     { key: null,           label: 'IV/HV'     },
     { key: null,           label: 'HV 52w Range' },
     { key: 'volume',       label: 'Volume'    },
@@ -905,8 +905,8 @@ function StickyHeader({ filters, set, earningsUrgentCount }: {
     'Sector':        'Stock sector classification for filtering.',
     'Price':         'Current stock price. Updates every 60 seconds.',
     'Wheel':         'Composite wheel-strategy score (0–100). Combines IV rank, IV/HV ratio, earnings safety, liquidity, momentum, and put skew. Hover a score to see the full breakdown.',
-    'IV Rank':       'Where current IV sits relative to the past 52 weeks. 0 = historically cheap, 100 = historically expensive. Above 50 is generally good for selling premium.',
-    'IV%ile':        'Percentage of days over the past year with lower IV than today. 90th percentile means IV is higher than on 90% of past days.',
+    'HV Rank':       'Where current 30-day realized volatility sits relative to its 52-week range. 0 = historically quiet, 100 = historically volatile. Above 50 suggests elevated premium environment.',
+    'HV%ile':        'Percentage of days over the past year with lower realized volatility than today. 90th percentile means HV30 is higher than on 90% of past days.',
     'IV/HV':         'Implied Volatility ÷ 30-day Historical Volatility. Above 1.3 means options are expensive relative to actual stock movement — ideal for selling premium.',
     'HV 52w Range':  '30-day Historical Volatility compared to its 52-week range. Shows how extreme current realized volatility is.',
     'Volume':        "Today's trading volume. Higher volume means tighter bid-ask spreads on options.",

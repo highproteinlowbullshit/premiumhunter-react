@@ -47,6 +47,7 @@ interface SupabaseIVRow {
   put_call_skew: number | null;
   atm_open_interest: number | null;
   earnings_date: string | null;
+  current_iv: number | null; // real ATM IV from Yahoo Finance (integer %)
 }
 
 /** Fetch cached IV rows from Supabase for all tickers in STOCK_LIST.
@@ -64,7 +65,7 @@ export async function getSupabaseCachedToday(): Promise<Map<string, SupabaseIVRo
   try {
     const { data, error } = await supabase
       .from('iv_snapshots')
-      .select('ticker,snapshot_date,iv_rank,iv_percentile,current_hv,hv_30,hv_52wk_high,hv_52wk_low,iv_hv_ratio,current_price,prev_close,price_change_pct,volume,put_call_skew,atm_open_interest,earnings_date')
+      .select('ticker,snapshot_date,iv_rank,iv_percentile,current_hv,hv_30,hv_52wk_high,hv_52wk_low,iv_hv_ratio,current_price,prev_close,price_change_pct,volume,put_call_skew,atm_open_interest,earnings_date,current_iv')
       .in('snapshot_date', [today, yesterday])
       .eq('calculation_success', true)
       .eq('data_source', 'edge_function'); // exclude frontend-written rows (no price/volume)
