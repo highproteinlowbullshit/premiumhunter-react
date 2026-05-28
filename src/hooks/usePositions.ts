@@ -191,6 +191,36 @@ export function usePositions() {
     void fetchAndApplyPrices(undefined, true);
   }, [positions, isLoading, fetchAndApplyPrices]);
 
+  // Keep a ref to open positions so the Realtime callback stays current without recreating the channel
+  const openPositionsRef = useRef<WheelPosition[]>([]);
+  useEffect(() => {
+    openPositionsRef.current = positions.filter(p => p.status === 'open');
+  }, [positions]);
+
+  // Subscribe to option_price_snapshots inserts — fires whenever the 1-min cron writes fresh prices
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel('option-price-snapshots')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'option_price_snapshots' },
+        (payload) => {
+          const snap = payload.new as SnapshotPatch & Record<string, unknown>;
+          const matches = openPositionsRef.current.some(p => {
+            const ct = p.strategy === 'CC' ? 'call' : 'put';
+            return p.ticker === snap.ticker
+              && p.strike === snap.strike
+              && p.expiry === snap.expiry
+              && ct === snap.contract_type;
+          });
+          if (matches) applySnapshots([snap]);
+        }
+      )
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [user, applySnapshots]);
+
   const refreshPrices = useCallback(async () => {
     await fetchAndApplyPrices(undefined, false);
   }, [fetchAndApplyPrices]);
