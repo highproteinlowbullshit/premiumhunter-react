@@ -197,14 +197,15 @@ export function usePositions() {
     openPositionsRef.current = positions.filter(p => p.status === 'open');
   }, [positions]);
 
-  // Subscribe to option_price_snapshots inserts — fires whenever the 1-min cron writes fresh prices
+  // Subscribe to option_price_snapshots changes — fires whenever the 1-min cron writes fresh prices
+  // Must use '*' (not 'INSERT') because the cron uses UPSERT: existing rows emit UPDATE events
   useEffect(() => {
     if (!user) return;
     const channel = supabase
       .channel('option-price-snapshots')
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'option_price_snapshots' },
+        { event: '*', schema: 'public', table: 'option_price_snapshots' },
         (payload) => {
           const snap = payload.new as SnapshotPatch & Record<string, unknown>;
           const matches = openPositionsRef.current.some(p => {
