@@ -509,6 +509,18 @@ async function processTicker(
     // Yahoo IV uses current price from OHLCV to identify ATM strike — run after OHLCV
     const yahooIV = await fetchYahooATMIV(ticker, lastClose ?? 0, auth)
     const ivData = computeIVRank(closes, timestamps)
+
+    // When real ATM IV is available, compute iv_rank as (current_iv - hv_52wk_low) /
+    // (hv_52wk_high - hv_52wk_low). Uses HV range as proxy for IV range until we
+    // accumulate enough current_iv history to compute a true IV range.
+    const ivRankFinal = yahooIV != null
+      && ivData.hv_52wk_high != null && ivData.hv_52wk_low != null
+      && ivData.hv_52wk_high > ivData.hv_52wk_low
+      ? Math.min(100, Math.max(0, Math.round(
+          ((yahooIV - ivData.hv_52wk_low) / (ivData.hv_52wk_high - ivData.hv_52wk_low)) * 100
+        )))
+      : ivData.iv_rank
+
     const realIvHvRatio = yahooIV != null && ivData.current_hv != null && ivData.current_hv > 0
       ? parseFloat((yahooIV / ivData.current_hv).toFixed(2))
       : ivData.iv_hv_ratio
@@ -524,6 +536,7 @@ async function processTicker(
 
     return {
       ...base, ...ivData,
+      iv_rank: ivRankFinal,
       current_iv: yahooIV,
       iv_hv_ratio: realIvHvRatio,
       current_price: lastClose,

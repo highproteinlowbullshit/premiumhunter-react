@@ -147,7 +147,7 @@ function WheelScoreBadge({ score, breakdown }: { score: number | null; breakdown
         <div style={{ minWidth: 190 }}>
           <div style={{ marginBottom: 6, fontWeight: 700, color: '#e8f0fe', fontSize: 12 }}>Wheel Score</div>
           {[
-            { label: 'HV Rank',       pts: breakdown.ivRankScore,         max: 30 },
+            { label: 'IV Rank',       pts: breakdown.ivRankScore,         max: 30 },
             { label: 'HV30/HV60',     pts: breakdown.ivHvScore,           max: 12 },
             { label: 'Earnings Safe', pts: breakdown.earningsSafetyScore, max: 20 },
             { label: 'Liquidity',     pts: breakdown.liquidityScore,      max: 15 },
@@ -391,11 +391,11 @@ export function Screener() {
             </div>
             <h1 className="text-3xl sm:text-4xl font-bold"
               style={{ fontFamily: 'Syne, sans-serif', color: '#e8f0fe', letterSpacing: '-0.02em' }}>
-              HV Rank Screener
+              IV Rank Screener
             </h1>
             <div className="flex items-center gap-3 mt-0.5">
               <p className="text-sm" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
-                Find premium-selling opportunities by historical volatility rank
+                Find premium-selling opportunities by implied volatility rank
               </p>
               <IVFreshnessBadge lastRun={lastRun} />
             </div>
@@ -612,7 +612,7 @@ function StatsBar({ stats, mounted }: { stats: { total: number; avgIV: number; h
       style={{ opacity: mounted ? 1 : 0, transition: 'opacity 0.4s ease 0.1s' }}>
       {[
         { label: 'Matching Stocks', value: stats.total, color: '#00e5c4', suffix: '' },
-        { label: 'Avg HV Rank',     value: stats.avgIV, color: stats.avgIV >= 60 ? '#f97316' : stats.avgIV >= 30 ? '#f5c842' : '#00d68f', suffix: '' },
+        { label: 'Avg IV Rank',     value: stats.avgIV, color: stats.avgIV >= 60 ? '#f97316' : stats.avgIV >= 30 ? '#f5c842' : '#00d68f', suffix: '' },
         { label: 'High IV Alerts',  value: stats.highIV, color: '#ff4d6d', suffix: '' },
       ].map(({ label, value, color, suffix }) => (
         <div key={label} className="rounded-xl px-4 py-3 flex items-center justify-between"
@@ -762,7 +762,7 @@ function FilterControls({
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-medium" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
-              HV Rank Range
+              IV Rank Range
             </span>
             <span className="text-xs font-semibold"
               style={{ color: '#00e5c4', fontFamily: 'JetBrains Mono, monospace' }}>
@@ -891,10 +891,11 @@ function StickyHeader({ filters, set, earningsUrgentCount }: {
     { key: null,           label: 'Sector'    },
     { key: 'price',        label: 'Price'     },
     { key: 'wheelScore',   label: 'Wheel'     },
-    { key: 'ivRank',       label: 'HV Rank'   },
-    { key: 'ivPercentile', label: 'HV%ile'    },
+    { key: 'ivRank',       label: 'IV Rank'   },
+    { key: 'ivPercentile', label: 'IV%ile'    },
+    { key: null,           label: 'Current IV'},
     { key: null,           label: 'IV/HV'     },
-    { key: null,           label: 'HV 52w Range' },
+    { key: null,           label: 'HV Range'  },
     { key: 'volume',       label: 'Volume'    },
     { key: null,           label: 'Earnings', danger: earningsUrgentCount },
     { key: null,           label: ''          }, // action
@@ -905,10 +906,11 @@ function StickyHeader({ filters, set, earningsUrgentCount }: {
     'Sector':        'Stock sector classification for filtering.',
     'Price':         'Current stock price. Updates every 60 seconds.',
     'Wheel':         'Composite wheel-strategy score (0–100). Combines IV rank, IV/HV ratio, earnings safety, liquidity, momentum, and put skew. Hover a score to see the full breakdown.',
-    'HV Rank':       'Where current 30-day realized volatility sits relative to its 52-week range. 0 = historically quiet, 100 = historically volatile. Above 50 suggests elevated premium environment.',
-    'HV%ile':        'Percentage of days over the past year with lower realized volatility than today. 90th percentile means HV30 is higher than on 90% of past days.',
+    'IV Rank':       'Implied volatility rank (0–100). When real ATM IV is available from the options market, computed as (IV − HV 52wk low) / (HV 52wk high − HV 52wk low). Falls back to HV rank when IV data is unavailable.',
+    'IV%ile':        'Percentage of trading days over the past year with lower realized volatility. 90th percentile means today\'s vol is higher than 90% of past days.',
+    'Current IV':    'Real ATM implied volatility from the options market (annualised %). Sourced from Yahoo Finance options chain. Shows "--" until tonight\'s data refresh.',
     'IV/HV':         'Implied Volatility ÷ 30-day Historical Volatility. Above 1.3 means options are expensive relative to actual stock movement — ideal for selling premium.',
-    'HV 52w Range':  '30-day Historical Volatility compared to its 52-week range. Shows how extreme current realized volatility is.',
+    'HV Range':      '30-day Historical Volatility compared to its 52-week range. The bar shows where current IV sits within that range.',
     'Volume':        "Today's trading volume. Higher volume means tighter bid-ask spreads on options.",
     'Earnings':      'Days until next earnings. Red = within 7 days (avoid — IV crush risk). Amber = within 14 days (caution).',
   };
@@ -1103,6 +1105,14 @@ function DesktopRow({
         </span>
       </td>
 
+      {/* Current IV — real ATM IV from options market */}
+      <td className="py-3.5 px-3">
+        <span className="text-sm font-semibold tabular-nums"
+          style={{ color: stock.realIV != null ? '#00e5c4' : '#4a6a8a', fontFamily: 'JetBrains Mono, monospace' }}>
+          {stock.realIV != null ? `${stock.realIV}%` : '--'}
+        </span>
+      </td>
+
       {/* IV/HV ratio */}
       <td className="py-3.5 px-3">
         <span className="text-sm font-medium tabular-nums"
@@ -1127,8 +1137,10 @@ function DesktopRow({
         <div className="mt-1 h-1 w-16 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
           <div className="h-full rounded-full"
             style={{
-              width: stock.currentIV != null && stock.iv52wkLow != null && stock.iv52wkHigh != null && stock.iv52wkHigh !== stock.iv52wkLow
-                ? `${((stock.currentIV - stock.iv52wkLow) / (stock.iv52wkHigh - stock.iv52wkLow)) * 100}%`
+              width: stock.realIV != null && stock.iv52wkLow != null && stock.iv52wkHigh != null && stock.iv52wkHigh !== stock.iv52wkLow
+                ? `${Math.min(100, Math.max(0, ((stock.realIV - stock.iv52wkLow) / (stock.iv52wkHigh - stock.iv52wkLow)) * 100))}%`
+                : stock.currentIV != null && stock.iv52wkLow != null && stock.iv52wkHigh != null && stock.iv52wkHigh !== stock.iv52wkLow
+                ? `${Math.min(100, Math.max(0, ((stock.currentIV - stock.iv52wkLow) / (stock.iv52wkHigh - stock.iv52wkLow)) * 100))}%`
                 : '0%',
               background: '#9ab4d4',
             }} />

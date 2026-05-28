@@ -9,7 +9,8 @@ export interface ScreenerStock {
   priceChange: number | null;  // 24h %
   ivRank: number | null;       // 0–100
   ivPercentile: number | null;
-  currentIV: number | null;    // annualized %
+  currentIV: number | null;    // annualized % — real Yahoo ATM IV when available, else HV30
+  realIV: number | null;       // real ATM IV from Yahoo options market (null if unavailable)
   hv30: number | null;         // 30-day historical vol %
   ivHvRatio: number | null;    // currentIV / hv30
   iv52wkHigh: number | null;
@@ -63,8 +64,8 @@ export type SortField = 'wheelScore' | 'ivRank' | 'ivPercentile' | 'price' | 'vo
 
 export const SORT_OPTIONS: { field: SortField; label: string }[] = [
   { field: 'wheelScore',   label: 'Wheel Score'  },
-  { field: 'ivRank',       label: 'IV Rank'      },
-  { field: 'ivPercentile', label: 'IV%ile'        },
+  { field: 'ivRank',       label: 'IV Rank'  },
+  { field: 'ivPercentile', label: 'IV%ile'   },
   { field: 'price',        label: 'Price'         },
   { field: 'volume',       label: 'Volume'        },
   { field: 'ticker',       label: 'Ticker A–Z'   },

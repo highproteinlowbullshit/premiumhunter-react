@@ -106,6 +106,7 @@ function buildScreenerFromLive(
     ivRank: hv?.ivRank ?? null,
     ivPercentile: hv?.ivPercentile ?? null,
     currentIV: hv?.currentHV ?? null,
+    realIV: null, // live path has no Yahoo IV; populated from Supabase cache only
     hv30,
     ivHvRatio: hv?.ivHvRatio ?? null,
     iv52wkHigh: hv?.hv52wkHigh ?? null,

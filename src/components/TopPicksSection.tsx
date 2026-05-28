@@ -37,7 +37,7 @@ function ScoreBar({ score, breakdown }: { score: number; breakdown: TopPick['sco
   const [hovered, setHovered] = useState(false);
 
   const rows = [
-    { label: 'HV Rank',        pts: breakdown.ivRankScore },
+    { label: 'IV Rank',        pts: breakdown.ivRankScore },
     { label: 'IV/HV Ratio',    pts: breakdown.ivHvScore },
     { label: 'Earnings Safety',pts: breakdown.earningsSafetyScore },
     { label: 'Liquidity',      pts: breakdown.liquidityScore },
@@ -121,8 +121,8 @@ function MethodologyModal({ onClose }: { onClose: () => void }) {
         <div className="space-y-4 text-sm" style={{ color: '#9ab4d4', fontFamily: 'DM Sans, sans-serif', lineHeight: '1.6' }}>
           {[
             {
-              title: 'HV Rank (primary signal)',
-              body: 'Higher HV rank means realized volatility is historically elevated — a proxy for rich premium environments. We target stocks where HV is near its 52-week highs.',
+              title: 'IV Rank (primary signal)',
+              body: 'Higher IV rank means implied volatility is elevated relative to recent history — options are expensive, so you collect more for the same risk. When real ATM IV is available, rank is computed from options market data; otherwise approximated from realized vol.',
             },
             {
               title: 'IV/HV Ratio (new)',
@@ -239,7 +239,7 @@ function PickCard({ pick, rank, strategy }: { pick: TopPick; rank: number; strat
             {pick.name}
           </p>
         </div>
-        {/* IV Rank + IV/HV badges */}
+        {/* IV Rank + Current IV + IV/HV badges */}
         <div className="flex flex-col items-end gap-1">
           <div
             className="text-xs px-2 py-0.5 rounded flex-shrink-0 font-semibold tabular-nums"
@@ -250,8 +250,16 @@ function PickCard({ pick, rank, strategy }: { pick: TopPick; rank: number; strat
               fontFamily: 'JetBrains Mono, monospace',
             }}
           >
-            HV {pick.ivRank}
+            IV Rank {pick.ivRank}
           </div>
+          {pick.realIV != null && (
+            <div
+              className="text-[10px] px-1.5 py-0.5 rounded flex-shrink-0 font-semibold tabular-nums"
+              style={{ color: '#00e5c4', background: 'rgba(0,229,196,0.08)', border: '1px solid rgba(0,229,196,0.2)', fontFamily: 'JetBrains Mono, monospace' }}
+            >
+              IV {pick.realIV}%
+            </div>
+          )}
           {pick.ivHvRatio != null && (
             <div
               className="text-[10px] px-1.5 py-0.5 rounded flex-shrink-0 font-semibold tabular-nums"

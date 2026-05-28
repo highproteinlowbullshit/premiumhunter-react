@@ -26,6 +26,7 @@ export interface TopPick {
   ivRank: number;
   ivPercentile: number | null;
   currentIV: number;
+  realIV: number | null;
   ivHvRatio: number | null;
   putCallSkew: number | null;
   score: number;
@@ -574,6 +575,7 @@ export function getTopPicks(
       ivRank,
       ivPercentile: stock.ivPercentile,
       currentIV,
+      realIV: stock.realIV ?? null,
       ivHvRatio: stock.ivHvRatio,
       putCallSkew: stock.putCallSkew,
       score: components.total,
