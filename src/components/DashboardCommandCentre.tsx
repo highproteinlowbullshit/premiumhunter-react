@@ -547,7 +547,7 @@ function CapitalDeploymentRing({ d }: { d: DashboardIntelligence }) {
         return (
           <div style={{ marginTop: 14, borderTop: '1px solid rgba(0,229,196,0.08)', paddingTop: 12 }}>
             <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--ph-text-3)', fontFamily: 'DM Sans, sans-serif', letterSpacing: '0.07em', textTransform: 'uppercase' }}>
-              Upcoming Releases
+              Upcoming Capital Releases
             </span>
             <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 7 }}>
               {releases.map(({ expiry, collateral, tickers }) => {
