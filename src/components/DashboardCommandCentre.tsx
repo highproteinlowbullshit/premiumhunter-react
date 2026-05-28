@@ -527,6 +527,44 @@ function CapitalDeploymentRing({ d }: { d: DashboardIntelligence }) {
           </div>
         </div>
       )}
+
+      {/* Upcoming CSP collateral releases */}
+      {(() => {
+        const csps = d.positions.filter(p => p.strategy === 'CSP');
+        if (csps.length === 0) return null;
+
+        const byExpiry = csps.reduce<Record<string, { collateral: number; tickers: string[] }>>((acc, p) => {
+          if (!acc[p.expiry]) acc[p.expiry] = { collateral: 0, tickers: [] };
+          acc[p.expiry].collateral += p.strike * p.contracts * 100;
+          if (!acc[p.expiry].tickers.includes(p.ticker)) acc[p.expiry].tickers.push(p.ticker);
+          return acc;
+        }, {});
+
+        const releases = Object.entries(byExpiry)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([expiry, data]) => ({ expiry, ...data }));
+
+        return (
+          <div style={{ marginTop: 14, borderTop: '1px solid rgba(0,229,196,0.08)', paddingTop: 12 }}>
+            <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--ph-text-3)', fontFamily: 'DM Sans, sans-serif', letterSpacing: '0.07em', textTransform: 'uppercase' }}>
+              Upcoming Releases
+            </span>
+            <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 7 }}>
+              {releases.map(({ expiry, collateral, tickers }) => {
+                const d = new Date(expiry + 'T00:00:00');
+                const label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                return (
+                  <div key={expiry} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ph-text-2)', fontFamily: 'JetBrains Mono, monospace', minWidth: 44 }}>{label}</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#00e5c4', fontFamily: 'JetBrains Mono, monospace', minWidth: 48 }}>{fmt$(collateral, true)}</span>
+                    <span style={{ fontSize: 10, color: 'var(--ph-text-3)', fontFamily: 'DM Sans, sans-serif', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tickers.join(' · ')}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
