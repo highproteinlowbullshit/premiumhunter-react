@@ -3,7 +3,6 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const SUPABASE_URL     = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-const CRON_SECRET      = Deno.env.get('MARKET_PULSE_CRON_SECRET') ?? ''
 const OPENROUTER_KEY   = Deno.env.get('OPENROUTER_API_KEY') ?? ''
 const OPENROUTER_MODEL = Deno.env.get('OPENROUTER_MODEL') ?? 'mistralai/mistral-7b-instruct:free'
 const FINNHUB_KEY      = Deno.env.get('FINNHUB_API_KEY') ?? ''
@@ -533,7 +532,11 @@ serve(async (req) => {
 
   const supabase   = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
   const authHeader = req.headers.get('Authorization') ?? ''
-  const isCron     = CRON_SECRET !== '' && authHeader === `Bearer ${CRON_SECRET}`
+
+  const { data: secretRow } = await supabase
+    .from('cron_secrets').select('value').eq('key', 'market_pulse_cron_secret').single()
+  const cronSecret = secretRow?.value ?? ''
+  const isCron     = cronSecret !== '' && authHeader === `Bearer ${cronSecret}`
   let   force      = false
   let   pulseType: 'pre_market' | 'post_market' = 'pre_market'
 

@@ -705,7 +705,7 @@ function ClosePositionModal({ position, onClose, onConfirm }: {
         </label>
         {position.optionBid != null && position.optionAsk != null && (
           <p className="text-xs mb-2" style={{ color: '#6a8fb0', fontFamily: 'DM Sans, sans-serif' }}>
-            Market (end of day):{' '}
+            Market :{' '}
             <span style={{ color: '#ff8fa3', fontFamily: 'JetBrains Mono, monospace' }}>
               Bid ${position.optionBid.toFixed(2)}
             </span>
