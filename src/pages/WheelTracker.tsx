@@ -1084,7 +1084,7 @@ function AssignPositionModal({ position, onClose, onConfirm }: {
           </p>
         ) : (
           <p className="text-xs leading-relaxed" style={{ color: '#6a8fb0', fontFamily: 'DM Sans, sans-serif' }}>
-            This position will be marked as assigned. Go to <span style={{ color: '#9ab4d4' }}>Portfolio → Holdings</span> and close your {position.ticker} shares at <span style={{ color: '#00e5c4' }}>${position.strike}/share</span> to record the sale.
+            <span style={{ color: '#9ab4d4' }}>{sharesQty} {position.ticker} shares</span> will be called away and removed from your Portfolio automatically. <span style={{ color: '#00d68f' }}>${totalCashFlow.toLocaleString()}</span> in proceeds will be credited to your cash balance. If these shares came from a CSP assignment tracked here, the realized capital gain vs your original assignment strike will also be recorded.
           </p>
         )}
       </div>
