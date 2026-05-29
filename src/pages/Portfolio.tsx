@@ -33,6 +33,24 @@ function formatDollars(val: number): string {
   return val < 0 ? `-$${formatted}` : `$${formatted}`;
 }
 
+// Returns annotation info for CSP-assigned share holdings where avg_cost = effective basis (strike − premium).
+// Parses all CSP strike values from the notes field; if there's exactly one unique strike it shows the
+// specific premium reduction, otherwise just labels it "eff. basis" for blended multi-assignment lots.
+function getCSPAnnotation(
+  notes: string | undefined,
+  avgCost: number,
+): { detail: string | null } | null {
+  if (!notes) return null;
+  const matches = [...notes.matchAll(/CSP[^$]*\$(\d+(?:\.\d+)?) strike/gi)];
+  if (matches.length === 0) return null;
+  const strikes = [...new Set(matches.map(m => parseFloat(m[1])))];
+  if (strikes.length === 1) {
+    const premPerShare = strikes[0] - avgCost;
+    if (premPerShare > 0.005) return { detail: `−$${premPerShare.toFixed(2)}/sh prem` };
+  }
+  return { detail: null };
+}
+
 function holdingTypeLabel(type: HoldingType): string {
   switch (type) {
     case 'shares': return 'Shares';
@@ -1633,8 +1651,22 @@ function RealPortfolio() {
                           <td style={{ padding: '12px 14px', color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace', fontSize: 13 }}>
                             {h.holdingType === 'cash' ? formatDollars(h.quantity) : h.quantity.toLocaleString()}
                           </td>
-                          <td style={{ padding: '12px 14px', color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace', fontSize: 13 }}>
-                            {h.holdingType === 'cash' ? '—' : formatDollars(h.avgCost)}
+                          <td style={{ padding: '12px 14px', fontFamily: 'JetBrains Mono, monospace', fontSize: 13 }}>
+                            {h.holdingType === 'cash' ? (
+                              <span style={{ color: '#e8f0fe' }}>—</span>
+                            ) : (() => {
+                              const csp = h.holdingType === 'shares' ? getCSPAnnotation(h.notes, h.avgCost) : null;
+                              return (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                  <span style={{ color: '#e8f0fe' }}>{formatDollars(h.avgCost)}</span>
+                                  {csp && (
+                                    <span style={{ fontSize: 10, color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', fontWeight: 500 }}>
+                                      eff.{csp.detail ? ` (${csp.detail})` : ' basis'}
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })()}
                           </td>
                           {(h.holdingType === 'leaps_call' || h.holdingType === 'leaps_put') && h.strike != null && h.expiry ? (
                             <LeapsTableCells
@@ -1798,6 +1830,15 @@ function RealPortfolio() {
                             <div style={{ color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}>
                               {h.quantity.toLocaleString()} @ {formatDollars(h.avgCost)}
                             </div>
+                            {(() => {
+                              const csp = h.holdingType === 'shares' ? getCSPAnnotation(h.notes, h.avgCost) : null;
+                              if (!csp) return null;
+                              return (
+                                <div style={{ fontSize: 10, color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', fontWeight: 500, marginTop: 2 }}>
+                                  eff.{csp.detail ? ` (${csp.detail})` : ' basis'}
+                                </div>
+                              );
+                            })()}
                           </div>
                           <div>
                             <div style={{ color: '#4a6a8a', fontSize: 10, fontFamily: 'DM Sans, sans-serif', marginBottom: 2 }}>Expiry</div>
