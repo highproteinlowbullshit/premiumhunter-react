@@ -103,20 +103,26 @@ export function useMarketPulse(watchlistTickers: string[]) {
   const isWeekend = isWeekendSGT()
   const today     = todayUTC()
 
-  // Fetch both pre + post market pulses for today; prefer post_market if available
+  // Fetch the most recent pulse within last 36h — prefer today's post_market, fall back to
+  // today's pre_market, then yesterday's post_market. Avoids empty state when UTC rolls over
+  // but the next pre-market cron hasn't fired yet.
+  const since = new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString().split('T')[0]
   const pulseQuery = useQuery({
     queryKey:        ['market-pulse', today],
     queryFn:         async (): Promise<MarketPulse | null> => {
       const { data, error } = await supabase
         .from('market_pulse')
         .select('*')
-        .eq('pulse_date', today)
-        .order('pulse_type', { ascending: false }) // post_market sorts before pre_market alphabetically
+        .gte('pulse_date', since)
+        .order('pulse_date', { ascending: false })
+        .order('pulse_type', { ascending: false }) // post_market before pre_market within same date
+        .limit(4)
       if (error) throw error
       if (!data || data.length === 0) return null
-      const postMarket = data.find(d => d.pulse_type === 'post_market')
-      const preMarket  = data.find(d => d.pulse_type === 'pre_market')
-      const row        = postMarket ?? preMarket
+      // Prefer today's post_market → today's pre_market → most recent available
+      const todayPost = data.find(d => d.pulse_date === today && d.pulse_type === 'post_market')
+      const todayPre  = data.find(d => d.pulse_date === today && d.pulse_type === 'pre_market')
+      const row       = todayPost ?? todayPre ?? data[0]
       return row ? mapPulseRow(row as Record<string, unknown>) : null
     },
     enabled:         !isWeekend,
@@ -130,7 +136,7 @@ export function useMarketPulse(watchlistTickers: string[]) {
       const { data, error } = await supabase
         .from('market_news')
         .select('*')
-        .eq('pulse_date', today)
+        .gte('pulse_date', since)
         .order('relevance_score', { ascending: false })
       if (error) throw error
       return data ?? []
