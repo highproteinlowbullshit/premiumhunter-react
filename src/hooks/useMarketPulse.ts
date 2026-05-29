@@ -59,9 +59,8 @@ function isWeekendSGT(): boolean {
   return sgtDay === 0 || sgtDay === 6
 }
 
-function todaySGT(): string {
-  const sgtMs = Date.now() + 8 * 60 * 60 * 1000
-  return new Date(sgtMs).toISOString().split('T')[0]
+function todayUTC(): string {
+  return new Date().toISOString().split('T')[0]
 }
 
 function mapPulseRow(pulse: Record<string, unknown>): MarketPulse {
@@ -102,7 +101,7 @@ function mapPulseRow(pulse: Record<string, unknown>): MarketPulse {
 
 export function useMarketPulse(watchlistTickers: string[]) {
   const isWeekend = isWeekendSGT()
-  const today     = todaySGT()
+  const today     = todayUTC()
 
   // Fetch both pre + post market pulses for today; prefer post_market if available
   const pulseQuery = useQuery({
