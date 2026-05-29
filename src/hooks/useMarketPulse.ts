@@ -114,8 +114,7 @@ export function useMarketPulse(watchlistTickers: string[]) {
         .from('market_pulse')
         .select('*')
         .gte('pulse_date', since)
-        .order('pulse_date', { ascending: false })
-        .order('pulse_type', { ascending: false }) // post_market before pre_market within same date
+        .order('generated_at', { ascending: false }) // most recently generated first
         .limit(4)
       if (error) throw error
       if (!data || data.length === 0) return null
