@@ -256,11 +256,13 @@ function getMarketInfo(): {
 
 function isThirdFriday(): boolean {
   const et = getET(new Date());
-  if (et.getDay() !== 5) return false;
-  const firstDay = new Date(et.getFullYear(), et.getMonth(), 1);
-  const offset = (5 - firstDay.getDay() + 7) % 7;
+  if (et.dow !== 'Fri') return false;
+  // Find what day-of-week the 1st of this month falls on, then compute the 3rd Friday
+  const firstOfMonth = new Date(et.year, et.month - 1, 1);
+  const firstDow = firstOfMonth.getDay(); // 0=Sun … 6=Sat
+  const offset = (5 - firstDow + 7) % 7; // days until first Friday
   const thirdFriday = 1 + offset + 14;
-  return et.getDate() === thirdFriday;
+  return et.day === thirdFriday;
 }
 
 function calcPnl(pos: {
