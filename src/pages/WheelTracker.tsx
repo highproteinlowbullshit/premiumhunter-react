@@ -26,7 +26,7 @@ import { usePortfolioGreeks } from '../hooks/usePortfolioGreeks';
 import { useAssignmentProbabilities } from '../hooks/useAssignmentProbabilities';
 import type { ChecklistResult } from '../lib/tradeChecklist';
 import { usePageTitle } from '../hooks/usePageTitle';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, AlertTriangle, Clock } from 'lucide-react';
 
 export function WheelTracker() {
   usePageTitle('Wheel Tracker');
@@ -102,7 +102,7 @@ function RealWheelTracker() {
       queryClient.refetchQueries({ queryKey: ['monthly-target'] }),
     ]);
   }, [queryClient, user?.id]);
-  const { positions, openPositions, monthlyPnL, isLoading, addPosition, removePosition, closePosition, editPosition, assignPosition, refreshPrices, pricesLoading } = usePositions();
+  const { positions, openPositions, monthlyPnL, isLoading, addPosition, removePosition, closePosition, editPosition, assignPosition, refreshPrices, pricesLoading, pricesFetchFailed } = usePositions();
   const cycleGroups = useCycleGroups(positions);
   const { greeks, isLoading: greeksLoading } = usePortfolioGreeks();
 
@@ -306,6 +306,39 @@ function RealWheelTracker() {
               <WebSocketStatus status={wsStatus} />
             </div>
           </div>
+
+          {/* Fetch-failed banner — auto-fetch silently errored */}
+          {!isLoading && pricesFetchFailed && openPositions.some(p => p.isPriceEstimated) && (
+            <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl mb-3"
+              style={{ background: 'rgba(255,77,109,0.08)', border: '1px solid rgba(255,77,109,0.2)' }}>
+              <AlertTriangle size={14} color="#ff4d6d" strokeWidth={2} />
+              <span className="text-xs" style={{ color: '#ff8fa3', fontFamily: 'DM Sans, sans-serif' }}>
+                Option prices unavailable — showing 60% estimates. Check your connection or refresh manually.
+              </span>
+            </div>
+          )}
+
+          {/* Stale prices banner — snapshot older than 2 hours during market hours */}
+          {!isLoading && !pricesFetchFailed && (() => {
+            const times = openPositions.map(p => p.snapshotTime).filter(Boolean) as string[];
+            if (times.length === 0) return null;
+            const oldest = new Date(Math.min(...times.map(t => new Date(t).getTime())));
+            const ageMs = Date.now() - oldest.getTime();
+            const ageH = ageMs / 3_600_000;
+            if (ageH < 2) return null;
+            const label = ageH >= 24
+              ? `${Math.floor(ageH / 24)}d ago`
+              : `${Math.floor(ageH)}h ago`;
+            return (
+              <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl mb-3"
+                style={{ background: 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.18)' }}>
+                <Clock size={13} color="#f59e0b" strokeWidth={2} />
+                <span className="text-xs" style={{ color: '#fbbf24', fontFamily: 'DM Sans, sans-serif' }}>
+                  Option prices last updated {label} — refresh to get current market data.
+                </span>
+              </div>
+            );
+          })()}
 
           {/* Urgency banner — hidden when everything is comfortable */}
           {!isLoading && openPositions.length > 0 && (

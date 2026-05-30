@@ -33,6 +33,8 @@ export interface WheelPosition {
   optionAsk?: number | null;
   optionMid?: number | null;
   optionPriceUnavailable?: boolean; // true when cron ran but no contract data exists
+  isPriceEstimated?: boolean;       // true when currentPrice is the 60% heuristic, not a real snapshot
+  snapshotTime?: string | null;     // ISO timestamp of the most recent option price snapshot
   daysToExpiry: number;
   status: PositionStatus;
   openedAt: string;

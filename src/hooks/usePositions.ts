@@ -41,6 +41,7 @@ function dbToPosition(row: DbPosition): WheelPosition {
         : row.status === 'open'
           ? Math.round(Number(row.premium_collected) * 0.6 * 100) / 100
           : 0,
+    isPriceEstimated: row.closing_price == null && row.status === 'open',
     daysToExpiry: dte,
     status: row.status as PositionStatus,
     openedAt: row.opened_at.split('T')[0],
@@ -68,6 +69,7 @@ type SnapshotPatch = {
   bid: number | null;
   ask: number | null;
   mid: number | null;
+  snapshot_time?: string | null;
 };
 
 // ── Hook ──────────────────────────────────────────────────────────────────────
@@ -80,6 +82,7 @@ export function usePositions() {
   const qKey = useMemo(() => ['positions', user?.id] as const, [user?.id]);
 
   const [pricesLoading, setPricesLoading] = useState(false);
+  const [pricesFetchFailed, setPricesFetchFailed] = useState(false);
   const hasAutoFetched = useRef(false);
 
   const applySnapshots = useCallback((snapshots: SnapshotPatch[]) => {
@@ -103,6 +106,8 @@ export function usePositions() {
           optionAsk: snap.ask ?? null,
           optionMid: snap.mid ?? null,
           optionPriceUnavailable: allNull,
+          isPriceEstimated: false,
+          snapshotTime: snap.snapshot_time ?? null,
         };
       })
     );
@@ -113,17 +118,20 @@ export function usePositions() {
     silent = true,
   ) => {
     if (!silent) setPricesLoading(true);
+    setPricesFetchFailed(false);
     try {
       const { data, error } = await supabase.functions.invoke('get-option-prices', {
         ...(body ? { body } : {}),
       });
       if (error || !data?.success) {
         if (!silent) showToast('Could not refresh prices — try again.', 'error');
+        setPricesFetchFailed(true);
         return;
       }
       applySnapshots(data.snapshots ?? []);
     } catch {
       if (!silent) showToast('Could not refresh prices — try again.', 'error');
+      setPricesFetchFailed(true);
     } finally {
       if (!silent) setPricesLoading(false);
     }
@@ -147,16 +155,16 @@ export function usePositions() {
         const yesterday = new Date(Date.now() - 86_400_000).toISOString().split('T')[0];
         const { data: snapshots } = await supabase
           .from('option_price_snapshots')
-          .select('ticker, strike, expiry, contract_type, mid, bid, ask')
+          .select('ticker, strike, expiry, contract_type, mid, bid, ask, snapshot_time')
           .in('ticker', tickers)
           .gte('snapshot_date', yesterday)
           .order('snapshot_time', { ascending: false });
 
         // Build map keyed by "ticker:expiry:strike:contract_type" — take most recent per key
-        const snapMap = new Map<string, { mid: number | null; bid: number | null; ask: number | null }>();
+        const snapMap = new Map<string, { mid: number | null; bid: number | null; ask: number | null; snapshot_time: string | null }>();
         for (const s of snapshots ?? []) {
           const key = `${s.ticker}:${s.expiry}:${s.strike}:${s.contract_type}`;
-          if (!snapMap.has(key)) snapMap.set(key, { mid: s.mid, bid: s.bid, ask: s.ask });
+          if (!snapMap.has(key)) snapMap.set(key, { mid: s.mid, bid: s.bid, ask: s.ask, snapshot_time: s.snapshot_time ?? null });
         }
 
         for (const pos of positions) {
@@ -169,6 +177,8 @@ export function usePositions() {
             pos.optionBid = snap.bid ?? null;
             pos.optionAsk = snap.ask ?? null;
             pos.optionMid = snap.mid ?? null;
+            pos.isPriceEstimated = false;
+            pos.snapshotTime = snap.snapshot_time ?? null;
             // Sentinel: cron ran but no contract data exists for this strike/expiry
             if (snap.bid == null && snap.ask == null && snap.mid == null) {
               pos.optionPriceUnavailable = true;
@@ -897,5 +907,5 @@ export function usePositions() {
     return totalRealized / Math.max(1, distinctMonths.size);
   })();
 
-  return { positions, openPositions, monthlyPnL, isLoading, addPosition, removePosition, closePosition, editPosition, assignPosition, refreshPrices, pricesLoading };
+  return { positions, openPositions, monthlyPnL, isLoading, addPosition, removePosition, closePosition, editPosition, assignPosition, refreshPrices, pricesLoading, pricesFetchFailed };
 }

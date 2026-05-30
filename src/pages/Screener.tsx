@@ -23,7 +23,7 @@ import { TopPicksSection } from '../components/TopPicksSection';
 import { EarningsBadge } from '../components/EarningsBadge';
 import { supabase } from '../lib/supabase';
 import { Tooltip } from '../components/ui/Tooltip';
-import { Lock, BarChart2 } from 'lucide-react';
+import { Lock, BarChart2, Calendar } from 'lucide-react';
 import { computeCSPScore, DEFAULT_SCORING_PREFS, type ScoreComponents } from '../lib/topPicksEngine';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -195,6 +195,7 @@ interface Filters {
   sortBy: SortField;
   sortDir: 'desc' | 'asc';
   search: string;
+  hideEarningsWithin: number | null;
 }
 
 const DEFAULT_FILTERS: Filters = {
@@ -206,6 +207,7 @@ const DEFAULT_FILTERS: Filters = {
   sortBy: 'ivRank',
   sortDir: 'desc',
   search: '',
+  hideEarningsWithin: null,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -307,13 +309,17 @@ export function Screener() {
   }, [stocks, prefs.preferredSectors]);
 
   // Affordability: O(n) — recomputes on every capital-per-trade change (cheap).
+  // Only marks unaffordable when we have a confirmed live price (price > 0).
+  // Cached stocks arrive with capitalRequired from prev_close while price is
+  // still null — without this guard, the lock icon fires before data loads.
   const stocksEnriched = useMemo<StockWithAffordability[]>(() =>
     stocksWithScores.map(s => {
       const cap = s.capitalRequired ?? 0;
-      const isAffordable: boolean | null = capitalPerTrade > 0 && cap > 0
+      const hasLivePrice = s.price != null && s.price > 0;
+      const isAffordable: boolean | null = capitalPerTrade > 0 && cap > 0 && hasLivePrice
         ? cap <= capitalPerTrade
         : null;
-      const contractsAffordable: number = capitalPerTrade > 0 && cap > 0
+      const contractsAffordable: number = capitalPerTrade > 0 && cap > 0 && hasLivePrice
         ? Math.floor(capitalPerTrade / cap)
         : 0;
       return { ...s, isAffordable, contractsAffordable };
@@ -341,6 +347,9 @@ export function Screener() {
       if (filters.sector !== 'All' && s.sector !== filters.sector) return false;
       if (q && !s.ticker.includes(q) && !s.name.toUpperCase().includes(q)) return false;
       if (filterAffordable && capitalPerTrade > 0 && s.isAffordable === false) return false;
+      if (filters.hideEarningsWithin != null && s.earningsDate) {
+        if (daysUntil(s.earningsDate) <= filters.hideEarningsWithin) return false;
+      }
       return true;
     }).sort((a, b) => {
       // Nulls sink to the bottom regardless of sort direction
@@ -350,7 +359,8 @@ export function Screener() {
       return filters.sortDir === 'desc' ? -cmp : cmp;
     });
   }, [stocksEnriched, filters.ivRankMin, filters.ivRankMax, filters.priceMin, filters.priceMax,
-      filters.sector, filters.sortBy, filters.sortDir, debouncedSearch, filterAffordable, capitalPerTrade]);
+      filters.sector, filters.sortBy, filters.sortDir, debouncedSearch, filterAffordable, capitalPerTrade,
+      filters.hideEarningsWithin]);
 
   const mobileVirtualizer = useVirtualizer({
     count: filtered.length,
@@ -759,6 +769,7 @@ function FilterControls({
       {/* Row 2: IV rank slider + Price range */}
       <div className="flex flex-col sm:flex-row gap-6 items-start sm:items-center">
         {/* IV Rank dual slider */}
+
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-medium" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
@@ -820,6 +831,44 @@ function FilterControls({
             />
           </div>
         </div>
+      </div>
+
+      {/* Row 3: Earnings filter */}
+      <div className="flex flex-wrap items-center gap-2 mt-4 pt-4" style={{ borderTop: '1px solid rgba(0,229,196,0.06)' }}>
+        <div className="flex items-center gap-1.5 mr-1">
+          <Calendar size={12} style={{ color: '#4a6a8a', flexShrink: 0 }} strokeWidth={1.8} />
+          <span className="text-xs whitespace-nowrap" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
+            Skip earnings within
+          </span>
+        </div>
+        {([
+          { label: 'Any', value: null },
+          { label: '7 days', value: 7 },
+          { label: '14 days', value: 14 },
+          { label: '30 days', value: 30 },
+        ] as { label: string; value: number | null }[]).map(({ label, value }) => {
+          const active = filters.hideEarningsWithin === value;
+          return (
+            <button
+              key={label}
+              onClick={() => set('hideEarningsWithin', value)}
+              style={{
+                padding: '4px 10px',
+                borderRadius: 8,
+                fontSize: 11,
+                cursor: 'pointer',
+                background: active ? 'rgba(0,229,196,0.12)' : 'rgba(255,255,255,0.04)',
+                border: active ? '1px solid rgba(0,229,196,0.3)' : '1px solid rgba(255,255,255,0.08)',
+                color: active ? '#00e5c4' : '#4a6a8a',
+                fontFamily: 'DM Sans, sans-serif',
+                fontWeight: 600,
+                transition: 'all 0.15s ease',
+              }}
+            >
+              {label}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -1200,7 +1249,7 @@ function DesktopRow({
 function MobileCard({
   stock, watched, onToggleWatch, onClick, isPaperMode, onPaperTrade,
 }: {
-  stock: ScreenerStock;
+  stock: StockWithAffordability;
   watched: boolean;
   onToggleWatch: () => void;
   onClick: () => void;
@@ -1229,6 +1278,9 @@ function MobileCard({
               <span className="text-base font-bold" style={{ fontFamily: 'Syne, sans-serif', color: '#e8f0fe' }}>
                 {stock.ticker}
               </span>
+              {stock.isAffordable === false && (
+                <Lock size={10} color="#4a6a8a" strokeWidth={2} style={{ flexShrink: 0 }} />
+              )}
               <span className="text-xs px-1.5 py-0.5 rounded"
                 style={{ color: sectorColors.text, background: sectorColors.bg, fontFamily: 'DM Sans, sans-serif', fontSize: '10px' }}>
                 {stock.sector}
@@ -1275,24 +1327,47 @@ function MobileCard({
 
       {/* Row 2: metrics */}
       <div className="grid grid-cols-4 gap-2">
-        {[
-          {
-            label: 'Price',
-            value: stock.price != null ? `$${stock.price.toFixed(2)}` : '--',
-            sub: stock.priceChange != null ? `${stock.priceChange >= 0 ? '+' : ''}${stock.priceChange.toFixed(2)}%` : null,
-            subColor: stock.priceChange != null ? (stock.priceChange >= 0 ? '#00d68f' : '#ff4d6d') : '',
-            color: undefined,
-          },
-          { label: 'Wheel', value: stock.wheelScore != null ? String(stock.wheelScore) : '--', sub: null, subColor: '', color: wheelScoreColors(stock.wheelScore).text },
-          { label: 'IV/HV', value: stock.ivHvRatio != null ? `${stock.ivHvRatio.toFixed(2)}x` : '--', sub: null, subColor: '', color: undefined },
-          { label: 'Volume', value: formatVolume(stock.volume), sub: null, subColor: '', color: undefined },
-        ].map(({ label, value, sub, subColor, color }) => (
-          <div key={label}>
-            <p className="text-xs mb-0.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>{label}</p>
-            <p className="text-sm font-medium tabular-nums" style={{ color: color ?? '#e8f0fe', fontFamily: 'JetBrains Mono, monospace' }}>{value}</p>
-            {sub && <p className="text-xs" style={{ color: subColor, fontFamily: 'JetBrains Mono, monospace' }}>{sub}</p>}
-          </div>
-        ))}
+        <div>
+          <p className="text-xs mb-0.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>Price</p>
+          <p className="text-sm font-medium tabular-nums" style={{ color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace' }}>
+            {stock.price != null ? `$${stock.price.toFixed(2)}` : '--'}
+          </p>
+          {stock.priceChange != null && (
+            <p className="text-xs" style={{ color: stock.priceChange >= 0 ? '#00d68f' : '#ff4d6d', fontFamily: 'JetBrains Mono, monospace' }}>
+              {stock.priceChange >= 0 ? '+' : ''}{stock.priceChange.toFixed(2)}%
+            </p>
+          )}
+        </div>
+        <div>
+          <p className="text-xs mb-0.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>Wheel</p>
+          <p className="text-sm font-medium tabular-nums" style={{ color: wheelScoreColors(stock.wheelScore).text, fontFamily: 'JetBrains Mono, monospace' }}>
+            {stock.wheelScore != null ? String(stock.wheelScore) : '--'}
+          </p>
+        </div>
+        <div>
+          <p className="text-xs mb-0.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>IV/HV</p>
+          <p className="text-sm font-medium tabular-nums" style={{ color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace' }}>
+            {stock.ivHvRatio != null ? `${stock.ivHvRatio.toFixed(2)}x` : '--'}
+          </p>
+        </div>
+        <div>
+          <p className="text-xs mb-0.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
+            {stock.contractsAffordable > 0 ? 'Contracts' : 'Volume'}
+          </p>
+          {stock.contractsAffordable > 0 ? (
+            <p className="text-sm font-medium tabular-nums"
+              style={{
+                color: stock.contractsAffordable === 1 ? '#f59e0b' : '#00e5c4',
+                fontFamily: 'JetBrains Mono, monospace',
+              }}>
+              {stock.contractsAffordable >= 5 ? '5+' : stock.contractsAffordable === 1 ? '1 only' : stock.contractsAffordable}
+            </p>
+          ) : (
+            <p className="text-sm font-medium tabular-nums" style={{ color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace' }}>
+              {formatVolume(stock.volume)}
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );

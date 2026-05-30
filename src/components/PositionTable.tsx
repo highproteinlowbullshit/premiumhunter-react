@@ -382,17 +382,22 @@ export function PositionTable({
                 <div>
                   <p style={{ color: '#4a6a8a', fontSize: 10, fontFamily: 'DM Sans, sans-serif', margin: '0 0 3px' }}>P&L</p>
                   {livePnl ? (
-                    <p style={{ color: livePnl.unrealizedPnl >= 0 ? '#00d68f' : '#ff4d6d', fontSize: 12, fontFamily: 'JetBrains Mono, monospace', fontWeight: 600, margin: 0 }}>
-                      {livePnl.unrealizedPnl >= 0 ? '+' : ''}${livePnl.unrealizedPnl.toFixed(0)}
-                    </p>
+                    <>
+                      <p style={{ color: livePnl.unrealizedPnl >= 0 ? '#00d68f' : '#ff4d6d', fontSize: 12, fontFamily: 'JetBrains Mono, monospace', fontWeight: 600, margin: 0 }}>
+                        {livePnl.unrealizedPnl >= 0 ? '+' : ''}${livePnl.unrealizedPnl.toFixed(0)}
+                      </p>
+                      {pos.isPriceEstimated && !pos.optionPriceUnavailable && (
+                        <p style={{ color: '#4a6a8a', fontSize: 9, fontFamily: 'DM Sans, sans-serif', margin: '2px 0 0' }}>~est. price</p>
+                      )}
+                    </>
                   ) : (
                     <p style={{ color: '#4a6a8a', fontSize: 12, fontFamily: 'JetBrains Mono, monospace', margin: 0 }}>—</p>
                   )}
                 </div>
               </div>
 
-              {/* Row 3: Stock price + Market (option last price) */}
-              {(sp != null || pos.optionMid != null) && (
+              {/* Row 3: Stock price + Market (option last price or estimate) */}
+              {(sp != null || pos.optionMid != null || pos.isPriceEstimated) && (
                 <div className="flex items-center gap-4 mt-3 pt-2" style={{ borderTop: '1px solid rgba(0,229,196,0.06)' }}>
                   {sp != null && (
                     <span style={{ fontSize: 11, fontFamily: 'JetBrains Mono, monospace', color: '#6a8fb0' }}>
@@ -402,6 +407,11 @@ export function PositionTable({
                   {pos.optionMid != null && (
                     <span style={{ fontSize: 11, fontFamily: 'JetBrains Mono, monospace', color: '#6a8fb0' }}>
                       Market <span style={{ color: '#00e5c4', fontWeight: 600 }}>last ${pos.optionMid.toFixed(2)}</span>
+                    </span>
+                  )}
+                  {pos.isPriceEstimated && !pos.optionMid && !pos.optionPriceUnavailable && (
+                    <span style={{ fontSize: 11, fontFamily: 'JetBrains Mono, monospace', color: '#4a6a8a' }}>
+                      Option ~<span style={{ color: '#6a8fb0' }}>${pos.currentPrice.toFixed(2)}</span> <span style={{ fontSize: 9 }}>(est.)</span>
                     </span>
                   )}
                 </div>
@@ -558,6 +568,9 @@ export function PositionTable({
                           <span className="text-[10px]" style={{ color: '#4a6a8a', fontFamily: 'JetBrains Mono, monospace' }}>
                             {livePnl.pctMaxProfit.toFixed(0)}% max
                           </span>
+                          {pos.isPriceEstimated && !pos.optionPriceUnavailable && (
+                            <span className="text-[9px]" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>~est. price</span>
+                          )}
                         </div>
                       ) : (
                         <span style={{ color: '#4a6a8a', fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}>—</span>
