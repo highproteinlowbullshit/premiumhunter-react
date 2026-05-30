@@ -348,7 +348,8 @@ export function Screener() {
       if (q && !s.ticker.includes(q) && !s.name.toUpperCase().includes(q)) return false;
       if (filterAffordable && capitalPerTrade > 0 && s.isAffordable === false) return false;
       if (filters.hideEarningsWithin != null && s.earningsDate) {
-        if (daysUntil(s.earningsDate) <= filters.hideEarningsWithin) return false;
+        const dte = daysUntil(s.earningsDate);
+        if (dte >= 0 && dte <= filters.hideEarningsWithin) return false;
       }
       return true;
     }).sort((a, b) => {
@@ -376,7 +377,8 @@ export function Screener() {
     const avgIV   = withIV.length ? Math.round(withIV.reduce((a, s) => a + s.ivRank!, 0) / withIV.length) : 0;
     const earningsUrgentCount = filtered.filter((s) => {
       if (!s.earningsDate) return false;
-      return daysUntil(s.earningsDate) <= 14;
+      const d = daysUntil(s.earningsDate);
+      return d >= 0 && d <= 14;
     }).length;
     return { total: filtered.length, avgIV, highIV, earningsUrgentCount };
   }, [filtered]);

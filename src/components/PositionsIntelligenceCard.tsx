@@ -38,7 +38,7 @@ function fmt$(n: number, abs = false): string {
 }
 
 function fmtExpiry(expiry: string): string {
-  const d = new Date(expiry);
+  const d = new Date(expiry + 'T12:00:00');
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 

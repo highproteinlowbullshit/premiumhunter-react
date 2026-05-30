@@ -47,7 +47,7 @@ export interface TradeChecklistInput {
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function dteFromExpiry(expiry: string): number {
-  return Math.ceil((new Date(expiry).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+  return Math.ceil((new Date(expiry + 'T12:00:00').getTime() - Date.now()) / (1000 * 60 * 60 * 24));
 }
 
 // ── Check 1: IV Rank ──────────────────────────────────────────────────────────

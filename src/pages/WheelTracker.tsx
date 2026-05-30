@@ -330,11 +330,11 @@ function RealWheelTracker() {
               ? `${Math.floor(ageH / 24)}d ago`
               : `${Math.floor(ageH)}h ago`;
             return (
-              <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl mb-3"
+              <div className="flex items-start gap-2 px-4 py-2.5 rounded-xl mb-3"
                 style={{ background: 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.18)' }}>
-                <Clock size={13} color="#f59e0b" strokeWidth={2} />
+                <Clock size={13} color="#f59e0b" strokeWidth={2} className="mt-0.5 shrink-0" />
                 <span className="text-xs" style={{ color: '#fbbf24', fontFamily: 'DM Sans, sans-serif' }}>
-                  Option prices last updated {label} — refresh to get current market data.
+                  Prices from {label} ago — refresh for live data.
                 </span>
               </div>
             );
@@ -549,7 +549,7 @@ function ModalShell({ title, subtitle, onClose, children, wide = false, stepDots
     <div className="fixed inset-0 z-50 overflow-y-auto"
       style={{ background: 'rgba(2, 8, 19, 0.85)', backdropFilter: 'blur(8px)' }}
       onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="min-h-full flex items-center justify-center p-4"
+      <div className="min-h-full flex items-start sm:items-center justify-center p-4"
         onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className={`modal-enter w-full ${wide ? 'max-w-4xl' : 'max-w-md'} rounded-2xl p-4 sm:p-6`}
         style={{
@@ -564,9 +564,9 @@ function ModalShell({ title, subtitle, onClose, children, wide = false, stepDots
           </div>
           <div className="flex items-center gap-3">
             {stepDots}
-            <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-[rgba(255,255,255,0.05)]"
+            <button onClick={onClose} aria-label="Close" className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-[rgba(255,255,255,0.05)]"
               style={{ color: '#4a6a8a' }}>
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
                 <path d="M1 1l12 12M13 1L1 13" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
               </svg>
             </button>
@@ -938,7 +938,7 @@ function EditPositionModal({ position, onClose, onSave }: {
     const e: Record<string, string> = {};
     if (!form.strike || isNaN(Number(form.strike))) e.strike = 'Invalid price';
     if (!form.expiry) e.expiry = 'Required';
-    if (!form.premium || isNaN(Number(form.premium))) e.premium = 'Invalid amount';
+    if (!form.premium || isNaN(Number(form.premium)) || Number(form.premium) <= 0) e.premium = 'Invalid amount';
     if (!form.contracts || isNaN(Number(form.contracts)) || Number(form.contracts) < 1) e.contracts = 'Invalid';
     return e;
   };
@@ -968,7 +968,7 @@ function EditPositionModal({ position, onClose, onSave }: {
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: '#4a6a8a' }}>$</span>
               <input
-                type="number" step="0.50" value={form.strike}
+                type="number" step="0.50" min="0.01" value={form.strike}
                 onChange={(e) => setForm((f) => ({ ...f, strike: e.target.value }))}
                 className="w-full pl-7 pr-3 py-2.5 rounded-xl text-sm"
                 style={inputStyle('strike')}
@@ -979,7 +979,7 @@ function EditPositionModal({ position, onClose, onSave }: {
           <div>
             <label className="block text-xs mb-1.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>Contracts</label>
             <input
-              type="number" min="1" value={form.contracts}
+              type="number" min="1" step="1" value={form.contracts}
               onChange={(e) => setForm((f) => ({ ...f, contracts: e.target.value }))}
               className="w-full px-3 py-2.5 rounded-xl text-sm"
               style={inputStyle('contracts')}
@@ -1406,8 +1406,8 @@ function AddPositionModal({ cashBalance, lockedCollateral, openPositions, onClos
     if (!form.ticker) e.ticker = 'Required';
     if (!form.strike || isNaN(Number(form.strike))) e.strike = 'Invalid price';
     if (!form.expiry) e.expiry = 'Required';
-    if (!form.premium || isNaN(Number(form.premium))) e.premium = 'Invalid amount';
-    if (!form.contracts || isNaN(Number(form.contracts))) e.contracts = 'Invalid';
+    if (!form.premium || isNaN(Number(form.premium)) || Number(form.premium) <= 0) e.premium = 'Invalid amount';
+    if (!form.contracts || isNaN(Number(form.contracts)) || Number(form.contracts) < 1) e.contracts = 'Invalid';
     return e;
   };
 
@@ -1525,7 +1525,7 @@ function AddPositionModal({ cashBalance, lockedCollateral, openPositions, onClos
                   tabIndex={3}
                   value={form.strike}
                   onChange={(e) => setForm((f) => ({ ...f, strike: e.target.value }))}
-                  placeholder="" type="number" step="0.50"
+                  placeholder="" type="number" step="0.50" min="0.01"
                   className="w-full pl-6 pr-2 py-2.5 text-sm"
                   style={{ background: 'rgba(5,13,26,0.8)', color: '#e8f0fe', fontFamily: 'JetBrains Mono, monospace', caretColor: '#00e5c4', outline: 'none', border: 'none' }}
                 />
@@ -1552,7 +1552,7 @@ function AddPositionModal({ cashBalance, lockedCollateral, openPositions, onClos
               tabIndex={5}
               value={form.contracts}
               onChange={(e) => setForm((f) => ({ ...f, contracts: e.target.value }))}
-              placeholder="1" type="number" min="1"
+              placeholder="1" type="number" min="1" step="1"
               className="w-full px-3 py-2.5 rounded-xl text-sm"
               style={inputStyle('contracts')}
             />

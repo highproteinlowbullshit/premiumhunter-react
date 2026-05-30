@@ -19,7 +19,7 @@ const A = {
 };
 
 function getDTE(expiry: string): number {
-  return Math.max(0, Math.ceil((new Date(expiry).getTime() - Date.now()) / 86_400_000));
+  return Math.max(0, Math.ceil((new Date(expiry + 'T12:00:00').getTime() - Date.now()) / 86_400_000));
 }
 
 function getNextMonthlyExpiries(n = 4): string[] {

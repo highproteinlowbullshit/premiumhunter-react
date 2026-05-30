@@ -117,7 +117,7 @@ export function MarketPulseCard({
           <Newspaper size={16} color="#00e5c4" />
           <span style={{ fontSize: 14, fontWeight: 600, fontFamily: 'Syne, sans-serif' }}>AI Market Pulse</span>
           <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--ph-text-3)' }}>
-            {new Date(pulse.pulse_date + 'T00:00:00').toLocaleDateString('en-SG', {
+            {new Date(pulse.pulse_date + 'T12:00:00').toLocaleDateString('en-SG', {
               weekday: 'short', month: 'short', day: 'numeric',
             })}
           </span>
