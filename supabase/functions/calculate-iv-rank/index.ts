@@ -1,4 +1,7 @@
 // supabase/functions/calculate-iv-rank/index.ts
+// Polygon pass — runs nightly 23:00–03:03 UTC. Fetches OHLCV from Polygon,
+// computes HV-based IV rank, fetches Finnhub earnings. Does NOT call Yahoo.
+// Yahoo ATM IV is handled separately by the fetch-yahoo-iv function (04:00–08:03 UTC).
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -81,76 +84,6 @@ const STOCK_TICKERS = [
   'CINF','WRB','ERIE','RLI','ALGM','LSCC','MTSI','CRUS',
 ]
 
-const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-
-type YahooCrumb = { crumb: string; cookie: string }
-
-async function getYahooCrumb(): Promise<YahooCrumb | null> {
-  try {
-    const initRes = await fetch('https://fc.yahoo.com/', {
-      headers: { 'User-Agent': UA, 'Accept': '*/*' },
-      redirect: 'follow',
-    })
-    // Deno uses getSetCookie() (WHATWG standard); getAll('set-cookie') is non-standard and returns undefined
-    const setCookies: string[] = typeof (initRes.headers as any).getSetCookie === 'function'
-      ? (initRes.headers as any).getSetCookie()
-      : [initRes.headers.get('set-cookie')].filter(Boolean)
-    const cookieStr = setCookies.map((c: string) => c.split(';')[0]).join('; ')
-    if (!cookieStr) return null
-    const crumbRes = await fetch('https://query1.finance.yahoo.com/v1/test/getcrumb', {
-      headers: { 'User-Agent': UA, 'Cookie': cookieStr },
-    })
-    if (!crumbRes.ok) return null
-    const crumb = (await crumbRes.text()).trim()
-    if (!crumb || crumb.includes('<') || crumb.length > 30) return null
-    return { crumb, cookie: cookieStr }
-  } catch (err) {
-    console.warn('getYahooCrumb failed:', err instanceof Error ? err.message : String(err))
-    return null
-  }
-}
-
-// ── Cached Yahoo crumb — all 244 nightly batches share one token ──────────
-// Reads from cron_secrets key 'yahoo_crumb_cache'. The first batch to run
-// fetches a fresh crumb and writes it; subsequent batches read from the cache,
-// reducing Yahoo crumb endpoint requests from 244 to ~1 per night.
-async function getCachedYahooCrumb(
-  supabase: ReturnType<typeof createClient>,
-): Promise<YahooCrumb | null> {
-  const { data } = await supabase
-    .from('cron_secrets')
-    .select('value')
-    .eq('key', 'yahoo_crumb_cache')
-    .single()
-
-  if (data?.value) {
-    try {
-      const cached = JSON.parse(data.value) as { crumb: string; cookie: string; expires_at: string }
-      if (new Date(cached.expires_at) > new Date()) {
-        console.log('Yahoo crumb: cache hit')
-        return { crumb: cached.crumb, cookie: cached.cookie }
-      }
-    } catch {
-      // malformed cache value — fall through to fetch fresh
-    }
-  }
-
-  console.log('Yahoo crumb: cache miss — fetching fresh')
-  const fresh = await getYahooCrumb()
-  if (!fresh) return null
-
-  // 4-hour TTL covers the full nightly batch window (11pm–3am UTC)
-  const expiresAt = new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString()
-  await supabase
-    .from('cron_secrets')
-    .upsert(
-      { key: 'yahoo_crumb_cache', value: JSON.stringify({ ...fresh, expires_at: expiresAt }) },
-      { onConflict: 'key' },
-    )
-
-  return fresh
-}
-
 // ── Types ─────────────────────────────────────────────────────────────────
 interface IVDataPoint {
   week: string
@@ -177,7 +110,7 @@ interface IVSnapshot {
   earnings_date: string | null
   put_call_skew: number | null     // (putIV - callIV) / midIV at ATM; null if options API unavailable
   atm_open_interest: number | null // ATM call OI + put OI; null if options API unavailable
-  current_iv: number | null     // real ATM IV from Yahoo Finance in integer %; null if unavailable
+  current_iv: null               // always null here — set by fetch-yahoo-iv (04:00–08:03 UTC)
   data_source: string
   calculation_success: boolean
   error_message: string | null
@@ -340,95 +273,6 @@ async function fetchATMOptionsData(
   }
 }
 
-// Returns integer % (e.g. 35 = 35%) or null on any failure.
-// Makes up to two Yahoo calls per ticker: first to get the expiry list (returns
-// nearest expiry options), second with ?date= to fetch the 21–49 DTE option set.
-async function fetchYahooATMIV(
-  ticker: string,
-  currentPrice: number,
-  auth: YahooCrumb | null,
-): Promise<number | null> {
-  if (currentPrice <= 0) return null
-  try {
-    const baseHeaders = {
-      'User-Agent': UA,
-      'Accept': 'application/json',
-      ...(auth ? { 'Cookie': auth.cookie } : {}),
-    }
-    const crumbParam = auth ? `crumb=${encodeURIComponent(auth.crumb)}` : ''
-
-    // First call: get expiry list + nearest expiry's options
-    const controller1 = new AbortController()
-    const timer1 = setTimeout(() => controller1.abort(), 8000)
-    const res1 = await fetch(
-      `https://query1.finance.yahoo.com/v7/finance/options/${ticker}${crumbParam ? `?${crumbParam}` : ''}`,
-      { signal: controller1.signal, headers: baseHeaders },
-    )
-    clearTimeout(timer1)
-    if (!res1.ok) return null
-
-    const data1 = await res1.json()
-    const result1 = data1?.optionChain?.result?.[0]
-    if (!result1) return null
-
-    const nowSec = Date.now() / 1000
-    const expirationDates: number[] = result1.expirationDates ?? []
-    const preferred = expirationDates.find(ts => {
-      const daysOut = (ts - nowSec) / 86400
-      return daysOut >= 21 && daysOut <= 49
-    })
-    const targetExpiry = preferred ?? expirationDates[0]
-    if (!targetExpiry) return null
-
-    // If the default response already has our target expiry, use it; otherwise fetch it
-    let optionSet = (result1.options ?? []).find(
-      (o: { expirationDate: number }) => o.expirationDate === targetExpiry,
-    )
-
-    if (!optionSet && preferred) {
-      // Yahoo returns nearest expiry by default — request the 21–49 DTE expiry explicitly
-      const controller2 = new AbortController()
-      const timer2 = setTimeout(() => controller2.abort(), 8000)
-      const params = [crumbParam, `date=${preferred}`].filter(Boolean).join('&')
-      const res2 = await fetch(
-        `https://query1.finance.yahoo.com/v7/finance/options/${ticker}?${params}`,
-        { signal: controller2.signal, headers: baseHeaders },
-      )
-      clearTimeout(timer2)
-      if (res2.ok) {
-        const data2 = await res2.json()
-        optionSet = data2?.optionChain?.result?.[0]?.options?.[0] ?? null
-      }
-    }
-
-    if (!optionSet) return null
-
-    type YContract = { strike: number; impliedVolatility?: number }
-    const calls: YContract[] = optionSet.calls ?? []
-    const puts:  YContract[] = optionSet.puts  ?? []
-
-    const allStrikes = [...new Set([...calls.map(c => c.strike), ...puts.map(p => p.strike)])]
-    if (allStrikes.length === 0) return null
-    const atmStrike = allStrikes.reduce((best, s) =>
-      Math.abs(s - currentPrice) < Math.abs(best - currentPrice) ? s : best,
-      allStrikes[0],
-    )
-
-    const callIV = calls.find(c => c.strike === atmStrike)?.impliedVolatility ?? null
-    const putIV  = puts.find(p  => p.strike === atmStrike)?.impliedVolatility  ?? null
-
-    if (callIV == null && putIV == null) return null
-    const iv = callIV != null && putIV != null
-      ? (callIV + putIV) / 2
-      : (callIV ?? putIV!)
-
-    if (iv < 0.05 || iv > 5.0) return null
-    return Math.round(iv * 100)
-  } catch {
-    return null
-  }
-}
-
 // ── Polygon: fetch 1yr + 35d of daily OHLCV ───────────────────────────────
 async function fetchOHLCV(
   ticker: string,
@@ -543,7 +387,6 @@ async function processTicker(
   polygonKey: string,
   finnhubKey: string | null,
   today: string,
-  auth: YahooCrumb | null,
 ): Promise<IVSnapshot> {
   const base: IVSnapshot = {
     ticker,
@@ -569,25 +412,8 @@ async function processTicker(
       finnhubKey ? fetchEarningsDate(ticker, finnhubKey) : Promise.resolve(null),
     ])
     const { closes, timestamps, lastClose, prevClose, lastVolume } = ohlcv
-
-    // Yahoo IV uses current price from OHLCV to identify ATM strike — run after OHLCV
-    const yahooIV = await fetchYahooATMIV(ticker, lastClose ?? 0, auth)
     const ivData = computeIVRank(closes, timestamps)
 
-    // When real ATM IV is available, compute iv_rank as (current_iv - hv_52wk_low) /
-    // (hv_52wk_high - hv_52wk_low). Uses HV range as proxy for IV range until we
-    // accumulate enough current_iv history to compute a true IV range.
-    const ivRankFinal = yahooIV != null
-      && ivData.hv_52wk_high != null && ivData.hv_52wk_low != null
-      && ivData.hv_52wk_high > ivData.hv_52wk_low
-      ? Math.min(100, Math.max(0, Math.round(
-          ((yahooIV - ivData.hv_52wk_low) / (ivData.hv_52wk_high - ivData.hv_52wk_low)) * 100
-        )))
-      : ivData.iv_rank
-
-    const realIvHvRatio = yahooIV != null && ivData.current_hv != null && ivData.current_hv > 0
-      ? parseFloat((yahooIV / ivData.current_hv).toFixed(2))
-      : ivData.iv_hv_ratio
     const priceChangePct =
       prevClose && prevClose > 0 && lastClose
         ? parseFloat((((lastClose - prevClose) / prevClose) * 100).toFixed(4))
@@ -600,9 +426,7 @@ async function processTicker(
 
     return {
       ...base, ...ivData,
-      iv_rank: ivRankFinal,
-      current_iv: yahooIV,
-      iv_hv_ratio: realIvHvRatio,
+      current_iv: null,        // filled in by fetch-yahoo-iv (04:00–08:03 UTC)
       current_price: lastClose,
       prev_close: prevClose,
       price_change_pct: priceChangePct,
@@ -662,48 +486,27 @@ serve(async (req) => {
 
   console.log(`IV rank — batch ${batchIndex}/243 (${tickers.join(', ')}) — ${new Date().toISOString()}`)
 
-  // Get Yahoo crumb from DB cache first — 244 batches share one crumb to avoid rate-limiting.
-  // Batch 0 (or whichever runs first) fetches fresh and writes to cron_secrets; others read it.
-  const yahooCrumb = await getCachedYahooCrumb(supabase)
-  if (!yahooCrumb) console.warn('Yahoo crumb unavailable — current_iv will be null for this batch')
-
   const results: IVSnapshot[] = []
   const errors: string[] = []
-  // 5 tickers per invocation = one Polygon burst, no delay needed
-  const BATCH_SIZE = 5
-  const BATCH_DELAY_MS = 0
-  const totalBatches = 1
+  const settled = await Promise.allSettled(
+    tickers.map(ticker => processTicker(ticker, polygonKey, finnhubKey, today))
+  )
 
-  for (let i = 0; i < tickers.length; i += BATCH_SIZE) {
-    const batch = tickers.slice(i, i + BATCH_SIZE)
-    const batchNum = Math.floor(i / BATCH_SIZE) + 1
-    console.log(`Batch ${batchNum}/${totalBatches}: ${batch.join(', ')}`)
-
-    const settled = await Promise.allSettled(
-      batch.map(ticker => processTicker(ticker, polygonKey, finnhubKey, today, yahooCrumb))
-    )
-
-    settled.forEach((result, idx) => {
-      const ticker = batch[idx]
-      if (result.status === 'fulfilled') {
-        results.push(result.value)
-        if (result.value.calculation_success) {
-          const skewStr = result.value.put_call_skew != null ? `, skew ${result.value.put_call_skew}` : ''
-          const oiStr   = result.value.atm_open_interest != null ? `, OI ${result.value.atm_open_interest}` : ''
-          const ivStr = result.value.current_iv != null ? ` IV ${result.value.current_iv}%` : ''
-          console.log(`  ✓ ${ticker}: IV Rank ${result.value.iv_rank}, HV30 ${result.value.current_hv}%${ivStr}${skewStr}${oiStr}`)
-        } else {
-          errors.push(`${ticker}: ${result.value.error_message}`)
-        }
+  settled.forEach((result, idx) => {
+    const ticker = tickers[idx]
+    if (result.status === 'fulfilled') {
+      results.push(result.value)
+      if (result.value.calculation_success) {
+        const skewStr = result.value.put_call_skew != null ? `, skew ${result.value.put_call_skew}` : ''
+        const oiStr   = result.value.atm_open_interest != null ? `, OI ${result.value.atm_open_interest}` : ''
+        console.log(`  ✓ ${ticker}: IV Rank ${result.value.iv_rank}, HV30 ${result.value.current_hv}%${skewStr}${oiStr}`)
       } else {
-        errors.push(`${ticker}: ${result.reason}`)
+        errors.push(`${ticker}: ${result.value.error_message}`)
       }
-    })
-
-    if (i + BATCH_SIZE < tickers.length) {
-      await delay(BATCH_DELAY_MS)
+    } else {
+      errors.push(`${ticker}: ${result.reason}`)
     }
-  }
+  })
 
   // Bulk upsert using existing unique constraint (ticker, snapshot_date)
   const { error: upsertError } = await supabase
