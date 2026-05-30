@@ -91,9 +91,12 @@ async function getYahooCrumb(): Promise<YahooCrumb | null> {
       headers: { 'User-Agent': UA, 'Accept': '*/*' },
       redirect: 'follow',
     })
-    const setCookies: string[] = (initRes.headers as any).getAll?.('set-cookie') ??
-      [initRes.headers.get('set-cookie')].filter(Boolean)
+    // Deno uses getSetCookie() (WHATWG standard); getAll('set-cookie') is non-standard and returns undefined
+    const setCookies: string[] = typeof (initRes.headers as any).getSetCookie === 'function'
+      ? (initRes.headers as any).getSetCookie()
+      : [initRes.headers.get('set-cookie')].filter(Boolean)
     const cookieStr = setCookies.map((c: string) => c.split(';')[0]).join('; ')
+    if (!cookieStr) return null
     const crumbRes = await fetch('https://query1.finance.yahoo.com/v1/test/getcrumb', {
       headers: { 'User-Agent': UA, 'Cookie': cookieStr },
     })

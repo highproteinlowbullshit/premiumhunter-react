@@ -1105,11 +1105,15 @@ function DesktopRow({
         </span>
       </td>
 
-      {/* Current IV — real ATM IV from options market */}
+      {/* Current IV — real ATM IV preferred; falls back to HV30 (marked with ~) */}
       <td className="py-3.5 px-3">
         <span className="text-sm font-semibold tabular-nums"
-          style={{ color: stock.realIV != null ? '#00e5c4' : '#4a6a8a', fontFamily: 'JetBrains Mono, monospace' }}>
-          {stock.realIV != null ? `${stock.realIV}%` : '--'}
+          style={{ color: stock.realIV != null ? '#00e5c4' : stock.currentIV != null ? '#9ab4d4' : '#4a6a8a', fontFamily: 'JetBrains Mono, monospace' }}>
+          {stock.realIV != null
+            ? `${stock.realIV}%`
+            : stock.currentIV != null
+              ? `~${stock.currentIV}%`
+              : '--'}
         </span>
       </td>
 
