@@ -17,8 +17,9 @@ async function getYahooCrumb(): Promise<YahooCrumb | null> {
       headers: { 'User-Agent': UA, 'Accept': '*/*' },
       redirect: 'follow',
     })
-    const setCookies: string[] = (initRes.headers as any).getAll?.('set-cookie') ??
-      [initRes.headers.get('set-cookie')].filter(Boolean)
+    const setCookies: string[] = typeof (initRes.headers as any).getSetCookie === 'function'
+      ? (initRes.headers as any).getSetCookie()
+      : [initRes.headers.get('set-cookie')].filter(Boolean)
     const cookieStr = setCookies.map((c: string) => c.split(';')[0]).join('; ')
 
     const crumbRes = await fetch('https://query1.finance.yahoo.com/v1/test/getcrumb', {
@@ -286,6 +287,14 @@ serve(async (req) => {
 
       if (!contract) {
         console.warn(`  No contract found: ${group.ticker} ${contract_type} $${strike} exp ${group.expiry}`)
+        // Write a sentinel row so the frontend knows the cron ran but data is genuinely
+        // unavailable — distinguishes "not yet fetched" from "no contract exists".
+        snapshots.push({
+          ticker: group.ticker, strike, expiry: group.expiry, contract_type,
+          snapshot_date: today, snapshot_time: new Date().toISOString(),
+          bid: null, ask: null, mid: null, last_price: null,
+          implied_volatility: null, volume: null, open_interest: null,
+        })
         continue
       }
 

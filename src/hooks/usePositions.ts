@@ -95,12 +95,14 @@ export function usePositions() {
         const key = `${pos.ticker}:${pos.expiry}:${pos.strike}:${contract_type}`;
         const snap = snapMap.get(key);
         if (!snap) return pos;
+        const allNull = snap.bid == null && snap.ask == null && snap.mid == null;
         return {
           ...pos,
           currentPrice: snap.mid != null ? snap.mid : pos.currentPrice,
           optionBid: snap.bid ?? null,
           optionAsk: snap.ask ?? null,
           optionMid: snap.mid ?? null,
+          optionPriceUnavailable: allNull,
         };
       })
     );
@@ -167,6 +169,10 @@ export function usePositions() {
             pos.optionBid = snap.bid ?? null;
             pos.optionAsk = snap.ask ?? null;
             pos.optionMid = snap.mid ?? null;
+            // Sentinel: cron ran but no contract data exists for this strike/expiry
+            if (snap.bid == null && snap.ask == null && snap.mid == null) {
+              pos.optionPriceUnavailable = true;
+            }
           }
         }
       }
@@ -185,7 +191,8 @@ export function usePositions() {
     if (hasAutoFetched.current) return;
     const open = positions.filter(p => p.status === 'open');
     if (open.length === 0) return;
-    const needsFresh = open.some(p => p.optionBid == null && p.optionMid == null);
+    // Skip positions where cron already ran but no contract data exists — they're not stale
+    const needsFresh = open.some(p => p.optionBid == null && p.optionMid == null && !p.optionPriceUnavailable);
     if (!needsFresh) return;
     hasAutoFetched.current = true;
     void fetchAndApplyPrices(undefined, true);

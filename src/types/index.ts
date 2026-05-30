@@ -32,6 +32,7 @@ export interface WheelPosition {
   optionBid?: number | null;
   optionAsk?: number | null;
   optionMid?: number | null;
+  optionPriceUnavailable?: boolean; // true when cron ran but no contract data exists
   daysToExpiry: number;
   status: PositionStatus;
   openedAt: string;

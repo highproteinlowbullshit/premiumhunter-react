@@ -110,6 +110,47 @@ async function getYahooCrumb(): Promise<YahooCrumb | null> {
   }
 }
 
+// ── Cached Yahoo crumb — all 244 nightly batches share one token ──────────
+// Reads from cron_secrets key 'yahoo_crumb_cache'. The first batch to run
+// fetches a fresh crumb and writes it; subsequent batches read from the cache,
+// reducing Yahoo crumb endpoint requests from 244 to ~1 per night.
+async function getCachedYahooCrumb(
+  supabase: ReturnType<typeof createClient>,
+): Promise<YahooCrumb | null> {
+  const { data } = await supabase
+    .from('cron_secrets')
+    .select('value')
+    .eq('key', 'yahoo_crumb_cache')
+    .single()
+
+  if (data?.value) {
+    try {
+      const cached = JSON.parse(data.value) as { crumb: string; cookie: string; expires_at: string }
+      if (new Date(cached.expires_at) > new Date()) {
+        console.log('Yahoo crumb: cache hit')
+        return { crumb: cached.crumb, cookie: cached.cookie }
+      }
+    } catch {
+      // malformed cache value — fall through to fetch fresh
+    }
+  }
+
+  console.log('Yahoo crumb: cache miss — fetching fresh')
+  const fresh = await getYahooCrumb()
+  if (!fresh) return null
+
+  // 4-hour TTL covers the full nightly batch window (11pm–3am UTC)
+  const expiresAt = new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString()
+  await supabase
+    .from('cron_secrets')
+    .upsert(
+      { key: 'yahoo_crumb_cache', value: JSON.stringify({ ...fresh, expires_at: expiresAt }) },
+      { onConflict: 'key' },
+    )
+
+  return fresh
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────
 interface IVDataPoint {
   week: string
@@ -300,6 +341,8 @@ async function fetchATMOptionsData(
 }
 
 // Returns integer % (e.g. 35 = 35%) or null on any failure.
+// Makes up to two Yahoo calls per ticker: first to get the expiry list (returns
+// nearest expiry options), second with ?date= to fetch the 21–49 DTE option set.
 async function fetchYahooATMIV(
   ticker: string,
   currentPrice: number,
@@ -307,39 +350,57 @@ async function fetchYahooATMIV(
 ): Promise<number | null> {
   if (currentPrice <= 0) return null
   try {
-    const crumbPart = auth ? `?crumb=${encodeURIComponent(auth.crumb)}` : ''
-    const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), 8000)
-    const res = await fetch(
-      `https://query1.finance.yahoo.com/v7/finance/options/${ticker}${crumbPart}`,
-      {
-        signal: controller.signal,
-        headers: {
-          'User-Agent': UA,
-          'Accept': 'application/json',
-          ...(auth ? { 'Cookie': auth.cookie } : {}),
-        },
-      },
+    const baseHeaders = {
+      'User-Agent': UA,
+      'Accept': 'application/json',
+      ...(auth ? { 'Cookie': auth.cookie } : {}),
+    }
+    const crumbParam = auth ? `crumb=${encodeURIComponent(auth.crumb)}` : ''
+
+    // First call: get expiry list + nearest expiry's options
+    const controller1 = new AbortController()
+    const timer1 = setTimeout(() => controller1.abort(), 8000)
+    const res1 = await fetch(
+      `https://query1.finance.yahoo.com/v7/finance/options/${ticker}${crumbParam ? `?${crumbParam}` : ''}`,
+      { signal: controller1.signal, headers: baseHeaders },
     )
-    clearTimeout(timer)
-    if (!res.ok) return null
+    clearTimeout(timer1)
+    if (!res1.ok) return null
 
-    const data = await res.json()
-    const result = data?.optionChain?.result?.[0]
-    if (!result) return null
+    const data1 = await res1.json()
+    const result1 = data1?.optionChain?.result?.[0]
+    if (!result1) return null
 
-    const today = Date.now() / 1000
-    const expirationDates: number[] = result.expirationDates ?? []
+    const nowSec = Date.now() / 1000
+    const expirationDates: number[] = result1.expirationDates ?? []
     const preferred = expirationDates.find(ts => {
-      const daysOut = (ts - today) / 86400
+      const daysOut = (ts - nowSec) / 86400
       return daysOut >= 21 && daysOut <= 49
     })
     const targetExpiry = preferred ?? expirationDates[0]
     if (!targetExpiry) return null
 
-    const optionSet = (result.options ?? []).find(
+    // If the default response already has our target expiry, use it; otherwise fetch it
+    let optionSet = (result1.options ?? []).find(
       (o: { expirationDate: number }) => o.expirationDate === targetExpiry,
     )
+
+    if (!optionSet && preferred) {
+      // Yahoo returns nearest expiry by default — request the 21–49 DTE expiry explicitly
+      const controller2 = new AbortController()
+      const timer2 = setTimeout(() => controller2.abort(), 8000)
+      const params = [crumbParam, `date=${preferred}`].filter(Boolean).join('&')
+      const res2 = await fetch(
+        `https://query1.finance.yahoo.com/v7/finance/options/${ticker}?${params}`,
+        { signal: controller2.signal, headers: baseHeaders },
+      )
+      clearTimeout(timer2)
+      if (res2.ok) {
+        const data2 = await res2.json()
+        optionSet = data2?.optionChain?.result?.[0]?.options?.[0] ?? null
+      }
+    }
+
     if (!optionSet) return null
 
     type YContract = { strike: number; impliedVolatility?: number }
@@ -601,8 +662,9 @@ serve(async (req) => {
 
   console.log(`IV rank — batch ${batchIndex}/243 (${tickers.join(', ')}) — ${new Date().toISOString()}`)
 
-  // Fetch Yahoo crumb once per invocation — reused for all tickers' IV fetches
-  const yahooCrumb = await getYahooCrumb()
+  // Get Yahoo crumb from DB cache first — 244 batches share one crumb to avoid rate-limiting.
+  // Batch 0 (or whichever runs first) fetches fresh and writes to cron_secrets; others read it.
+  const yahooCrumb = await getCachedYahooCrumb(supabase)
   if (!yahooCrumb) console.warn('Yahoo crumb unavailable — current_iv will be null for this batch')
 
   const results: IVSnapshot[] = []

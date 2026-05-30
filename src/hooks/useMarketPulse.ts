@@ -53,10 +53,9 @@ export interface SentimentHistoryPoint {
   market_sentiment: string
 }
 
-function isWeekendSGT(): boolean {
-  const sgtMs  = Date.now() + 8 * 60 * 60 * 1000
-  const sgtDay = new Date(sgtMs).getUTCDay()
-  return sgtDay === 0 || sgtDay === 6
+function isWeekendUTC(): boolean {
+  const day = new Date().getUTCDay()
+  return day === 0 || day === 6
 }
 
 function todayUTC(): string {
@@ -100,27 +99,31 @@ function mapPulseRow(pulse: Record<string, unknown>): MarketPulse {
 }
 
 export function useMarketPulse(watchlistTickers: string[]) {
-  const isWeekend = isWeekendSGT()
+  const isWeekend = isWeekendUTC()
   const today     = todayUTC()
-
-  // Fetch the most recent pulse within last 36h — prefer today's post_market, fall back to
-  // today's pre_market, then yesterday's post_market. Avoids empty state when UTC rolls over
-  // but the next pre-market cron hasn't fired yet.
+  // 36-hour lookback: covers the case where UTC rolls to a new day before the next
+  // pre-market cron fires. Both 'since' and 'today' are in the queryKey so React Query
+  // invalidates the cache if either changes (e.g. page open across UTC midnight).
   const since = new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString().split('T')[0]
+
   const pulseQuery = useQuery({
-    queryKey:        ['market-pulse', today],
+    queryKey:        ['market-pulse', today, since],
     queryFn:         async (): Promise<MarketPulse | null> => {
+      // Recompute inside queryFn so refetchInterval always uses the current UTC date,
+      // even if the component hasn't re-rendered since midnight.
+      const nowToday = todayUTC()
+      const nowSince = new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString().split('T')[0]
       const { data, error } = await supabase
         .from('market_pulse')
         .select('*')
-        .gte('pulse_date', since)
+        .gte('pulse_date', nowSince)
         .order('generated_at', { ascending: false }) // most recently generated first
         .limit(4)
       if (error) throw error
       if (!data || data.length === 0) return null
       // Prefer today's post_market → today's pre_market → most recent available
-      const todayPost = data.find(d => d.pulse_date === today && d.pulse_type === 'post_market')
-      const todayPre  = data.find(d => d.pulse_date === today && d.pulse_type === 'pre_market')
+      const todayPost = data.find(d => d.pulse_date === nowToday && d.pulse_type === 'post_market')
+      const todayPre  = data.find(d => d.pulse_date === nowToday && d.pulse_type === 'pre_market')
       const row       = todayPost ?? todayPre ?? data[0]
       return row ? mapPulseRow(row as Record<string, unknown>) : null
     },
@@ -130,12 +133,13 @@ export function useMarketPulse(watchlistTickers: string[]) {
   })
 
   const newsQuery = useQuery({
-    queryKey:        ['market-news', today],
+    queryKey:        ['market-news', today, since],
     queryFn:         async (): Promise<MarketNewsArticle[]> => {
+      const nowSince = new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString().split('T')[0]
       const { data, error } = await supabase
         .from('market_news')
         .select('*')
-        .gte('pulse_date', since)
+        .gte('pulse_date', nowSince)
         .order('relevance_score', { ascending: false })
       if (error) throw error
       return data ?? []

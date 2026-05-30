@@ -703,6 +703,11 @@ function ClosePositionModal({ position, onClose, onConfirm }: {
         <label className="block text-xs mb-1.5" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
           Closing Price <span style={{ color: '#6a8fb0' }}>(buy-back price per share)</span>
         </label>
+        {position.optionPriceUnavailable && (
+          <p className="text-xs mb-2" style={{ color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif' }}>
+            No contract data — this strike/expiry may not be listed on Yahoo Finance
+          </p>
+        )}
         {position.optionBid != null && position.optionAsk != null && (
           <p className="text-xs mb-2" style={{ color: '#6a8fb0', fontFamily: 'DM Sans, sans-serif' }}>
             Market :{' '}
