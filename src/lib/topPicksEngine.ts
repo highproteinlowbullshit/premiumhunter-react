@@ -58,10 +58,10 @@ export interface TopPick {
 
 function daysToEarnings(stock: ScreenerStock): number | null {
   if (!stock.earningsDate) return null;
-  // Append T00:00:00 so the string is parsed as local midnight, not UTC midnight.
-  // Without it, "2026-05-23" becomes May 22 at 7pm EST — wrong DTE for US users.
+  // T12:00:00 (local noon) keeps the date within the same calendar day for all
+  // timezones — avoids the UTC-midnight vs local-midnight off-by-one.
   const diff = Math.ceil(
-    (new Date(stock.earningsDate + 'T00:00:00').getTime() - Date.now()) / 86_400_000
+    (new Date(stock.earningsDate + 'T12:00:00').getTime() - Date.now()) / 86_400_000
   );
   return diff > 0 ? diff : null;
 }

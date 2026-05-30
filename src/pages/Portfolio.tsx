@@ -72,7 +72,7 @@ function holdingTypeBadgeColor(type: HoldingType): string {
 }
 
 function getDte(expiry: string): number {
-  return Math.max(0, Math.ceil((new Date(expiry + 'T00:00:00').getTime() - Date.now()) / 86400000));
+  return Math.max(0, Math.ceil((new Date(expiry + 'T12:00:00').getTime() - Date.now()) / 86400000));
 }
 
 // ── Add Holding Modal ──────────────────────────────────────────────────────────

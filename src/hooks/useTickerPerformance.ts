@@ -202,7 +202,7 @@ export function useTickerPerformance() {
           monthlyReturns.set(monthKey, (monthlyReturns.get(monthKey) ?? 0) + pnl)
 
           const dte = Math.ceil(
-            (new Date(pos.expiry + 'T00:00:00').getTime() - new Date(pos.opened_at).getTime()) / 86400000
+            (new Date(pos.expiry + 'T12:00:00').getTime() - new Date(pos.opened_at).getTime()) / 86400000
           )
           if (dte > 0) dteList.push(dte)
         }

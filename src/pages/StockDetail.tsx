@@ -30,7 +30,7 @@ export function StockDetail() {
   const pct = stock.priceChangePct;
   const pctLabel = pct != null ? `${pct > 0 ? '+' : ''}${pct.toFixed(2)}%` : null;
   const earningsDaysAway = stock.earningsDate
-    ? Math.ceil((new Date(stock.earningsDate + 'T00:00:00').getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+    ? Math.ceil((new Date(stock.earningsDate + 'T12:00:00').getTime() - Date.now()) / (1000 * 60 * 60 * 24))
     : null;
 
   return (

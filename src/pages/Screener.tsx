@@ -108,7 +108,7 @@ function formatVolume(v: number | null): string {
 }
 
 function daysUntil(dateStr: string): number {
-  return Math.ceil((new Date(dateStr + 'T00:00:00').getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+  return Math.ceil((new Date(dateStr + 'T12:00:00').getTime() - Date.now()) / (1000 * 60 * 60 * 24));
 }
 
 function ivRankColors(iv: number | null) {

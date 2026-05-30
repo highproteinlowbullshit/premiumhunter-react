@@ -255,8 +255,7 @@ function getMarketInfo(): {
 }
 
 function isThirdFriday(): boolean {
-  // Use Eastern Time — monthly option expiry Fridays are US-market events
-  const et = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+  const et = getET(new Date());
   if (et.getDay() !== 5) return false;
   const firstDay = new Date(et.getFullYear(), et.getMonth(), 1);
   const offset = (5 - firstDay.getDay() + 7) % 7;

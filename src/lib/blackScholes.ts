@@ -156,7 +156,7 @@ export function calculateAssignmentProbability(params: {
     return {
       probability: isAssigned ? 100 : 0,
       delta: isAssigned ? (strategy === 'CSP' ? -1 : 1) : 0,
-      moneyness: spotPrice / strikePrice,
+      moneyness: strikePrice > 0 ? spotPrice / strikePrice : 0,
       status: isAssigned ? 'assigned' : 'expired_worthless',
       distanceToStrike: Math.abs(spotPrice - strikePrice),
       distancePercent: Math.abs((spotPrice - strikePrice) / spotPrice) * 100,
@@ -179,7 +179,7 @@ export function calculateAssignmentProbability(params: {
   const probability = Math.round(Math.abs(result.delta) * 1000) / 10;
   const distanceToStrike = strategy === 'CSP' ? spotPrice - strikePrice : strikePrice - spotPrice;
   const distancePercent = Math.round(Math.abs(distanceToStrike / spotPrice) * 10000) / 100;
-  const moneyness = spotPrice / strikePrice;
+  const moneyness = strikePrice > 0 ? spotPrice / strikePrice : 0;
 
   let status: AssignmentProbabilityResult['status'];
   if (strategy === 'CSP') {
