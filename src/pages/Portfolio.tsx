@@ -1191,6 +1191,16 @@ function RealPortfolio() {
     return map;
   }, [holdingsWithPrice, wsPrices]);
 
+  // Breakeven map — per-ticker current cost_basis_per_share from assigned_share_lots.
+  // Only active (holding) lots are included; accounts for CSP strike AND all CC premiums since.
+  const breakevenByTicker = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const lot of enhanced?.activeLots ?? []) {
+      if (!map.has(lot.ticker)) map.set(lot.ticker, lot.breakEvenPrice);
+    }
+    return map;
+  }, [enhanced?.activeLots]);
+
   // Live total value using WebSocket prices where available
   const liveTotalValue = useMemo(() => {
     return holdingsWithPrice.reduce((acc, h) => {
@@ -1655,10 +1665,17 @@ function RealPortfolio() {
                             {h.holdingType === 'cash' ? (
                               <span style={{ color: '#e8f0fe' }}>—</span>
                             ) : (() => {
-                              const csp = h.holdingType === 'shares' ? getCSPAnnotation(h.notes, h.avgCost) : null;
+                              const lotBE = h.holdingType === 'shares' ? breakevenByTicker.get(h.ticker) : undefined;
+                              const showBE = lotBE != null && lotBE < h.avgCost - 0.005;
+                              const csp = !showBE && h.holdingType === 'shares' ? getCSPAnnotation(h.notes, h.avgCost) : null;
                               return (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                                   <span style={{ color: '#e8f0fe' }}>{formatDollars(h.avgCost)}</span>
+                                  {showBE && (
+                                    <span style={{ fontSize: 10, color: '#00e5c4', fontFamily: 'DM Sans, sans-serif', fontWeight: 500 }}>
+                                      BE {formatDollars(lotBE!)}
+                                    </span>
+                                  )}
                                   {csp && (
                                     <span style={{ fontSize: 10, color: '#4a6a8a', fontFamily: 'DM Sans, sans-serif', fontWeight: 500 }}>
                                       eff.{csp.detail ? ` (${csp.detail})` : ' basis'}
@@ -1831,6 +1848,13 @@ function RealPortfolio() {
                               {h.quantity.toLocaleString()} @ {formatDollars(h.avgCost)}
                             </div>
                             {(() => {
+                              const lotBE = h.holdingType === 'shares' ? breakevenByTicker.get(h.ticker) : undefined;
+                              const showBE = lotBE != null && lotBE < h.avgCost - 0.005;
+                              if (showBE) return (
+                                <div style={{ fontSize: 10, color: '#00e5c4', fontFamily: 'DM Sans, sans-serif', fontWeight: 500, marginTop: 2 }}>
+                                  BE {formatDollars(lotBE!)}
+                                </div>
+                              );
                               const csp = h.holdingType === 'shares' ? getCSPAnnotation(h.notes, h.avgCost) : null;
                               if (!csp) return null;
                               return (
