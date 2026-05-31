@@ -257,13 +257,13 @@ serve(async (req) => {
   let batchIndex = 0
   try {
     const body = await req.json().catch(() => ({}))
-    if (typeof body.batchIndex === 'number' && body.batchIndex >= 0 && body.batchIndex <= 243) {
+    if (typeof body.batchIndex === 'number' && body.batchIndex >= 0 && body.batchIndex <= 48) {
       batchIndex = body.batchIndex
     }
   } catch { /* no body */ }
 
-  const tickers = STOCK_TICKERS.slice(batchIndex * 2, batchIndex * 2 + 2)
-  console.log(`Yahoo IV — batch ${batchIndex}/243 (${tickers.join(', ')}) — ${new Date().toISOString()}`)
+  const tickers = STOCK_TICKERS.slice(batchIndex * 10, batchIndex * 10 + 10)
+  console.log(`Yahoo IV — batch ${batchIndex}/48 (${tickers.join(', ')}) — ${new Date().toISOString()}`)
 
   const yahooCrumb = await getCachedYahooCrumb(supabase)
   if (!yahooCrumb) console.warn('Yahoo crumb unavailable — current_iv will be null for this batch')
