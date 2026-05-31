@@ -545,7 +545,7 @@ export function useDashboardIntelligence() {
 
         supabase
           .from('iv_snapshots')
-          .select('ticker, iv_rank, current_price, iv_percentile, current_hv, hv_30')
+          .select('ticker, iv_rank, current_price, iv_percentile, current_hv, hv_30, current_iv')
           .eq('snapshot_date', todayStr)
           .eq('calculation_success', true)
           .gte('iv_rank', 30)
@@ -597,7 +597,7 @@ export function useDashboardIntelligence() {
         const threeDaysAgoStr = new Date(Date.now() - 3 * 86_400_000).toISOString().split('T')[0];
         const { data: fallbackIV } = await supabase
           .from('iv_snapshots')
-          .select('ticker, iv_rank, current_price, iv_percentile, current_hv, hv_30')
+          .select('ticker, iv_rank, current_price, iv_percentile, current_hv, hv_30, current_iv')
           .eq('calculation_success', true)
           .gte('iv_rank', 30)
           .gte('snapshot_date', threeDaysAgoStr)
@@ -1044,7 +1044,10 @@ export function useDashboardIntelligence() {
       const surging = ivSnaps.filter(s => (s.iv_rank ?? 0) >= 50);
 
       const calcOpp = (s: typeof ivSnaps[0]) => {
-        const iv = (s.current_hv ?? 40) / 100;
+        // Prefer Yahoo ATM IV (current_iv, integer %) over historical vol as a better
+        // proxy for market-implied premium. Falls back to hv_30, then a 40% default.
+        const ivPct = s.current_iv ?? s.current_hv ?? s.hv_30 ?? 40;
+        const iv = ivPct / 100;
         const price = s.current_price ?? 50;
         const dte = 30;
         const premium = price * Math.max(iv, 0.2) * Math.sqrt(dte / 365) * 0.4;

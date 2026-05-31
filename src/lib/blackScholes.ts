@@ -468,7 +468,9 @@ export function aggregatePortfolioGreeks(
       dte: p.dte,
       dailyTheta: p.dollarThetaToday,
       percentOfTotal: totalTheta > 0 ? (p.dollarThetaToday / totalTheta) * 100 : 0,
-      thetaPercentOfPremium: 0,
+      thetaPercentOfPremium: p.dollarThetaToExpiry > 0
+        ? Math.round((p.dollarThetaToday / p.dollarThetaToExpiry) * 10000) / 100
+        : 0,
     }))
     .sort((a, b) => b.dailyTheta - a.dailyTheta)
 
@@ -568,7 +570,9 @@ export function aggregatePortfolioGreeks(
     dailyThetaIncome: Math.round(totalTheta * 100) / 100,
     weeklyThetaIncome: Math.round(weeklyTheta * 100) / 100,
     monthlyThetaIncome: Math.round(monthlyTheta * 100) / 100,
-    thetaToMaxProfitPercent: 0,
+    thetaToMaxProfitPercent: monthlyTheta > 0
+      ? Math.round((totalTheta / monthlyTheta) * 10000) / 100
+      : 0,
     dollarDeltaPerPoint: Math.round(totalDelta * 100) / 100,
     dollarVegaPerPoint: Math.round(totalVega * 100) / 100,
     gammaRisk,

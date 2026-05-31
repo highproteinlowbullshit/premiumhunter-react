@@ -29,7 +29,9 @@ export function formatNumberCompact(value: number): string {
 }
 
 export function formatDate(dateStr: string, format: 'short' | 'medium' | 'long' = 'medium'): string {
-  const date = new Date(dateStr);
+  // Parse date-only strings as local noon to avoid UTC midnight shifting the
+  // displayed date backward by one day for UTC+ users (e.g. SGT = UTC+8).
+  const date = new Date(dateStr.includes('T') ? dateStr : dateStr + 'T12:00:00');
   const options: Intl.DateTimeFormatOptions =
     format === 'short' ? { month: 'short', day: 'numeric' }
     : format === 'long' ? { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }
