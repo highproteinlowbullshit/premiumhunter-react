@@ -28,7 +28,7 @@ function setCached<T>(key: string, data: T): void {
 // Standard annualized HV: stddev(log_returns) * sqrt(252) * 100
 // Requires (window + 1) close prices to produce (window) log returns.
 
-function calcHV(closes: number[], window: number): number {
+export function calcHV(closes: number[], window: number): number {
   if (closes.length < window + 1) return 0;
   const slice = closes.slice(-(window + 1));
   const returns: number[] = [];
